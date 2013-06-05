@@ -252,7 +252,7 @@ class MD5Model
         case ParserMode.meshes:
           if (words[0] == "}")
           {
-            enforce(meshes.length == nMeshes, "wrong number of meshes");
+            //enforce(meshes.length == nMeshes, "wrong number of meshes");
             mode = ParserMode.open;
           }
           else if (words[0] == "shader")
@@ -346,6 +346,7 @@ class MD5Animation
   size_t frameStride; // number of joints in animation
   Joint[] animation;
   float spin;
+  int frameDelay;
   size_t frameNumber;
   size_t numJoints;
 
@@ -569,8 +570,10 @@ class MD5Animation
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
-    glTranslatef(0, 0, -20);
-    glRotatef(spin, 0, 1, 0.2);
+    glTranslatef(0, 0, -60);
+    //glRotatef(spin, 0, 1, 0);
+    glRotatef(spin, 0, 1, 0);
+    glRotatef(270, 1, 0, 0);
 
     glPointSize(5);
     glColor3f(1, 0, 0);
@@ -604,16 +607,61 @@ class MD5Animation
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
 
-    if (++frameNumber >= numFrames)
-      frameNumber = 0;
+    if (++frameDelay >= 1)
+    {
+      frameDelay = 0;
+      if (++frameNumber >= numFrames)
+        frameNumber = 0;
+    }
     //writefln("frame # %d/%d", frameNumber, numFrames);
     spin += 0.5;
+  }
+
+  void renderVerts()
+  {
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glTranslatef(0, 0, -60);
+    //glRotatef(spin, 0, 1, 0);
+    glRotatef(spin, 0, 1, 0);
+    glRotatef(270, 1, 0, 0);
+    glBegin(GL_LINES);
+    glColor3f(0.2, 0.2, 1);
+    foreach (mesh; model.meshes)
+    {
+      foreach (tri; mesh.tris)
+      {
+        vec3[3] outVerts;
+        foreach (outVertI, vi; tri.vi)
+        {
+          outVerts[outVertI] = vec3(0, 0, 0);
+
+          Vert vert = mesh.verts[vi];
+          Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
+          foreach (weight; weights)
+          {
+            auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
+            outVerts[outVertI] += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
+          }
+        }
+
+        glVertex3f(outVerts[0].x, outVerts[0].y, outVerts[0].z);
+        glVertex3f(outVerts[1].x, outVerts[1].y, outVerts[1].z);
+        glVertex3f(outVerts[2].x, outVerts[2].y, outVerts[2].z);
+        glVertex3f(outVerts[0].x, outVerts[0].y, outVerts[0].z);
+      }
+    }
+    glEnd();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
   }
 
   void draw()
   {
     // bs
     renderSkeleton();
+    renderVerts();
 
     /*glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
