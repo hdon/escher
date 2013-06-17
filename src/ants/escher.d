@@ -1,0 +1,179 @@
+module ants.escher;
+import derelict.opengl.gl;
+import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
+import std.conv;
+import gl3n.interpolate : lerp;
+import std.math : sqrt;
+import std.exception : enforce;
+import std.string : splitLines, split;
+import file = std.file;
+debug import std.stdio : writeln, writefln;
+
+private struct Ray
+{
+  vec3 pos;
+  quat orient;
+
+  this(vec3 pos, quat orient)
+  {
+    this.pos = pos;
+    this.orient = orient;
+  }
+
+  this(float px, float py, float pz, float ow, float ox, float oy, float oz)
+  {
+    this.pos = vec3(px, py, pz);
+    this.orient = quat(ow, ox, oy, oz);
+  }
+
+  this(float px, float py, float pz, float ox, float oy, float oz)
+  {
+    this.pos = vec3(px, py, pz);
+    this.orient = quat(0, ox, oy, oz);
+  }
+}
+
+struct Remote
+{
+  size_t    spaceID;
+  Ray       remoteReferenceRay;
+}
+
+enum FaceType
+{
+  SolidColor,
+  Remote
+}
+
+union FaceData
+{
+  FaceType  type;
+  ubyte[3]  solidColor;
+  Remote    remote;
+}
+
+class Face
+{
+  size_t[4] indices;
+  FaceData  data;
+}
+
+class Space
+{
+  vec3[]    verts;
+  Face[]    faces;
+}
+
+private enum ParserMode
+{
+  expectNumSpaces,
+  expectSpace,
+  expectVert,
+  expectFace
+}
+
+class World
+{
+  Space[] spaces;
+
+  this(string filename)
+  {
+    ParserMode mode = ParserMode.expectNumSpaces;
+
+    // Convenient reference to the Space we're currently loading
+    Space space;
+
+    // Used to check for file sanity
+    size_t numSpaces, numVerts, numFaces;
+
+    foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
+    {
+      auto words = split(line);
+
+      writeln("processing: ", line);
+      if (words.length)
+      switch (mode)
+      {
+        case ParserMode.expectNumSpaces:
+          enforce(words[0] == "numspaces", "expected numspaces");
+          numSpaces = to!size_t(words[1]);
+          spaces.reserve(numSpaces);
+          mode = ParserMode.expectSpace;
+          break;
+
+        case ParserMode.expectSpace:
+          enforce(words[0] == "space", "expected space");
+          enforce(words[2] == "numverts", "expected numverts");
+          enforce(words[4] == "numfaces", "expected numfaces");
+          
+          numVerts = to!size_t(words[3]);
+          numFaces = to!size_t(words[5]);
+
+          space = new Space();
+          space.verts.reserve(numVerts);
+          space.faces.reserve(numFaces);
+          spaces ~= space;
+
+          mode = ParserMode.expectVert;
+          break;
+
+        case ParserMode.expectVert:
+          enforce(words[0] == "vert", "expected vert");
+          enforce(to!size_t(words[1]) == space.verts.length, "verts disorganized");
+
+          space.verts ~= vec3(
+            to!float(words[2]),
+            to!float(words[3]),
+            to!float(words[4]));
+
+          if (space.verts.length == numVerts)
+            mode = ParserMode.expectFace;
+          break;
+
+        case ParserMode.expectFace:
+          enforce(words[0] == "face", "expected face");
+          enforce(to!size_t(words[1]) == space.faces.length, "faces disorganized");
+
+          Face face = new Face();
+          face.indices[0] = to!size_t(words[2]);
+          face.indices[1] = to!size_t(words[3]);
+          face.indices[2] = to!size_t(words[4]);
+          face.indices[3] = to!size_t(words[5]);
+
+          if (words[6] == "rgb")
+          {
+            face.data.type = FaceType.SolidColor;
+            face.data.solidColor[0] = to!ubyte(words[7]);
+            face.data.solidColor[1] = to!ubyte(words[8]);
+            face.data.solidColor[2] = to!ubyte(words[9]);
+          }
+          else if (words[6] == "remote")
+          {
+            face.data.type = FaceType.Remote;
+            size_t remoteSpaceID = to!int(words[7]); // not size_t because -1 special value
+            face.data.remote.spaceID = remoteSpaceID;
+            if (remoteSpaceID >= 0)
+            {
+              // TODO
+            }
+          }
+          else
+          {
+            assert(0, "unknown face type");
+          }
+
+          space.faces ~= face;
+          break;
+
+        default:
+          assert(0, "internal error 0");
+      }
+    }
+
+    debug
+    {
+      writeln("\n\nESCHER WORLD LOADED\n");
+      writeln(spaces);
+    }
+  }
+}

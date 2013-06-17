@@ -1,6 +1,7 @@
 module display;
 
 import ants.md5 : MD5Model, MD5Animation;
+import ants.escher : World;
 import std.stdio : writeln;
 import std.string : toStringz;
 import derelict.sdl.sdl;
@@ -18,6 +19,7 @@ class Display
     float zfar;
     MD5Model model;
     MD5Animation anim;
+    World world;
 
     void setupGL()
     {
@@ -40,8 +42,15 @@ class Display
       assert(SDL_SetVideoMode(width, height, bpp, SDL_OPENGL | SDL_DOUBLEBUF) !is null);
       SDL_WM_SetCaption(toStringz("D is the best"), null);
 
-      model = new MD5Model("/home/donny/test-md5/test.md5mesh");
-      anim = new MD5Animation(model, "/home/donny/test-md5/test.md5anim");
+      model = new MD5Model("monkey.md5mesh");
+      anim = new MD5Animation(model, "monkey.md5anim");
+
+      world = new World("test0.esc");
+
+      //model = new MD5Model("/home/donny/test-md5/test4.md5mesh");
+      //anim = new MD5Animation(model, "/home/donny/test-md5/test4.md5anim");
+      //model = new MD5Model("/home/donny/Downloads/MD5ModelLoader/MD5ModelLoader/data/Boblamp/boblampclean.md5mesh");
+      //anim = new MD5Animation(model, "/home/donny/Downloads/MD5ModelLoader/MD5ModelLoader/data/Boblamp/boblampclean.md5anim");
 
       setupGL();
     }
