@@ -35,7 +35,7 @@ private struct Ray
 
 struct Remote
 {
-  size_t    spaceID;
+  int       spaceID;
   Ray       remoteReferenceRay;
 }
 
@@ -71,6 +71,7 @@ class Face
 
 class Space
 {
+  int       id;
   vec3[]    verts;
   Face[]    faces;
 }
@@ -95,6 +96,7 @@ class World
     Space space;
 
     // Used to check for file sanity
+    int spaceID;
     size_t numSpaces, numVerts, numFaces;
 
     foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
@@ -116,11 +118,14 @@ class World
           enforce(words[0] == "space", "expected space");
           enforce(words[2] == "numverts", "expected numverts");
           enforce(words[4] == "numfaces", "expected numfaces");
-          
+          spaceID = to!int(words[1]);
+          enforce(spaceID == spaces.length, "spaces disorganized");
+
           numVerts = to!size_t(words[3]);
           numFaces = to!size_t(words[5]);
 
           space = new Space();
+          space.id = spaceID;
           space.verts.reserve(numVerts);
           space.faces.reserve(numFaces);
           spaces ~= space;
@@ -222,7 +227,7 @@ class World
     Space space = spaces[0];
 
     glBegin(GL_QUADS);
-    drawFace(space, vec3(0,0,0), 2);
+    drawFace(space, vec3(0,0,0), 3);
     glEnd();
 
     glMatrixMode(GL_MODELVIEW);
@@ -255,7 +260,7 @@ class World
         {
           drawFace(
             spaces[face.data.remote.v.spaceID],
-            face.data.remote.v.remoteReferenceRay.pos,
+            face.data.remote.v.remoteReferenceRay.pos + transform,
             maxDepth);
         }
       }
