@@ -161,11 +161,15 @@ class World
           else if (words[6] == "remote")
           {
             face.data.type = FaceType.Remote;
-            size_t remoteSpaceID = to!int(words[7]); // not size_t because -1 special value
+            int remoteSpaceID = to!int(words[7]); // not size_t because -1 special value
             face.data.remote.v.spaceID = remoteSpaceID;
             if (remoteSpaceID >= 0)
             {
-              // TODO
+              face.data.remote.v.remoteReferenceRay.pos = vec3(
+                to!float(words[8]),
+                to!float(words[9]),
+                to!float(words[10]));
+              // TODO orientation
             }
           }
           else
@@ -173,8 +177,10 @@ class World
             assert(0, "unknown face type");
           }
 
-          writeln("loading face ", face.data.type);
           space.faces ~= face;
+
+          if (space.faces.length == numFaces)
+            mode = ParserMode.expectSpace;
           break;
 
         default:
@@ -197,11 +203,14 @@ class World
   void draw()
   {
     //writeln("World.draw()");
+    glEnable(GL_DEPTH_TEST);
+
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
     glTranslatef(0, 0, -7);
     glRotatef(spin, 0, 1, 0);
+    glRotatef(spin, 0.9701425001453318, 0.24253562503633294, 0);
     spin += 0.5;
 
     glBegin(GL_TRIANGLES);
@@ -213,12 +222,22 @@ class World
     Space space = spaces[0];
 
     glBegin(GL_QUADS);
+    drawFace(space, vec3(0,0,0), 2);
+    glEnd();
+
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+  }
+
+  void drawFace(Space space, vec3 transform, size_t maxDepth)
+  {
+    maxDepth--;
+    bool descend = maxDepth > 0;
+
     foreach (face; space.faces)
     {
-      //writeln("drawing face ", face.data.type);
       if (face.data.type == FaceType.SolidColor)
       {
-        //writeln("color ", face.data.solidColor.v);
         glColor3ub(
           face.data.solidColor.v[0],
           face.data.solidColor.v[1],
@@ -226,15 +245,20 @@ class World
 
         foreach (vi; face.indices)
         {
-          vec3 v = space.verts[vi];
-          //writeln("vert ", vi, ' ', v);
+          vec3 v = space.verts[vi] + transform;
           glVertex3f(v.x, v.y, v.z);
         }
       }
+      else if (face.data.type == FaceType.Remote)
+      {
+        if (descend && face.data.remote.v.spaceID != size_t.max)
+        {
+          drawFace(
+            spaces[face.data.remote.v.spaceID],
+            face.data.remote.v.remoteReferenceRay.pos,
+            maxDepth);
+        }
+      }
     }
-    glEnd();
-
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
   }
 }

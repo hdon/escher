@@ -45,7 +45,7 @@ class Display
       model = new MD5Model("monkey.md5mesh");
       anim = new MD5Animation(model, "monkey.md5anim");
 
-      world = new World("test0.esc");
+      world = new World("test1.esc");
 
       //model = new MD5Model("/home/donny/test-md5/test4.md5mesh");
       //anim = new MD5Animation(model, "/home/donny/test-md5/test4.md5anim");
@@ -82,7 +82,7 @@ class Display
 
   void clear()
   {
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   }
 
   void drawGLFrame()
