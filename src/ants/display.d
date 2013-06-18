@@ -89,7 +89,8 @@ class Display
   {
     setupGL();
 
-    anim.draw();
+    //anim.draw();
+    world.draw();
 
     SDL_GL_SwapBuffers();
 

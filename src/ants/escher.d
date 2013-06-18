@@ -45,11 +45,22 @@ enum FaceType
   Remote
 }
 
+struct FaceDataSolidColor
+{
+  FaceType  type;
+  ubyte[3]  v;
+}
+struct FaceDataRemote
+{
+  FaceType  type;
+  Remote    v;
+}
+
 union FaceData
 {
   FaceType  type;
-  ubyte[3]  solidColor;
-  Remote    remote;
+  FaceDataSolidColor solidColor;
+  FaceDataRemote remote;
 }
 
 class Face
@@ -143,15 +154,15 @@ class World
           if (words[6] == "rgb")
           {
             face.data.type = FaceType.SolidColor;
-            face.data.solidColor[0] = to!ubyte(words[7]);
-            face.data.solidColor[1] = to!ubyte(words[8]);
-            face.data.solidColor[2] = to!ubyte(words[9]);
+            face.data.solidColor.v[0] = to!ubyte(words[7]);
+            face.data.solidColor.v[1] = to!ubyte(words[8]);
+            face.data.solidColor.v[2] = to!ubyte(words[9]);
           }
           else if (words[6] == "remote")
           {
             face.data.type = FaceType.Remote;
             size_t remoteSpaceID = to!int(words[7]); // not size_t because -1 special value
-            face.data.remote.spaceID = remoteSpaceID;
+            face.data.remote.v.spaceID = remoteSpaceID;
             if (remoteSpaceID >= 0)
             {
               // TODO
@@ -162,6 +173,7 @@ class World
             assert(0, "unknown face type");
           }
 
+          writeln("loading face ", face.data.type);
           space.faces ~= face;
           break;
 
@@ -172,8 +184,57 @@ class World
 
     debug
     {
-      writeln("\n\nESCHER WORLD LOADED\n");
+      writeln("ESCHER WORLD LOADED");
       writeln(spaces);
     }
+
+    // XXX
+    spin = 0f;
+  }
+
+  // bs drawing method
+  float spin;
+  void draw()
+  {
+    //writeln("World.draw()");
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glTranslatef(0, 0, -7);
+    glRotatef(spin, 0, 1, 0);
+    spin += 0.5;
+
+    glBegin(GL_TRIANGLES);
+    glColor3f (1, 0, 0); glVertex3f(-1, -1, -2);
+    glColor3f (0, 1, 0); glVertex3f( 1, -1, -2);
+    glColor3f (0, 0, 1); glVertex3f( 0,  1, -2);
+    glEnd();
+
+    Space space = spaces[0];
+
+    glBegin(GL_QUADS);
+    foreach (face; space.faces)
+    {
+      //writeln("drawing face ", face.data.type);
+      if (face.data.type == FaceType.SolidColor)
+      {
+        //writeln("color ", face.data.solidColor.v);
+        glColor3ub(
+          face.data.solidColor.v[0],
+          face.data.solidColor.v[1],
+          face.data.solidColor.v[2]);
+
+        foreach (vi; face.indices)
+        {
+          vec3 v = space.verts[vi];
+          //writeln("vert ", vi, ' ', v);
+          glVertex3f(v.x, v.y, v.z);
+        }
+      }
+    }
+    glEnd();
+
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
   }
 }
