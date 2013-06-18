@@ -3,7 +3,7 @@ import derelict.opengl.gl;
 import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
 import std.conv;
 import gl3n.interpolate : lerp;
-import std.math : sqrt;
+import std.math : sqrt, PI;
 import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
@@ -227,14 +227,14 @@ class World
     Space space = spaces[0];
 
     glBegin(GL_QUADS);
-    drawFace(space, vec3(0,0,0), 3);
+    drawSpace(space, vec3(0,0,0), 3);
     glEnd();
 
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
   }
 
-  void drawFace(Space space, vec3 transform, size_t maxDepth)
+  void drawSpace(Space space, vec3 transform, size_t maxDepth)
   {
     maxDepth--;
     bool descend = maxDepth > 0;
@@ -258,12 +258,77 @@ class World
       {
         if (descend && face.data.remote.v.spaceID != size_t.max)
         {
-          drawFace(
+          drawSpace(
             spaces[face.data.remote.v.spaceID],
             face.data.remote.v.remoteReferenceRay.pos + transform,
             maxDepth);
         }
       }
     }
+  }
+}
+
+class Camera
+{
+  World world;
+  int spaceID;
+
+  vec3 pos;
+  float angle;
+
+  vec3 vel;
+  float turnRate;
+
+  this(World world, int spaceID, vec3 pos)
+  {
+    this.world = world;
+    this.spaceID = spaceID;
+    this.pos = pos;
+    this.vel = vec3(0,0,0);
+    this.angle = 0f;
+    this.turnRate = 0f;
+  }
+
+  void update(ulong delta)
+  {
+    float deltaf = delta/1000f;
+    pos += vel * deltaf;
+    angle += turnRate * deltaf;
+    /*
+    while (angle < 0.0)
+      angle += PI*2f;
+    while (angle >= PI*2f)
+      angle -= PI*2f;
+    */
+    while (angle < 0.0)
+      angle += 360f;
+    while (angle >= 360f)
+      angle -= 360f;
+  }
+
+  void draw()
+  {
+    glEnable(GL_DEPTH_TEST);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glRotatef(angle, 0, 1, 0);
+    glTranslatef(pos.x, pos.y, pos.z);
+    //glRotatef(spin, 0, 1, 0);
+    //glRotatef(spin, 0.9701425001453318, 0.24253562503633294, 0);
+
+    glBegin(GL_TRIANGLES);
+    glColor3f (1, 0, 0); glVertex3f(-1, -1, -2);
+    glColor3f (0, 1, 0); glVertex3f( 1, -1, -2);
+    glColor3f (0, 0, 1); glVertex3f( 0,  1, -2);
+    glEnd();
+
+    glBegin(GL_QUADS);
+    world.drawSpace(world.spaces[spaceID], vec3(0,0,0), 3);
+    glEnd();
+
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
   }
 }

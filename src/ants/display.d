@@ -1,12 +1,14 @@
 module display;
 
 import ants.md5 : MD5Model, MD5Animation;
-import ants.escher : World;
+import ants.escher : World, Camera;
 import std.stdio : writeln;
 import std.string : toStringz;
 import derelict.sdl.sdl;
 import derelict.opengl.gl;
 import derelict.opengl.glu;
+import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
+import std.math : PI;
 
 class Display
 {
@@ -20,6 +22,7 @@ class Display
     MD5Model model;
     MD5Animation anim;
     World world;
+    Camera camera;
 
     void setupGL()
     {
@@ -46,6 +49,7 @@ class Display
       anim = new MD5Animation(model, "monkey.md5anim");
 
       world = new World("test2.esc");
+      camera = new Camera(world, 0, vec3(0,0,0));
 
       //model = new MD5Model("/home/donny/test-md5/test4.md5mesh");
       //anim = new MD5Animation(model, "/home/donny/test-md5/test4.md5anim");
@@ -85,17 +89,25 @@ class Display
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   }
 
+  uint lastFrame;
+
   void drawGLFrame()
   {
+    uint t = SDL_GetTicks();
+    uint delta = t - lastFrame;
     setupGL();
 
     //anim.draw();
-    world.draw();
+    //world.draw();
+    camera.update(delta);
+    camera.draw();
 
     SDL_GL_SwapBuffers();
 
     GLenum err = glGetError();
     assert(err == 0);
+
+    lastFrame = t;
   }
 
   bool event()
@@ -109,6 +121,27 @@ class Display
         case SDL_QUIT:
           isRunning = false;
           break;
+        case SDL_KEYDOWN:
+        case SDL_KEYUP:
+          float f = 0f;
+          if (event.key.keysym.sym == SDLK_w)
+            f = 1f;
+          else if (event.key.keysym.sym == SDLK_s)
+            f = -1f;
+          if (f != 0f)
+          {
+            camera.vel.vector[2] += event.type == SDL_KEYDOWN ? f : -f;
+          }
+
+          f = 0f;
+          if (event.key.keysym.sym == SDLK_a)
+            f = -90f;
+          else if (event.key.keysym.sym == SDLK_d)
+            f = 90f;
+          if (f != 0f)
+          {
+            camera.turnRate += event.type == SDL_KEYDOWN ? f : -f;
+          }
         default:
           break;
       }
