@@ -125,19 +125,19 @@ class Display
         case SDL_KEYUP:
           float f = 0f;
           if (event.key.keysym.sym == SDLK_w)
-            f = 1f;
+            f = 3f;
           else if (event.key.keysym.sym == SDLK_s)
-            f = -1f;
+            f = -3f;
           if (f != 0f)
           {
-            camera.vel.vector[2] += event.type == SDL_KEYDOWN ? f : -f;
+            camera.vel += event.type == SDL_KEYDOWN ? f : -f;
           }
 
           f = 0f;
           if (event.key.keysym.sym == SDLK_a)
-            f = -90f;
+            f = -PI;
           else if (event.key.keysym.sym == SDLK_d)
-            f = 90f;
+            f = PI;
           if (f != 0f)
           {
             camera.turnRate += event.type == SDL_KEYDOWN ? f : -f;

@@ -3,7 +3,7 @@ import derelict.opengl.gl;
 import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
 import std.conv;
 import gl3n.interpolate : lerp;
-import std.math : sqrt, PI;
+import std.math : sqrt, PI, sin, cos;
 import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
@@ -198,40 +198,6 @@ class World
       writeln("ESCHER WORLD LOADED");
       writeln(spaces);
     }
-
-    // XXX
-    spin = 0f;
-  }
-
-  // bs drawing method
-  float spin;
-  void draw()
-  {
-    //writeln("World.draw()");
-    glEnable(GL_DEPTH_TEST);
-
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glTranslatef(0, 0, -7);
-    glRotatef(spin, 0, 1, 0);
-    glRotatef(spin, 0.9701425001453318, 0.24253562503633294, 0);
-    spin += 0.5;
-
-    glBegin(GL_TRIANGLES);
-    glColor3f (1, 0, 0); glVertex3f(-1, -1, -2);
-    glColor3f (0, 1, 0); glVertex3f( 1, -1, -2);
-    glColor3f (0, 0, 1); glVertex3f( 0,  1, -2);
-    glEnd();
-
-    Space space = spaces[0];
-
-    glBegin(GL_QUADS);
-    drawSpace(space, vec3(0,0,0), 3);
-    glEnd();
-
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
   }
 
   void drawSpace(Space space, vec3 transform, size_t maxDepth)
@@ -274,9 +240,10 @@ class Camera
   int spaceID;
 
   vec3 pos;
+  vec3 orient;
   float angle;
 
-  vec3 vel;
+  float vel;
   float turnRate;
 
   this(World world, int spaceID, vec3 pos)
@@ -284,26 +251,23 @@ class Camera
     this.world = world;
     this.spaceID = spaceID;
     this.pos = pos;
-    this.vel = vec3(0,0,0);
+    this.vel = 0f;
     this.angle = 0f;
+    this.orient = vec3(0,0,0);
     this.turnRate = 0f;
   }
 
   void update(ulong delta)
   {
     float deltaf = delta/1000f;
-    pos += vel * deltaf;
     angle += turnRate * deltaf;
-    /*
+    orient = vec3(-sin(angle), 0, cos(angle));
+    pos += orient * (vel * deltaf);
+
     while (angle < 0.0)
       angle += PI*2f;
     while (angle >= PI*2f)
       angle -= PI*2f;
-    */
-    while (angle < 0.0)
-      angle += 360f;
-    while (angle >= 360f)
-      angle -= 360f;
   }
 
   void draw()
@@ -313,7 +277,7 @@ class Camera
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
-    glRotatef(angle, 0, 1, 0);
+    glRotatef(angle/PI*180f, 0, 1, 0);
     glTranslatef(pos.x, pos.y, pos.z);
     //glRotatef(spin, 0, 1, 0);
     //glRotatef(spin, 0.9701425001453318, 0.24253562503633294, 0);
