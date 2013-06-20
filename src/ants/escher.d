@@ -242,13 +242,6 @@ vec3 getTriangleNormal(vec3 a, vec3 b, vec3 c)
   return cross(b-a, c-a);
 }
 
-mat4 getRotationBetweenVecs(vec3 a, vec3 b)
-{
-  mat4 r = mat4.identity; // TODO necessary?
-
-  return r;
-}
-
 /* XXX I am now using code that I don't understand
  *     need to brush up and see exactly how it works.
  */
@@ -263,7 +256,6 @@ bool linePlaneIntersect(vec3 lineStart, vec3 lineEnd, vec3 planeOrigin, vec3 axi
 
   vec3 planeY = cross(planeNormal, originToaxisB).normalized;
   planeY = planeY * dot(originToaxisB, planeY);
-
 
   // line Info
   vec3 lineOrigin = lineStart;
@@ -341,17 +333,27 @@ class Camera
       angle -= PI*2f;
 
     /* Intersect space faces */
-    Space space = world.spaces[spaceID];
-    foreach (faceIndex, face; space.faces)
+    if (oldpos != pos)
     {
-      if (linePlaneIntersect(oldpos, pos, space.verts[face.indices[0]], space.verts[face.indices[1]], space.verts[face.indices[3]]))
+      Space space = world.spaces[spaceID];
+      foreach (faceIndex, face; space.faces)
       {
-        writefln("intersected face %d", faceIndex);
-        if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
+        vec3 faceCenter = (space.verts[face.indices[0]] + space.verts[face.indices[2]]) * .5f;
+        writeln("v0: ", space.verts[face.indices[0]]);
+        writeln("v1: ", space.verts[face.indices[2]]);
+        writeln("avg ", faceCenter);
+
+        /* TODO support arbitrary polygon faces */
+        if (linePlaneIntersect(pos, oldpos, space.verts[face.indices[3]], space.verts[face.indices[1]], space.verts[face.indices[0]]))
         {
-          spaceID = face.data.remote.v.spaceID;
-          this.pos += face.data.remote.v.remoteReferenceRay.pos; // TODO orientation/scaling
-          writefln("entered space %d", spaceID);
+          writefln("intersected face %d", faceIndex);
+          if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
+          {
+            spaceID = face.data.remote.v.spaceID;
+            this.pos -= face.data.remote.v.remoteReferenceRay.pos; // TODO orientation/scaling
+            writefln("entered space %d", spaceID);
+            break;
+          }
         }
       }
     }
