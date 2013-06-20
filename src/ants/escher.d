@@ -1,12 +1,14 @@
 module ants.escher;
 import derelict.opengl.gl;
-import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
+import gl3n.linalg : vec2, vec3, vec4, mat4, quat, dot, cross;
 import std.conv;
 import gl3n.interpolate : lerp;
 import std.math : sqrt, PI, sin, cos;
 import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
+import std.typecons : Tuple;
+import std.algorithm : sort;
 debug import std.stdio : writeln, writefln;
 
 private struct Ray
@@ -234,6 +236,73 @@ class World
   }
 }
 
+vec3 getTriangleNormal(vec3 a, vec3 b, vec3 c)
+{
+  // TODO is order correct?
+  return cross(b-a, c-a);
+}
+
+mat4 getRotationBetweenVecs(vec3 a, vec3 b)
+{
+  mat4 r = mat4.identity; // TODO necessary?
+
+  return r;
+}
+
+/* XXX I am now using code that I don't understand
+ *     need to brush up and see exactly how it works.
+ */
+bool linePlaneIntersect(vec3 lineStart, vec3 lineEnd, vec3 planeOrigin, vec3 axisA, vec3 axisB)
+{
+  vec3 originToaxisA = axisA - planeOrigin;
+  vec3 originToaxisB = axisB - planeOrigin;
+
+  vec3 planeX = axisA;
+
+  vec3 planeNormal = cross(originToaxisA, originToaxisB).normalized;
+
+  vec3 planeY = cross(planeNormal, originToaxisB).normalized;
+  planeY = planeY * dot(originToaxisB, planeY);
+
+
+  // line Info
+  vec3 lineOrigin = lineStart;
+
+  vec3 lineSegment = lineEnd - lineStart;
+  vec3 lineNormal = (lineEnd - lineStart).normalized;
+
+  // This finds the distance along the orginal line, where line and plane meet, multiply with the lines normal vector to get position 
+  float distance = dot(planeOrigin - lineOrigin, planeNormal) / dot(lineNormal, planeNormal);
+  vec3 linePlaneIntersection = lineStart + lineNormal * distance;
+
+  // line before lineStart no collision
+  if (distance < 0)
+    return false;
+
+  // line after lineEnd no collision
+  if (distance > lineSegment.magnitude)
+    return false;
+
+  // Line segment collides with plane but is it in plane bounds
+  float xOnPlane = dot(linePlaneIntersection - planeOrigin, planeX.normalized);
+  float yOnPlane = dot(linePlaneIntersection - planeOrigin, planeY.normalized);
+
+  if (xOnPlane < 0)
+    return false;
+
+  if (xOnPlane > planeX.magnitude)
+    return false;
+
+  if (yOnPlane < 0)
+    return false;
+
+  if (yOnPlane > planeY.magnitude)
+    return false;
+
+  // linePlaneIntersection lies inside the plane x and plane y
+  return true;
+}
+
 class Camera
 {
   World world;
@@ -259,6 +328,8 @@ class Camera
 
   void update(ulong delta)
   {
+    vec3 oldpos = pos;
+
     float deltaf = delta/1000f;
     angle += turnRate * deltaf;
     orient = vec3(-sin(angle), 0, cos(angle));
@@ -268,11 +339,28 @@ class Camera
       angle += PI*2f;
     while (angle >= PI*2f)
       angle -= PI*2f;
+
+    /* Intersect space faces */
+    Space space = world.spaces[spaceID];
+    foreach (faceIndex, face; space.faces)
+    {
+      if (linePlaneIntersect(oldpos, pos, space.verts[face.indices[0]], space.verts[face.indices[1]], space.verts[face.indices[3]]))
+      {
+        writefln("intersected face %d", faceIndex);
+        if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
+        {
+          spaceID = face.data.remote.v.spaceID;
+          this.pos += face.data.remote.v.remoteReferenceRay.pos; // TODO orientation/scaling
+          writefln("entered space %d", spaceID);
+        }
+      }
+    }
   }
 
   void draw()
   {
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
