@@ -3,7 +3,7 @@ import derelict.opengl.gl;
 import gl3n.linalg : vec2, vec3, vec4, mat4, quat, dot, cross;
 import std.conv;
 import gl3n.interpolate : lerp;
-import std.math : sqrt, PI, sin, cos;
+import std.math : sqrt, PI, sin, cos, isNaN;
 import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
@@ -14,9 +14,9 @@ debug import std.stdio : writeln, writefln;
 private struct Ray
 {
   vec3 pos;
-  quat orient;
+  vec4 orient;
 
-  this(vec3 pos, quat orient)
+  /*this(vec3 pos, quat orient)
   {
     this.pos = pos;
     this.orient = orient;
@@ -32,13 +32,13 @@ private struct Ray
   {
     this.pos = vec3(px, py, pz);
     this.orient = quat(0, ox, oy, oz);
-  }
+  }*/
 }
 
 struct Remote
 {
   int       spaceID;
-  Ray       remoteReferenceRay;
+  mat4      transform;
 }
 
 enum FaceType
@@ -172,11 +172,29 @@ class World
             face.data.remote.v.spaceID = remoteSpaceID;
             if (remoteSpaceID >= 0)
             {
-              face.data.remote.v.remoteReferenceRay.pos = vec3(
+              mat4 transform = mat4.identity;
+
+              transform.translate(
                 to!float(words[8]),
                 to!float(words[9]),
                 to!float(words[10]));
-              // TODO orientation
+
+              if (words.length >= 16)
+              {
+                enforce(words[11] == "orientation", "expected orientation");
+
+                transform.rotate(
+                  to!float(words[12]),
+                  vec3(to!float(words[13]),
+                       to!float(words[14]),
+                       to!float(words[15])));
+              }
+
+              writeln("space transform\n", transform);
+
+              // TODO scaling
+
+              face.data.remote.v.transform = transform;
             }
           }
           else
@@ -202,8 +220,20 @@ class World
     }
   }
 
-  void drawSpace(Space space, vec3 transform, size_t maxDepth)
+  // TODO TODO TODO TODO TODO TODO 
+  // What I am working on right now:
+  // I am about to turn the transform argument of drawSpace() into a mat4.
+  // I will need to use the orient field of the face.data.remote.v.remoteReferenceRay.
+  // The orient field has been changed to a vec4. It is actually an xyz vector and
+  // an angle (radians?) In the file format, I want to load degrees, so I should translate
+  // them to radians at load time.
+  // I am exploring how to create the matrix properly using the gl3n source code.
+  // There is also an example on line 681 of how to load a matrix from gl3n into opengl.
+  // I'm not sure I need to do that yet, but it might be nice for when I have models
+  // and shit to draw, and not just a handful of polygons per space.
+  void drawSpace(Space space, mat4 transform, size_t maxDepth)
   {
+    writefln("[draw space]\tmax depth: %d\ntransform:\n%s", maxDepth, transform);
     maxDepth--;
     bool descend = maxDepth > 0;
 
@@ -218,17 +248,21 @@ class World
 
         foreach (vi; face.indices)
         {
-          vec3 v = space.verts[vi] + transform;
-          glVertex3f(v.x, v.y, v.z);
+          vec3 v = space.verts[vi];
+          vec4 V = vec4(v.x, v.y, v.z, 1f);
+          V = V * transform;
+          //V = V.normalized;
+          glVertex3f(V.x/V.w, V.y/V.w, V.z/V.w);
         }
       }
       else if (face.data.type == FaceType.Remote)
       {
         if (descend && face.data.remote.v.spaceID != size_t.max)
         {
+          writefln("concatenating:\n%s", face.data.remote.v.transform);
           drawSpace(
             spaces[face.data.remote.v.spaceID],
-            face.data.remote.v.remoteReferenceRay.pos + transform,
+            transform * face.data.remote.v.transform,
             maxDepth);
         }
       }
@@ -338,11 +372,6 @@ class Camera
       Space space = world.spaces[spaceID];
       foreach (faceIndex, face; space.faces)
       {
-        vec3 faceCenter = (space.verts[face.indices[0]] + space.verts[face.indices[2]]) * .5f;
-        writeln("v0: ", space.verts[face.indices[0]]);
-        writeln("v1: ", space.verts[face.indices[2]]);
-        writeln("avg ", faceCenter);
-
         /* TODO support arbitrary polygon faces */
         if (linePlaneIntersect(pos, oldpos, space.verts[face.indices[3]], space.verts[face.indices[1]], space.verts[face.indices[0]]))
         {
@@ -350,7 +379,12 @@ class Camera
           if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
           {
             spaceID = face.data.remote.v.spaceID;
-            this.pos -= face.data.remote.v.remoteReferenceRay.pos; // TODO orientation/scaling
+            vec4 pos = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
+            pos = pos * face.data.remote.v.transform;
+            //pos = pos.normalized;
+            this.pos.x = pos.x / pos.w;
+            this.pos.y = pos.y / pos.w;
+            this.pos.z = pos.z / pos.w;
             writefln("entered space %d", spaceID);
             break;
           }
@@ -372,14 +406,16 @@ class Camera
     //glRotatef(spin, 0, 1, 0);
     //glRotatef(spin, 0.9701425001453318, 0.24253562503633294, 0);
 
+    /*
     glBegin(GL_TRIANGLES);
     glColor3f (1, 0, 0); glVertex3f(-1, -1, -2);
     glColor3f (0, 1, 0); glVertex3f( 1, -1, -2);
     glColor3f (0, 0, 1); glVertex3f( 0,  1, -2);
     glEnd();
+    */
 
     glBegin(GL_QUADS);
-    world.drawSpace(world.spaces[spaceID], vec3(0,0,0), 3);
+    world.drawSpace(world.spaces[spaceID], mat4.identity, 3);
     glEnd();
 
     glMatrixMode(GL_MODELVIEW);
