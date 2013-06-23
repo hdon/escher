@@ -174,21 +174,21 @@ class World
             {
               mat4 transform = mat4.identity;
 
-              transform.translate(
-                to!float(words[8]),
-                to!float(words[9]),
-                to!float(words[10]));
-
               if (words.length >= 16)
               {
                 enforce(words[11] == "orientation", "expected orientation");
 
                 transform.rotate(
-                  to!float(words[12]),
+                  to!float(words[12]) / 180f * PI,
                   vec3(to!float(words[13]),
                        to!float(words[14]),
                        to!float(words[15])));
               }
+
+              transform.translate(
+                to!float(words[8]),
+                to!float(words[9]),
+                to!float(words[10]));
 
               writeln("space transform\n", transform);
 
@@ -233,7 +233,7 @@ class World
   // and shit to draw, and not just a handful of polygons per space.
   void drawSpace(Space space, mat4 transform, size_t maxDepth)
   {
-    writefln("[draw space]\tmax depth: %d\ntransform:\n%s", maxDepth, transform);
+    //writefln("[draw space]\tmax depth: %d\ntransform:\n%s", maxDepth, transform);
     maxDepth--;
     bool descend = maxDepth > 0;
 
@@ -259,7 +259,7 @@ class World
       {
         if (descend && face.data.remote.v.spaceID != size_t.max)
         {
-          writefln("concatenating:\n%s", face.data.remote.v.transform);
+          //writefln("concatenating:\n%s", face.data.remote.v.transform);
           drawSpace(
             spaces[face.data.remote.v.spaceID],
             transform * face.data.remote.v.transform,
@@ -373,7 +373,11 @@ class Camera
       foreach (faceIndex, face; space.faces)
       {
         /* TODO support arbitrary polygon faces */
-        if (linePlaneIntersect(pos, oldpos, space.verts[face.indices[3]], space.verts[face.indices[1]], space.verts[face.indices[0]]))
+        /* TODO XXX i have inverted pos and oldpos here because it fixes some polarity problem
+         *          SOMEWHERE but i have no idea where. For now I will leave it like this but
+         *          this problem needs to be solved!
+         */
+        if (linePlaneIntersect(-pos, -oldpos, space.verts[face.indices[3]], space.verts[face.indices[1]], space.verts[face.indices[0]]))
         {
           writefln("intersected face %d", faceIndex);
           if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
