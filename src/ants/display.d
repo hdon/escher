@@ -13,6 +13,7 @@ import std.math : PI;
 class Display
 {
   private {
+    string mapfilename;
     uint height;
     uint width;
     uint bpp;
@@ -48,7 +49,7 @@ class Display
       model = new MD5Model("monkey.md5mesh");
       anim = new MD5Animation(model, "monkey.md5anim");
 
-      world = new World("test2.esc");
+      world = new World(mapfilename);
       camera = new Camera(world, 0, vec3(0,0,0));
 
       //model = new MD5Model("/home/donny/test-md5/test4.md5mesh");
@@ -60,8 +61,9 @@ class Display
     }
   }
 
-  this()
+  this(string filename)
   {
+    this.mapfilename = filename;
     width = 800;
     height = 600;
     bpp = 24;
