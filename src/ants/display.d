@@ -46,8 +46,8 @@ class Display
       assert(SDL_SetVideoMode(width, height, bpp, SDL_OPENGL | SDL_DOUBLEBUF) !is null);
       SDL_WM_SetCaption(toStringz("D is the best"), null);
 
-      model = new MD5Model("monkey.md5mesh");
-      anim = new MD5Animation(model, "monkey.md5anim");
+      //model = new MD5Model("monkey.md5mesh");
+      //anim = new MD5Animation(model, "monkey.md5anim");
 
       world = new World(mapfilename);
       camera = new Camera(world, 0, vec3(0,0,0));
