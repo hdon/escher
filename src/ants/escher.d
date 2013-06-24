@@ -253,11 +253,11 @@ class World
   void drawSpace(int spaceID, mat4 transform, size_t maxDepth, int prevSpaceID)
   {
     Space space = spaces[spaceID];
-    //writefln("[draw space]\tmax depth: %d\ntransform:\n%s", maxDepth, transform);
+    //writefln("[draw space]\t#%d d:%d", spaceID, maxDepth);
     maxDepth--;
     bool descend = maxDepth > 0;
 
-    foreach (face; space.faces)
+    foreach (faceID, face; space.faces)
     {
       if (face.data.type == FaceType.SolidColor)
       {
@@ -281,6 +281,7 @@ class World
         if (descend && nextSpaceID != size_t.max && nextSpaceID != prevSpaceID)
         {
           //writefln("concatenating:\n%s", face.data.remote.v.transform);
+          //writefln("            \tentering face: %d", faceID);
           drawSpace(
             nextSpaceID,
             transform * face.data.remote.v.transform,
@@ -415,8 +416,8 @@ class Camera
              * We must adjust our own coordinates so that we enter the space
              * at the correct position. We also need to adjust our orientation.
              */
-            vec4 pos = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
-            pos = pos * face.data.remote.v.transform;
+            vec4 preTransformPos4 = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
+            vec4 pos = preTransformPos4 * face.data.remote.v.transform;
             pos.x = pos.x / pos.w;
             pos.y = pos.y / pos.w;
             pos.z = pos.z / pos.w;
@@ -424,8 +425,7 @@ class Camera
             this.pos.y = pos.y;
             this.pos.z = pos.z;
 
-            vec4 oldpos4 = vec4(oldpos.x, oldpos.y, oldpos.z, 0f);
-            vec4 lookPos = vec4(sin(angle), 0, cos(angle), 1f) + oldpos4;
+            vec4 lookPos = vec4(sin(angle), 0, cos(angle), 0f) + preTransformPos4;
             writeln("old  vec: ", oldpos);
             writeln("look vec: ", lookPos);
             lookPos = lookPos * face.data.remote.v.transform;
