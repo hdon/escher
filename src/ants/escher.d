@@ -3,7 +3,7 @@ import derelict.opengl.gl;
 import gl3n.linalg : vec2, vec3, vec4, mat4, quat, dot, cross;
 import std.conv;
 import gl3n.interpolate : lerp;
-import std.math : sqrt, PI, sin, cos, isNaN;
+import std.math : sqrt, PI, sin, cos, atan2, isNaN;
 import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
@@ -39,6 +39,7 @@ struct Remote
 {
   int       spaceID;
   mat4      transform;
+  mat4      untransform;
 }
 
 enum FaceType
@@ -172,29 +173,47 @@ class World
             face.data.remote.v.spaceID = remoteSpaceID;
             if (remoteSpaceID >= 0)
             {
-              mat4 transform = mat4.identity;
+              vec3 translation;
+
+              bool hasRotation = false;
+              vec3 rotationAxis;
+              float rotationAngle;
+
+              // TODO scaling
+
+              translation = vec3(
+                to!float(words[8]),
+                to!float(words[9]),
+                to!float(words[10]));
 
               if (words.length >= 16)
               {
                 enforce(words[11] == "orientation", "expected orientation");
 
-                transform.rotate(
-                  to!float(words[12]) / 180f * PI,
-                  vec3(to!float(words[13]),
-                       to!float(words[14]),
-                       to!float(words[15])));
+                hasRotation = true;
+
+                rotationAngle = to!float(words[12]) / 180f * PI;
+                rotationAxis = vec3(to!float(words[13]),
+                                    to!float(words[14]),
+                                    to!float(words[15]));
               }
 
-              transform.translate(
-                to!float(words[8]),
-                to!float(words[9]),
-                to!float(words[10]));
+              mat4 transform = mat4.identity;
+              mat4 untransform = mat4.identity;
+
+              if (hasRotation)
+              {
+                transform.rotate(rotationAngle, rotationAxis);
+                untransform.rotate(-rotationAngle, rotationAxis);
+              }
+
+              transform.translate(translation.x, translation.y, translation.z);
+              untransform.translate(-translation.x, -translation.y, -translation.z);
 
               writeln("space transform\n", transform);
 
-              // TODO scaling
-
               face.data.remote.v.transform = transform;
+              face.data.remote.v.untransform = untransform;
             }
           }
           else
@@ -231,8 +250,9 @@ class World
   // There is also an example on line 681 of how to load a matrix from gl3n into opengl.
   // I'm not sure I need to do that yet, but it might be nice for when I have models
   // and shit to draw, and not just a handful of polygons per space.
-  void drawSpace(Space space, mat4 transform, size_t maxDepth)
+  void drawSpace(int spaceID, mat4 transform, size_t maxDepth, int prevSpaceID)
   {
+    Space space = spaces[spaceID];
     //writefln("[draw space]\tmax depth: %d\ntransform:\n%s", maxDepth, transform);
     maxDepth--;
     bool descend = maxDepth > 0;
@@ -257,13 +277,15 @@ class World
       }
       else if (face.data.type == FaceType.Remote)
       {
-        if (descend && face.data.remote.v.spaceID != size_t.max)
+        int nextSpaceID = face.data.remote.v.spaceID;
+        if (descend && nextSpaceID != size_t.max && nextSpaceID != prevSpaceID)
         {
           //writefln("concatenating:\n%s", face.data.remote.v.transform);
           drawSpace(
-            spaces[face.data.remote.v.spaceID],
+            nextSpaceID,
             transform * face.data.remote.v.transform,
-            maxDepth);
+            maxDepth,
+            spaceID);
         }
       }
     }
@@ -354,13 +376,17 @@ class Camera
 
   void update(ulong delta)
   {
+    //writeln("position:", pos);
+    // Remember old position for intersection tests
     vec3 oldpos = pos;
 
+    // Nudge position and orientation
     float deltaf = delta/1000f;
     angle += turnRate * deltaf;
     orient = vec3(-sin(angle), 0, cos(angle));
     pos += orient * (vel * deltaf);
 
+    // Keep orientation inside 0-2pi
     while (angle < 0.0)
       angle += PI*2f;
     while (angle >= PI*2f)
@@ -382,13 +408,36 @@ class Camera
           writefln("intersected face %d", faceIndex);
           if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
           {
+            // Move to the space we're entering
             spaceID = face.data.remote.v.spaceID;
+
+            /* Scene coordinates are now relative to the space we've entered.
+             * We must adjust our own coordinates so that we enter the space
+             * at the correct position. We also need to adjust our orientation.
+             */
             vec4 pos = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
             pos = pos * face.data.remote.v.transform;
-            //pos = pos.normalized;
             this.pos.x = pos.x / pos.w;
             this.pos.y = pos.y / pos.w;
             this.pos.z = pos.z / pos.w;
+
+            vec4 oldpos4 = vec4(oldpos.x, oldpos.y, oldpos.z, 0f);
+            vec4 lookPos = vec4(sin(angle), 0, cos(angle), 1f) + oldpos4;
+            writeln("old  vec: ", oldpos);
+            writeln("look vec: ", lookPos);
+            lookPos = lookPos * face.data.remote.v.transform;
+            writeln("new  vec: ", lookPos);
+            lookPos.x = lookPos.x / lookPos.w;
+            lookPos.y = lookPos.y / lookPos.w;
+            lookPos.z = lookPos.z / lookPos.w;
+            writeln("/w   vec: ", lookPos);
+            lookPos = lookPos - oldpos4;
+            writeln("-op  vec: ", lookPos);
+            writeln("transform: ", face.data.remote.v.transform);
+            writefln("angle: %f", angle);
+            angle = atan2(lookPos.x, -lookPos.z);
+            writefln("angle: %f new", angle);
+
             writefln("entered space %d", spaceID);
             break;
           }
@@ -419,7 +468,7 @@ class Camera
     */
 
     glBegin(GL_QUADS);
-    world.drawSpace(world.spaces[spaceID], mat4.identity, 3);
+    world.drawSpace(spaceID, mat4.identity, 3, -1);
     glEnd();
 
     glMatrixMode(GL_MODELVIEW);
