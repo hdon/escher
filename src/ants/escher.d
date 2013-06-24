@@ -417,9 +417,12 @@ class Camera
              */
             vec4 pos = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
             pos = pos * face.data.remote.v.transform;
-            this.pos.x = pos.x / pos.w;
-            this.pos.y = pos.y / pos.w;
-            this.pos.z = pos.z / pos.w;
+            pos.x = pos.x / pos.w;
+            pos.y = pos.y / pos.w;
+            pos.z = pos.z / pos.w;
+            this.pos.x = pos.x;
+            this.pos.y = pos.y;
+            this.pos.z = pos.z;
 
             vec4 oldpos4 = vec4(oldpos.x, oldpos.y, oldpos.z, 0f);
             vec4 lookPos = vec4(sin(angle), 0, cos(angle), 1f) + oldpos4;
@@ -431,11 +434,11 @@ class Camera
             lookPos.y = lookPos.y / lookPos.w;
             lookPos.z = lookPos.z / lookPos.w;
             writeln("/w   vec: ", lookPos);
-            lookPos = lookPos - oldpos4;
+            lookPos = lookPos - pos;
             writeln("-op  vec: ", lookPos);
             writeln("transform: ", face.data.remote.v.transform);
             writefln("angle: %f", angle);
-            angle = atan2(lookPos.x, -lookPos.z);
+            angle = atan2(lookPos.x, lookPos.z);
             writefln("angle: %f new", angle);
 
             writefln("entered space %d", spaceID);
