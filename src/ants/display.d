@@ -126,10 +126,11 @@ class Display
         case SDL_KEYDOWN:
         case SDL_KEYUP:
           float f = 0f;
+          // right-handed system means forward = -z
           if (event.key.keysym.sym == SDLK_w)
-            f = 3f;
-          else if (event.key.keysym.sym == SDLK_s)
             f = -3f;
+          else if (event.key.keysym.sym == SDLK_s)
+            f = 3f;
           if (f != 0f)
           {
             camera.vel += event.type == SDL_KEYDOWN ? f : -f;
@@ -143,6 +144,11 @@ class Display
           if (f != 0f)
           {
             camera.turnRate += event.type == SDL_KEYDOWN ? f : -f;
+          }
+          
+          if (event.key.keysym.sym == SDLK_p && event.type == SDL_KEYDOWN)
+          {
+            writeln("position: ", camera.pos);
           }
         default:
           break;

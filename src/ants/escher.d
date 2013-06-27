@@ -201,6 +201,8 @@ class World
               mat4 transform = mat4.identity;
               mat4 untransform = mat4.identity;
 
+              untransform.translate(-translation.x, -translation.y, -translation.z);
+
               if (hasRotation)
               {
                 transform.rotate(rotationAngle, rotationAxis);
@@ -208,7 +210,6 @@ class World
               }
 
               transform.translate(translation.x, translation.y, translation.z);
-              untransform.translate(-translation.x, -translation.y, -translation.z);
 
               writeln("space transform\n", transform);
 
@@ -393,6 +394,7 @@ class Camera
     while (angle >= PI*2f)
       angle -= PI*2f;
 
+    //writefln("vel: %s turn: %s", vel, turnRate);
     /* Intersect space faces */
     if (oldpos != pos)
     {
@@ -404,7 +406,7 @@ class Camera
          *          SOMEWHERE but i have no idea where. For now I will leave it like this but
          *          this problem needs to be solved!
          */
-        if (linePlaneIntersect(-pos, -oldpos, space.verts[face.indices[3]], space.verts[face.indices[1]], space.verts[face.indices[0]]))
+        if (linePlaneIntersect(pos, oldpos, space.verts[face.indices[3]], space.verts[face.indices[1]], space.verts[face.indices[0]]))
         {
           writefln("intersected face %d", faceIndex);
           if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
@@ -417,7 +419,7 @@ class Camera
              * at the correct position. We also need to adjust our orientation.
              */
             vec4 preTransformPos4 = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
-            vec4 pos = preTransformPos4 * face.data.remote.v.transform;
+            vec4 pos = preTransformPos4 * face.data.remote.v.untransform;
             pos.x = pos.x / pos.w;
             pos.y = pos.y / pos.w;
             pos.z = pos.z / pos.w;
@@ -438,7 +440,7 @@ class Camera
             writeln("-op  vec: ", lookPos);
             writeln("transform: ", face.data.remote.v.transform);
             writefln("angle: %f", angle);
-            angle = atan2(lookPos.x, lookPos.z);
+            angle = atan2(lookPos.x, -lookPos.z);
             writefln("angle: %f new", angle);
 
             writefln("entered space %d", spaceID);
@@ -458,7 +460,7 @@ class Camera
     glPushMatrix();
     glLoadIdentity();
     glRotatef(angle/PI*180f, 0, 1, 0);
-    glTranslatef(pos.x, pos.y, pos.z);
+    glTranslatef(-pos.x, -pos.y, -pos.z);
     //glRotatef(spin, 0, 1, 0);
     //glRotatef(spin, 0.9701425001453318, 0.24253562503633294, 0);
 
