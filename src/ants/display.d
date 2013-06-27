@@ -2,13 +2,13 @@ module display;
 
 import ants.md5 : MD5Model, MD5Animation;
 import ants.escher : World, Camera;
-import std.stdio : writeln;
+import std.stdio : writeln, writefln;
 import std.string : toStringz;
 import derelict.sdl.sdl;
 import derelict.opengl.gl;
 import derelict.opengl.glu;
-import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
-import std.math : PI;
+import gl3n.linalg : vec2d, vec3d, vec4d;
+import std.math : PI, sin, cos;
 
 class Display
 {
@@ -23,7 +23,10 @@ class Display
     MD5Model model;
     MD5Animation anim;
     World world;
-    Camera camera;
+
+    int viewMode;
+    int actMode;
+    Camera camera1, camera3;
 
     void setupGL()
     {
@@ -50,7 +53,10 @@ class Display
       //anim = new MD5Animation(model, "monkey.md5anim");
 
       world = new World(mapfilename);
-      camera = new Camera(world, 0, vec3(0,0,0));
+      camera1 = new Camera(world, 0, vec3d(0,0,0));
+      camera3 = new Camera(world, 0, vec3d(0,0,0));
+      viewMode = 1;
+      actMode = 1;
 
       //model = new MD5Model("/home/donny/test-md5/test4.md5mesh");
       //anim = new MD5Animation(model, "/home/donny/test-md5/test4.md5anim");
@@ -101,8 +107,45 @@ class Display
 
     //anim.draw();
     //world.draw();
-    camera.update(delta);
-    camera.draw();
+    camera1.update(delta);
+    camera3.update(delta);
+
+    Camera otherCamera;
+    Camera currentCamera;
+    if (viewMode == 1)
+    {
+      currentCamera = camera1;
+      otherCamera = camera3;
+    }
+    else
+    {
+      currentCamera = camera3;
+      otherCamera = camera1;
+    }
+    currentCamera.draw();
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glRotatef(currentCamera.angle/PI*-180f, 0, 1, 0);
+    glTranslatef(-currentCamera.pos.x, -currentCamera.pos.y, -currentCamera.pos.z);
+
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glBegin(GL_LINES);
+
+    glColor3f(1, 0, 0);
+    vec3d v = otherCamera.pos;
+    glVertex3f(v.x, v.y, v.z);
+    v += vec3d(sin(otherCamera.angle), 0, cos(otherCamera.angle));
+    glColor3f(1, 1, 0);
+    glVertex3f(v.x, v.y, v.z);
+
+    glEnd();
+    glEnable(GL_DEPTH_TEST);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
 
     SDL_GL_SwapBuffers();
 
@@ -114,6 +157,12 @@ class Display
 
   bool event()
   {
+    Camera vcamera;
+    if (actMode == 1)
+      vcamera = camera1;
+    else
+      vcamera = camera3;
+
     bool isRunning = true;
     SDL_Event event;
     while (SDL_PollEvent(&event))
@@ -125,24 +174,55 @@ class Display
           break;
         case SDL_KEYDOWN:
         case SDL_KEYUP:
-          float f = 0f;
-          if (event.key.keysym.sym == SDLK_w)
-            f = 3f;
-          else if (event.key.keysym.sym == SDLK_s)
-            f = -3f;
-          if (f != 0f)
+          switch (event.key.keysym.sym)
           {
-            camera.vel += event.type == SDL_KEYDOWN ? f : -f;
-          }
+            default:break;
+            case SDLK_q:
+            case SDLK_ESCAPE:
+              isRunning = false;
+              break;
+            case SDLK_w:
+            case SDLK_s:
+            case SDLK_a:
+            case SDLK_d:
+              float f = 0f;
+              if (event.key.keysym.sym == SDLK_w)
+                f = -3f;
+              else if (event.key.keysym.sym == SDLK_s)
+                f = 3f;
+              if (f != 0f)
+              {
+                vcamera.vel += event.type == SDL_KEYDOWN ? f : -f;
+              }
 
-          f = 0f;
-          if (event.key.keysym.sym == SDLK_a)
-            f = -PI;
-          else if (event.key.keysym.sym == SDLK_d)
-            f = PI;
-          if (f != 0f)
-          {
-            camera.turnRate += event.type == SDL_KEYDOWN ? f : -f;
+              f = 0f;
+              if (event.key.keysym.sym == SDLK_a)
+                f = PI;
+              else if (event.key.keysym.sym == SDLK_d)
+                f = -PI;
+              if (f != 0f)
+              {
+                vcamera.turnRate += event.type == SDL_KEYDOWN ? f : -f;
+              }
+              break;
+            case SDLK_v:
+              if (event.type == SDL_KEYUP)
+                break;
+              if (viewMode == 1)
+                viewMode = 3;
+              else
+                viewMode = 1;
+              writefln("[camera] view mode set to %d", viewMode);
+              break;
+            case SDLK_b:
+              if (event.type == SDL_KEYUP)
+                break;
+              if (actMode == 1)
+                actMode = 3;
+              else
+                actMode = 1;
+              writefln("[camera] act mode set to %d", actMode);
+              break;
           }
         default:
           break;

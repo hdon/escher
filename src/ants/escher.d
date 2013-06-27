@@ -1,22 +1,23 @@
 module ants.escher;
 import derelict.opengl.gl;
-import gl3n.linalg : vec2, vec3, vec4, mat4, quat, dot, cross;
+import gl3n.linalg : vec2d, vec3d, vec4d, Matrix, quat, dot, cross;
 import std.conv;
 import gl3n.interpolate : lerp;
-import std.math : sqrt, PI, sin, cos, atan2, isNaN;
+import std.math : sqrt, PI, sin, cos, atan2, isNaN, abs;
 import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
 import std.typecons : Tuple;
 import std.algorithm : sort;
 debug import std.stdio : writeln, writefln;
+alias Matrix!(double, 4, 4) mat4;
 
 private struct Ray
 {
-  vec3 pos;
-  vec4 orient;
+  vec3d pos;
+  vec4d orient;
 
-  /*this(vec3 pos, quat orient)
+  /*this(vec3d pos, quat orient)
   {
     this.pos = pos;
     this.orient = orient;
@@ -24,13 +25,13 @@ private struct Ray
 
   this(float px, float py, float pz, float ow, float ox, float oy, float oz)
   {
-    this.pos = vec3(px, py, pz);
+    this.pos = vec3d(px, py, pz);
     this.orient = quat(ow, ox, oy, oz);
   }
 
   this(float px, float py, float pz, float ox, float oy, float oz)
   {
-    this.pos = vec3(px, py, pz);
+    this.pos = vec3d(px, py, pz);
     this.orient = quat(0, ox, oy, oz);
   }*/
 }
@@ -75,7 +76,7 @@ class Face
 class Space
 {
   int       id;
-  vec3[]    verts;
+  vec3d[]    verts;
   Face[]    faces;
 }
 
@@ -140,7 +141,7 @@ class World
           enforce(words[0] == "vert", "expected vert");
           enforce(to!size_t(words[1]) == space.verts.length, "verts disorganized");
 
-          space.verts ~= vec3(
+          space.verts ~= vec3d(
             to!float(words[2]),
             to!float(words[3]),
             to!float(words[4]));
@@ -173,15 +174,15 @@ class World
             face.data.remote.v.spaceID = remoteSpaceID;
             if (remoteSpaceID >= 0)
             {
-              vec3 translation;
+              vec3d translation;
 
               bool hasRotation = false;
-              vec3 rotationAxis;
+              vec3d rotationAxis;
               float rotationAngle;
 
               // TODO scaling
 
-              translation = vec3(
+              translation = vec3d(
                 to!float(words[8]),
                 to!float(words[9]),
                 to!float(words[10]));
@@ -193,7 +194,7 @@ class World
                 hasRotation = true;
 
                 rotationAngle = to!float(words[12]) / 180f * PI;
-                rotationAxis = vec3(to!float(words[13]),
+                rotationAxis = vec3d(to!float(words[13]),
                                     to!float(words[14]),
                                     to!float(words[15]));
               }
@@ -239,11 +240,13 @@ class World
     }
   }
 
+  bool showRemoteFaces = false;
+
   // TODO TODO TODO TODO TODO TODO 
   // What I am working on right now:
   // I am about to turn the transform argument of drawSpace() into a mat4.
   // I will need to use the orient field of the face.data.remote.v.remoteReferenceRay.
-  // The orient field has been changed to a vec4. It is actually an xyz vector and
+  // The orient field has been changed to a vec4d. It is actually an xyz vector and
   // an angle (radians?) In the file format, I want to load degrees, so I should translate
   // them to radians at load time.
   // I am exploring how to create the matrix properly using the gl3n source code.
@@ -268,8 +271,8 @@ class World
 
         foreach (vi; face.indices)
         {
-          vec3 v = space.verts[vi];
-          vec4 V = vec4(v.x, v.y, v.z, 1f);
+          vec3d v = space.verts[vi];
+          vec4d V = vec4d(v.x, v.y, v.z, 1f);
           V = V * transform;
           //V = V.normalized;
           glVertex3f(V.x/V.w, V.y/V.w, V.z/V.w);
@@ -277,6 +280,31 @@ class World
       }
       else if (face.data.type == FaceType.Remote)
       {
+        // This is awful, but i can fix this later, it's just debug code
+        if (showRemoteFaces)
+        {
+          glEnd();
+          glEnable(GL_BLEND);
+          glDisable(GL_DEPTH_TEST);
+          glDepthMask(GL_FALSE);
+          glBlendFunc(GL_ONE, GL_ONE);
+          glColor3f(.3, 0, .3);
+          glBegin(GL_QUADS);
+
+          foreach (vi; face.indices)
+          {
+            vec3d v = space.verts[vi];
+            vec4d V = vec4d(v.x, v.y, v.z, 1f);
+            V = V * transform;
+            glVertex3f(V.x/V.w, V.y/V.w, V.z/V.w);
+          }
+
+          glEnd();
+          glDepthMask(GL_TRUE);
+          glDisable(GL_BLEND);
+          glBegin(GL_QUADS);
+        }
+
         int nextSpaceID = face.data.remote.v.spaceID;
         if (descend && nextSpaceID != size_t.max && nextSpaceID != prevSpaceID)
         {
@@ -293,36 +321,119 @@ class World
   }
 }
 
-vec3 getTriangleNormal(vec3 a, vec3 b, vec3 c)
+vec3d getTriangleNormal(vec3d a, vec3d b, vec3d c)
 {
   // TODO is order correct?
   return cross(b-a, c-a);
 }
 
+void SUB(ref vec3d dest, ref vec3d v1, ref vec3d v2)
+{
+  dest.x=v1.x-v2.x;
+  dest.y=v1.y-v2.y;
+  dest.z=v1.z-v2.z; 
+}
+void CROSS(ref vec3d dest, ref vec3d v1, ref vec3d v2)
+{
+  dest.x=v1.y*v2.z-v1.z*v2.y;
+  dest.y=v1.z*v2.x-v1.x*v2.z;
+  dest.z=v1.x*v2.y-v1.y*v2.x;
+}
+double DOT(ref vec3d v1, ref vec3d v2)
+{
+  return v1.x*v2.x+v1.y*v2.y+v1.z*v2.z;
+}
+bool rayTriangleIntersect(vec3d orig, vec3d dir, vec3d vert0, vec3d vert1, vec3d vert2, ref vec3d rval)
+{
+  const double EPSILON = 0.000001;
+
+  vec3d edge1, edge2, tvec, pvec, qvec, res;
+  double det,inv_det;
+
+  /* find vectors for two edges sharing vert0 */
+  SUB(edge1, vert1, vert0);
+  SUB(edge2, vert2, vert0);
+
+  /* begin calculating determinant - also used to calculate U parameter */
+  CROSS(pvec, dir, edge2);
+
+  /* if determinant is near zero, ray lies in plane of triangle */
+  det = DOT(edge1, pvec);
+
+  /* calculate distance from vert0 to ray origin */
+  SUB(tvec, orig, vert0);
+  inv_det = 1.0 / det;
+
+  CROSS(qvec, tvec, edge1);
+
+  if (det > EPSILON)
+  {
+    res.u = DOT(tvec, pvec);
+    if (res.u < 0.0 || res.u > det)
+      return false;
+
+    /* calculate V parameter and test bounds */
+    res.v = DOT(dir, qvec);
+    if (res.v < 0.0 || res.u + res.v > det)
+      return false;
+
+  }
+  else if(det < -EPSILON)
+  {
+    /* calculate U parameter and test bounds */
+    res.u = DOT(tvec, pvec);
+    if (res.u > 0.0 || res.u < det)
+      return false;
+
+    /* calculate V parameter and test bounds */
+    res.v = DOT(dir, qvec) ;
+    if (res.v > 0.0 || res.u + res.v < det)
+      return false;
+  }
+  else return false;  /* ray is parallell to the plane of the triangle */
+
+  res.t = DOT(edge2, qvec) * inv_det;
+  res.u = res.u * inv_det;
+  res.v = res.v * inv_det;
+
+  rval = res;
+  writefln("rayTriangleIntersect() success: d:%f (%f, %f)", res.t, res.u, res.v);
+  return 1;
+}
+
+bool passThruTest(vec3d orig, vec3d dir, vec3d vert0, vec3d vert1, vec3d vert2, double d)
+{
+  vec3d triix;
+  if (!rayTriangleIntersect(orig, dir, vert0, vert1, vert2, triix))
+    return false;
+
+  // XXX not really sure that this works...
+  return triix.t > 0f && triix.t < d;
+}
+
 /* XXX I am now using code that I don't understand
  *     need to brush up and see exactly how it works.
  */
-bool linePlaneIntersect(vec3 lineStart, vec3 lineEnd, vec3 planeOrigin, vec3 axisA, vec3 axisB)
+bool linePlaneIntersect(vec3d lineStart, vec3d lineEnd, vec3d planeOrigin, vec3d axisA, vec3d axisB)
 {
-  vec3 originToaxisA = axisA - planeOrigin;
-  vec3 originToaxisB = axisB - planeOrigin;
+  vec3d originToaxisA = axisA - planeOrigin;
+  vec3d originToaxisB = axisB - planeOrigin;
 
-  vec3 planeX = axisA;
+  vec3d planeNormal = cross(originToaxisA, originToaxisB).normalized;
 
-  vec3 planeNormal = cross(originToaxisA, originToaxisB).normalized;
-
-  vec3 planeY = cross(planeNormal, originToaxisB).normalized;
+  vec3d planeX = cross(planeNormal, originToaxisA).normalized;
+  vec3d planeY = cross(planeNormal, originToaxisB).normalized;
   planeY = planeY * dot(originToaxisB, planeY);
 
   // line Info
-  vec3 lineOrigin = lineStart;
+  vec3d lineOrigin = lineStart;
 
-  vec3 lineSegment = lineEnd - lineStart;
-  vec3 lineNormal = (lineEnd - lineStart).normalized;
+  vec3d lineSegment = lineEnd - lineStart;
+  vec3d lineNormal = (lineEnd - lineStart).normalized;
 
   // This finds the distance along the orginal line, where line and plane meet, multiply with the lines normal vector to get position 
   float distance = dot(planeOrigin - lineOrigin, planeNormal) / dot(lineNormal, planeNormal);
-  vec3 linePlaneIntersection = lineStart + lineNormal * distance;
+  vec3d linePlaneIntersection = lineStart + lineNormal * distance;
 
   // line before lineStart no collision
   if (distance < 0)
@@ -357,21 +468,21 @@ class Camera
   World world;
   int spaceID;
 
-  vec3 pos;
-  vec3 orient;
+  vec3d pos;
+  vec3d orient;
   float angle;
 
   float vel;
   float turnRate;
 
-  this(World world, int spaceID, vec3 pos)
+  this(World world, int spaceID, vec3d pos)
   {
     this.world = world;
     this.spaceID = spaceID;
     this.pos = pos;
     this.vel = 0f;
     this.angle = 0f;
-    this.orient = vec3(0,0,0);
+    this.orient = vec3d(0,0,0);
     this.turnRate = 0f;
   }
 
@@ -379,13 +490,14 @@ class Camera
   {
     //writeln("position:", pos);
     // Remember old position for intersection tests
-    vec3 oldpos = pos;
+    vec3d oldpos = pos;
 
     // Nudge position and orientation
     float deltaf = delta/1000f;
     angle += turnRate * deltaf;
-    orient = vec3(-sin(angle), 0, cos(angle));
-    pos += orient * (vel * deltaf);
+    orient = vec3d(-sin(angle), 0, cos(angle));
+    vec3d movement = orient * (vel * deltaf);
+    pos += movement;
 
     // Keep orientation inside 0-2pi
     while (angle < 0.0)
@@ -396,6 +508,7 @@ class Camera
     /* Intersect space faces */
     if (oldpos != pos)
     {
+      //writefln("[intersections] op:%s d:%f", oldpos, movement.length);
       Space space = world.spaces[spaceID];
       foreach (faceIndex, face; space.faces)
       {
@@ -404,7 +517,20 @@ class Camera
          *          SOMEWHERE but i have no idea where. For now I will leave it like this but
          *          this problem needs to be solved!
          */
-        if (linePlaneIntersect(-pos, -oldpos, space.verts[face.indices[3]], space.verts[face.indices[1]], space.verts[face.indices[0]]))
+        vec3d intersection;
+        int tris = 0;
+
+        if (passThruTest(oldpos, movement.normalized, space.verts[face.indices[0]], space.verts[face.indices[1]], space.verts[face.indices[3]], movement.length))
+        {
+          tris += 1;
+        }
+        if (passThruTest(oldpos, movement.normalized, space.verts[face.indices[2]], space.verts[face.indices[3]], space.verts[face.indices[1]], movement.length))
+        {
+          tris += 10;
+        }
+        //writefln("intersection: face %d tris: %02d", faceIndex, tris);
+
+        if (tris)
         {
           writefln("intersected face %d", faceIndex);
           if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
@@ -416,8 +542,8 @@ class Camera
              * We must adjust our own coordinates so that we enter the space
              * at the correct position. We also need to adjust our orientation.
              */
-            vec4 preTransformPos4 = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
-            vec4 pos = preTransformPos4 * face.data.remote.v.transform;
+            vec4d preTransformPos4 = vec4d(this.pos.x, this.pos.y, this.pos.z, 1f);
+            vec4d pos = preTransformPos4 * face.data.remote.v.transform;
             pos.x = pos.x / pos.w;
             pos.y = pos.y / pos.w;
             pos.z = pos.z / pos.w;
@@ -425,7 +551,7 @@ class Camera
             this.pos.y = pos.y;
             this.pos.z = pos.z;
 
-            vec4 lookPos = vec4(sin(angle), 0, cos(angle), 0f) + preTransformPos4;
+            vec4d lookPos = vec4d(sin(angle), 0, cos(angle), 0f) + preTransformPos4;
             writeln("old  vec: ", oldpos);
             writeln("look vec: ", lookPos);
             lookPos = lookPos * face.data.remote.v.transform;
