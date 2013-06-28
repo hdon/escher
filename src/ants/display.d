@@ -7,8 +7,14 @@ import std.string : toStringz;
 import derelict.sdl.sdl;
 import derelict.opengl.gl;
 import derelict.opengl.glu;
-import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
+import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.math : PI;
+
+alias Vector!(double, 2) vec2;
+alias Vector!(double, 3) vec3;
+alias Vector!(double, 4) vec4;
+alias Matrix!(double, 4, 4) mat4;
+alias Quaternion!(double) quat;
 
 class Display
 {
@@ -125,6 +131,12 @@ class Display
           break;
         case SDL_KEYDOWN:
         case SDL_KEYUP:
+          if (event.key.keysym.sym == SDLK_ESCAPE)
+          {
+            isRunning = false;
+            break;
+          }
+
           float f = 0f;
           // right-handed system means forward = -z
           if (event.key.keysym.sym == SDLK_w)
@@ -138,9 +150,9 @@ class Display
 
           f = 0f;
           if (event.key.keysym.sym == SDLK_a)
-            f = -PI;
-          else if (event.key.keysym.sym == SDLK_d)
             f = PI;
+          else if (event.key.keysym.sym == SDLK_d)
+            f = -PI;
           if (f != 0f)
           {
             camera.turnRate += event.type == SDL_KEYDOWN ? f : -f;

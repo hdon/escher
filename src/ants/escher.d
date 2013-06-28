@@ -1,6 +1,6 @@
 module ants.escher;
 import derelict.opengl.gl;
-import gl3n.linalg : vec2, vec3, vec4, mat4, quat, dot, cross;
+import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.conv;
 import gl3n.interpolate : lerp;
 import std.math : sqrt, PI, sin, cos, atan2, isNaN;
@@ -10,6 +10,12 @@ import file = std.file;
 import std.typecons : Tuple;
 import std.algorithm : sort;
 debug import std.stdio : writeln, writefln;
+
+alias Vector!(double, 2) vec2;
+alias Vector!(double, 3) vec3;
+alias Vector!(double, 4) vec4;
+alias Matrix!(double, 4, 4) mat4;
+alias Quaternion!(double) quat;
 
 private struct Ray
 {
@@ -385,7 +391,7 @@ class Camera
     // Nudge position and orientation
     float deltaf = delta/1000f;
     angle += turnRate * deltaf;
-    orient = vec3(-sin(angle), 0, cos(angle));
+    orient = vec3(sin(angle), 0, cos(angle));
     pos += orient * (vel * deltaf);
 
     // Keep orientation inside 0-2pi
@@ -427,7 +433,7 @@ class Camera
             this.pos.y = pos.y;
             this.pos.z = pos.z;
 
-            vec4 lookPos = vec4(sin(angle), 0, cos(angle), 0f) + preTransformPos4;
+            vec4 lookPos = vec4(orient.x, orient.y, orient.z, 0f) + preTransformPos4;
             writeln("old  vec: ", oldpos);
             writeln("look vec: ", lookPos);
             lookPos = lookPos * face.data.remote.v.transform;
@@ -440,7 +446,7 @@ class Camera
             writeln("-op  vec: ", lookPos);
             writeln("transform: ", face.data.remote.v.transform);
             writefln("angle: %f", angle);
-            angle = atan2(lookPos.x, -lookPos.z);
+            //angle = atan2(lookPos.x, -lookPos.z);
             writefln("angle: %f new", angle);
 
             writefln("entered space %d", spaceID);
@@ -459,7 +465,7 @@ class Camera
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
-    glRotatef(angle/PI*180f, 0, 1, 0);
+    glRotatef(-angle/PI*180f, 0, 1, 0);
     glTranslatef(-pos.x, -pos.y, -pos.z);
     //glRotatef(spin, 0, 1, 0);
     //glRotatef(spin, 0.9701425001453318, 0.24253562503633294, 0);
