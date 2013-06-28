@@ -358,6 +358,93 @@ bool linePlaneIntersect(vec3 lineStart, vec3 lineEnd, vec3 planeOrigin, vec3 axi
   // linePlaneIntersection lies inside the plane x and plane y
   return true;
 }
+void SUB(ref vec3 dest, ref vec3 v1, ref vec3 v2)
+{
+  dest.x=v1.x-v2.x;
+  dest.y=v1.y-v2.y;
+  dest.z=v1.z-v2.z; 
+}
+void CROSS(ref vec3 dest, ref vec3 v1, ref vec3 v2)
+{
+  dest.x=v1.y*v2.z-v1.z*v2.y;
+  dest.y=v1.z*v2.x-v1.x*v2.z;
+  dest.z=v1.x*v2.y-v1.y*v2.x;
+}
+double DOT(ref vec3 v1, ref vec3 v2)
+{
+  return v1.x*v2.x+v1.y*v2.y+v1.z*v2.z;
+}
+bool rayTriangleIntersect(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert2, ref vec3 rval)
+{
+  const double EPSILON = 0.000001;
+
+  vec3 edge1, edge2, tvec, pvec, qvec, res;
+  double det,inv_det;
+
+  /* find vectors for two edges sharing vert0 */
+  SUB(edge1, vert1, vert0);
+  SUB(edge2, vert2, vert0);
+
+  /* begin calculating determinant - also used to calculate U parameter */
+  CROSS(pvec, dir, edge2);
+
+  /* if determinant is near zero, ray lies in plane of triangle */
+  det = DOT(edge1, pvec);
+
+  /* calculate distance from vert0 to ray origin */
+  SUB(tvec, orig, vert0);
+  inv_det = 1.0 / det;
+
+  CROSS(qvec, tvec, edge1);
+
+  if (det > EPSILON)
+  {
+    res.u = DOT(tvec, pvec);
+    if (res.u < 0.0 || res.u > det)
+      return false;
+
+    /* calculate V parameter and test bounds */
+    res.v = DOT(dir, qvec);
+    if (res.v < 0.0 || res.u + res.v > det)
+      return false;
+
+  }
+  else if(det < -EPSILON)
+  {
+    /* calculate U parameter and test bounds */
+    res.u = DOT(tvec, pvec);
+    if (res.u > 0.0 || res.u < det)
+      return false;
+
+    /* calculate V parameter and test bounds */
+    res.v = DOT(dir, qvec) ;
+    if (res.v > 0.0 || res.u + res.v < det)
+      return false;
+  }
+  else return false;  /* ray is parallell to the plane of the triangle */
+
+  // NOTE this dot product appears to be the world-space distance that i want
+  //      from the ray's intersection point with the plane of the triangle.
+  //      i'm not sure what purpose the inv_det multiplication serves.
+  //res.t = DOT(edge2, qvec) * inv_det;
+  res.t = DOT(edge2, qvec);
+  res.u = res.u * inv_det;
+  res.v = res.v * inv_det;
+
+  rval = res;
+  writefln("rayTriangleIntersect() success: d:%f (%f, %f)", res.t, res.u, res.v);
+  return 1;
+}
+
+bool passThruTest(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert2, double d)
+{
+  vec3 triix;
+  if (!rayTriangleIntersect(orig, dir, vert0, vert1, vert2, triix))
+    return false;
+
+  // XXX not really sure that this works...
+  return triix.t > 0f && triix.t < d;
+}
 
 class Camera
 {
@@ -392,7 +479,8 @@ class Camera
     float deltaf = delta/1000f;
     angle += turnRate * deltaf;
     orient = vec3(sin(angle), 0, cos(angle));
-    pos += orient * (vel * deltaf);
+    vec3 movement = orient * (vel * deltaf);
+    pos += movement;
 
     // Keep orientation inside 0-2pi
     while (angle < 0.0)
@@ -404,15 +492,26 @@ class Camera
     /* Intersect space faces */
     if (oldpos != pos)
     {
+      writeln("movement.length = ", movement.length, " but also = ", (pos-oldpos).length);
       Space space = world.spaces[spaceID];
       foreach (faceIndex, face; space.faces)
       {
+        int tris = 0;
         /* TODO support arbitrary polygon faces */
         /* TODO XXX i have inverted pos and oldpos here because it fixes some polarity problem
          *          SOMEWHERE but i have no idea where. For now I will leave it like this but
          *          this problem needs to be solved!
          */
-        if (linePlaneIntersect(pos, oldpos, space.verts[face.indices[3]], space.verts[face.indices[1]], space.verts[face.indices[0]]))
+        if (passThruTest(oldpos, movement.normalized, space.verts[face.indices[0]], space.verts[face.indices[1]], space.verts[face.indices[3]], movement.length))
+        {
+          tris += 1;
+        }
+        if (passThruTest(oldpos, movement.normalized, space.verts[face.indices[2]], space.verts[face.indices[3]], space.verts[face.indices[1]], movement.length))
+        {
+          tris += 10;
+        }
+
+        if (tris)
         {
           writefln("intersected face %d", faceIndex);
           if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
