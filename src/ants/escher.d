@@ -436,7 +436,7 @@ class Camera
             vec4 lookPos = vec4(orient.x, orient.y, orient.z, 0f) + preTransformPos4;
             writeln("old  vec: ", oldpos);
             writeln("look vec: ", lookPos);
-            lookPos = lookPos * face.data.remote.v.transform;
+            lookPos = lookPos * face.data.remote.v.untransform;
             writeln("new  vec: ", lookPos);
             lookPos.x = lookPos.x / lookPos.w;
             lookPos.y = lookPos.y / lookPos.w;
@@ -446,7 +446,7 @@ class Camera
             writeln("-op  vec: ", lookPos);
             writeln("transform: ", face.data.remote.v.transform);
             writefln("angle: %f", angle);
-            //angle = atan2(lookPos.x, -lookPos.z);
+            angle = atan2(lookPos.x, lookPos.z);
             writefln("angle: %f new", angle);
 
             writefln("entered space %d", spaceID);
