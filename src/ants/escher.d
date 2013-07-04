@@ -17,6 +17,13 @@ alias Vector!(double, 4) vec4;
 alias Matrix!(double, 4, 4) mat4;
 alias Quaternion!(double) quat;
 
+struct Tri
+{
+  vec3 a;
+  vec3 b;
+  vec3 c;
+}
+
 private struct Ray
 {
   vec3 pos;
@@ -91,6 +98,12 @@ private enum ParserMode
   expectSpace,
   expectVert,
   expectFace
+}
+
+vec3 xformVec(vec3 v, mat4 m)
+{
+  vec4 t = vec4(v.x, v.y, v.z, 1) * m;
+  return vec3(t.x/t.w, t.y/t.w, t.z/t.w);
 }
 
 class World
@@ -257,41 +270,70 @@ class World
   // There is also an example on line 681 of how to load a matrix from gl3n into opengl.
   // I'm not sure I need to do that yet, but it might be nice for when I have models
   // and shit to draw, and not just a handful of polygons per space.
-  void drawSpace(int spaceID, mat4 transform, size_t maxDepth, int prevSpaceID)
+  void drawSpace(int spaceID, mat4 transform, mat4 pmat, size_t maxDepth, int prevSpaceID)
   {
     Space space = spaces[spaceID];
     //writefln("[draw space]\t#%d d:%d", spaceID, maxDepth);
     maxDepth--;
     bool descend = maxDepth > 0;
+    vec3 lookVec = vec3(0.0, 0.0, 1.0);
 
     foreach (faceID, face; space.faces)
     {
+      vec4[4] verts;
+      vec3[4] inverts;
+      foreach (i, vi; face.indices)
+      {
+        inverts[i] = space.verts[vi];
+        vec3 v3 = space.verts[vi];
+        vec4 v4 = vec4(v3.x, v3.y, v3.z, 1);
+        writeln("vert s0: ", v4);
+        v4 = v4 * transform;
+        writeln("vert s1: ", v4);
+        v4 = v4 * pmat;
+        writeln("vert s2: ", v4);
+        //v4 = v4 * (1.0 / v4.w);
+        //writeln("vert s3: ", v4);
+        verts[i] = v4;
+      }
+      writeln("transform: ", transform);
+      writeln("in  verts: ", inverts);
+      writeln("out verts: ", verts);
+
       if (face.data.type == FaceType.SolidColor)
       {
-        glColor3ub(
-          face.data.solidColor.v[0],
-          face.data.solidColor.v[1],
-          face.data.solidColor.v[2]);
+        if (cullFace2(verts[0], verts[1], verts[2]))
+          glColor3ub(
+            255-face.data.solidColor.v[0],
+            255-face.data.solidColor.v[1],
+            255-face.data.solidColor.v[2]);
+        else
+          glColor3ub(
+            face.data.solidColor.v[0],
+            face.data.solidColor.v[1],
+            face.data.solidColor.v[2]);
 
-        foreach (vi; face.indices)
+        foreach (v; verts)
         {
-          vec3 v = space.verts[vi];
-          vec4 V = vec4(v.x, v.y, v.z, 1f);
-          V = V * transform;
-          //V = V.normalized;
-          glVertex3f(V.x/V.w, V.y/V.w, V.z/V.w);
+          //vec3 v = space.verts[vi];
+          //vec4 V = vec4(v.x, v.y, v.z, 1f);
+          //V = V * transform;
+          //glVertex3f(V.x/V.w, V.y/V.w, V.z/V.w);
+
+          glVertex4f(v.x, v.y, v.z, v.w);
         }
       }
       else if (face.data.type == FaceType.Remote)
       {
         int nextSpaceID = face.data.remote.v.spaceID;
-        if (descend && nextSpaceID != size_t.max && nextSpaceID != prevSpaceID)
+        if (descend && nextSpaceID != size_t.max)
         {
           //writefln("concatenating:\n%s", face.data.remote.v.transform);
           //writefln("            \tentering face: %d", faceID);
           drawSpace(
             nextSpaceID,
             transform * face.data.remote.v.transform,
+            pmat,
             maxDepth,
             spaceID);
         }
@@ -304,6 +346,96 @@ vec3 getTriangleNormal(vec3 a, vec3 b, vec3 c)
 {
   // TODO is order correct?
   return cross(b-a, c-a);
+}
+bool cullFace(vec3 look, Tri tri)
+{
+  auto theta = dot(look.normalized, cross((tri.b - tri.a).normalized, (tri.b - tri.c).normalized).normalized);
+  writefln("cullFace() tri=%s theta=%s", tri, theta);
+  return theta >= 0.0;
+}
+bool cullFace2(vec4 a, vec4 b, vec4 c)
+{
+  a = a * (1.0 / a.w);
+  b = b * (1.0 / b.w);
+  c = c * (1.0 / c.w);
+  auto f=a.x * b.y - a.y * b.x +
+         b.x * c.y - b.y * c.x +
+         c.x * a.y - c.y * a.x;
+  writefln("cullFace2() sez %s", f);
+  return f < 0;
+}
+/* Determines where a vector lies relative to the volume
+ * (-1, -1, -1), (1, 1, 0)
+ * a = vector
+ */
+ubyte vectorVsVolume(vec3 v)
+{
+  ubyte rval = 0;
+  if (v.x < -1)     rval |= 1;
+  else if (v.x > 1) rval |= 2;
+  if (v.y < -1)     rval |= 4;
+  else if (v.y > 1) rval |= 8;
+  if (v.z < -1)     rval |= 16;
+  else if (v.z > 1) rval |= 32;
+  return rval;
+}
+/* Clips a line segment to the volume (-1, -1, -1), (1, 1, 0)
+ */
+bool clipLineSegment(ref vec3 a, ref vec3 b)
+{
+  // Calculate slopes
+  vec3 m;
+  m.x = (a.x-b.x)
+  = vec3(a.x-b.x, a.y-b.y, a.z-b.z);
+
+  // Clip to plane x=-1
+  if (a.x < -1)
+  {
+    if (b.x < -1)
+      return false;
+    a.x = -1;
+  }
+  if (a.x < -1 && b.x < -1)
+    return false;
+  if (a.x <
+}
+/* Clips a triangle to the volume (-1, -1, -1), (1, 1, 0)
+ * Returns the number of triangles that result from the clipping.
+ * 0 if the entire triangle is outside of clip space.
+ * 1 if the entire triangle was inside clip space.
+ * 1 if two vertices of the triangle were outside clip space.
+ * 2 if one vertex of the triangle was outside clip space.
+ *
+ * Arguments:
+ *  t0 is the input triangle
+ *  t1 is a second triangle that my be generated by the function
+ *  c is the numeric index of the component to be tested (0, 1, 2)
+ *  lt is true if the plane clips vertexes less than it, false if greater than
+ */
+int planeClipsTriangle(ref vec3[3] t0, ref vec3[3] t1, int c, bool lt)
+{
+  bool clipped[3];
+  int nclipped = 0;
+  foreach (i, v; t0)
+  {
+    float x = t0[i].vector[c];
+    if (lt)
+    {
+      if (x < -1)
+      {
+        clipped[i] = true;
+        nclipped++;
+      }
+    }
+    else
+    {
+      if (x > 1)
+      {
+        clipped[i] = true;
+        nclipped++;
+      }
+    }
+  }
 }
 
 /* XXX I am now using code that I don't understand
@@ -358,22 +490,6 @@ bool linePlaneIntersect(vec3 lineStart, vec3 lineEnd, vec3 planeOrigin, vec3 axi
   // linePlaneIntersection lies inside the plane x and plane y
   return true;
 }
-void SUB(ref vec3 dest, ref vec3 v1, ref vec3 v2)
-{
-  dest.x=v1.x-v2.x;
-  dest.y=v1.y-v2.y;
-  dest.z=v1.z-v2.z; 
-}
-void CROSS(ref vec3 dest, ref vec3 v1, ref vec3 v2)
-{
-  dest.x=v1.y*v2.z-v1.z*v2.y;
-  dest.y=v1.z*v2.x-v1.x*v2.z;
-  dest.z=v1.x*v2.y-v1.y*v2.x;
-}
-double DOT(ref vec3 v1, ref vec3 v2)
-{
-  return v1.x*v2.x+v1.y*v2.y+v1.z*v2.z;
-}
 bool rayTriangleIntersect(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert2, ref vec3 rval)
 {
   const double EPSILON = 0.000001;
@@ -382,29 +498,29 @@ bool rayTriangleIntersect(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert
   double det,inv_det;
 
   /* find vectors for two edges sharing vert0 */
-  SUB(edge1, vert1, vert0);
-  SUB(edge2, vert2, vert0);
+  edge1 = vert1 - vert0;
+  edge2 = vert2 - vert0;
 
   /* begin calculating determinant - also used to calculate U parameter */
-  CROSS(pvec, dir, edge2);
+  pvec = cross(dir, edge2);
 
   /* if determinant is near zero, ray lies in plane of triangle */
-  det = DOT(edge1, pvec);
+  det = dot(edge1, pvec);
 
   /* calculate distance from vert0 to ray origin */
-  SUB(tvec, orig, vert0);
+  tvec = orig - vert0;
   inv_det = 1.0 / det;
 
-  CROSS(qvec, tvec, edge1);
+  qvec = cross(tvec, edge1);
 
   if (det > EPSILON)
   {
-    res.u = DOT(tvec, pvec);
+    res.u = dot(tvec, pvec);
     if (res.u < 0.0 || res.u > det)
       return false;
 
     /* calculate V parameter and test bounds */
-    res.v = DOT(dir, qvec);
+    res.v = dot(dir, qvec);
     if (res.v < 0.0 || res.u + res.v > det)
       return false;
 
@@ -412,12 +528,12 @@ bool rayTriangleIntersect(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert
   else if(det < -EPSILON)
   {
     /* calculate U parameter and test bounds */
-    res.u = DOT(tvec, pvec);
+    res.u = dot(tvec, pvec);
     if (res.u > 0.0 || res.u < det)
       return false;
 
     /* calculate V parameter and test bounds */
-    res.v = DOT(dir, qvec) ;
+    res.v = dot(dir, qvec) ;
     if (res.v > 0.0 || res.u + res.v < det)
       return false;
   }
@@ -426,13 +542,13 @@ bool rayTriangleIntersect(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert
   // NOTE this dot product appears to be the world-space distance that i want
   //      from the ray's intersection point with the plane of the triangle.
   //      i'm not sure what purpose the inv_det multiplication serves.
-  //res.t = DOT(edge2, qvec) * inv_det;
-  res.t = DOT(edge2, qvec);
+  //res.t = dot(edge2, qvec) * inv_det;
+  res.t = dot(edge2, qvec);
   res.u = res.u * inv_det;
   res.v = res.v * inv_det;
 
   rval = res;
-  writefln("rayTriangleIntersect() success: d:%f (%f, %f)", res.t, res.u, res.v);
+  //writefln("rayTriangleIntersect() success: d:%f (%f, %f)", res.t, res.u, res.v);
   return 1;
 }
 
@@ -492,7 +608,7 @@ class Camera
     /* Intersect space faces */
     if (oldpos != pos)
     {
-      writeln("movement.length = ", movement.length, " but also = ", (pos-oldpos).length);
+      //writeln("movement.length = ", movement.length, " but also = ", (pos-oldpos).length);
       Space space = world.spaces[spaceID];
       foreach (faceIndex, face; space.faces)
       {
@@ -558,14 +674,16 @@ class Camera
 
   void draw()
   {
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
+
+    // Instantiate projection matrix
+    mat4 pmat = mat4.perspective(800, 600, 90, 0.1, 100);
 
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
-    glRotatef(-angle/PI*180f, 0, 1, 0);
-    glTranslatef(-pos.x, -pos.y, -pos.z);
+    //glRotatef(-angle/PI*180f, 0, 1, 0);
+    //glTranslatef(-pos.x, -pos.y, -pos.z);
     //glRotatef(spin, 0, 1, 0);
     //glRotatef(spin, 0.9701425001453318, 0.24253562503633294, 0);
 
@@ -577,8 +695,23 @@ class Camera
     glEnd();
     */
 
+
+    glMatrixMode(GL_PROJECTION);
+    glOrtho(-1, 1, -1, 1, -1, 0);
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glDisable(GL_BLEND);
+
+    glEnable(GL_DEPTH_TEST);
+    glClearDepth(1);
+    glDepthFunc(GL_LESS);
+
     glBegin(GL_QUADS);
-    world.drawSpace(spaceID, mat4.identity, 3, -1);
+    mat4 mvmat = mat4.translation(-pos.x, -pos.y, -pos.z);
+    mvmat.rotate(angle, vec3(0,1,0));
+    world.drawSpace(spaceID, mvmat, pmat, 3, -1);
     glEnd();
 
     glMatrixMode(GL_MODELVIEW);

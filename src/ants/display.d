@@ -2,7 +2,7 @@ module display;
 
 import ants.md5 : MD5Model, MD5Animation;
 import ants.escher : World, Camera;
-import std.stdio : writeln;
+import std.stdio : writeln, writefln;
 import std.string : toStringz;
 import derelict.sdl.sdl;
 import derelict.opengl.gl;
@@ -35,7 +35,8 @@ class Display
     {
       glMatrixMode(GL_PROJECTION);
       glLoadIdentity();
-      gluPerspective(fov, cast(float)width/height, znear, zfar);
+      //gluPerspective(fov, cast(float)width/height, znear, zfar);
+      glOrtho(-1, 1, -1, 1, -1, 1);
       glMatrixMode(GL_MODELVIEW);
       glLoadIdentity();
       glDisable(GL_DEPTH_TEST);
@@ -113,7 +114,11 @@ class Display
     SDL_GL_SwapBuffers();
 
     GLenum err = glGetError();
-    assert(err == 0);
+    if (err)
+    {
+      writefln("error: opengl: %s", err);
+      assert(0);
+    }
 
     lastFrame = t;
   }
