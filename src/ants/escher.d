@@ -3,13 +3,18 @@ import derelict.opengl.gl;
 import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.conv;
 import gl3n.interpolate : lerp;
-import std.math : sqrt, PI, sin, cos, atan2, isNaN;
+import std.math : sqrt, PI, sin, cos, atan2, isNaN, abs;
 import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
 import std.typecons : Tuple;
 import std.algorithm : sort;
 debug import std.stdio : writeln, writefln;
+
+// TODO look this up
+// http://www.opengl.org/registry/specs/ARB/depth_clamp.txt
+// this might help deal with the issue of portal rendering when the portal face
+// intersects the near viewing plane
 
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
@@ -22,6 +27,132 @@ struct Tri
   vec3 a;
   vec3 b;
   vec3 c;
+}
+
+private struct Segment
+{
+  int a, b;
+}
+
+struct ClipVert4
+{
+  vec4 v;
+  bool visible;
+  float distance;
+  int occurs;
+}
+
+struct ClipPlane4
+{
+  vec4 normal;
+}
+
+version (polygonclipper)
+{
+  private struct Polygon4
+  {
+    vec4 points[];
+    Segment edges[];
+
+    /* Constructor argument is an ordered list of points in the
+     * polygon. Edges are inferred from this data.
+     */
+    this(vec4[] data)
+    {
+      points.reserve(data.length);
+      edges.reserve(data.length);
+      foreach (i, v; data)
+      {
+        points ~= v;
+        edges ~= Segment(i, (i+1) % data.length);
+      }
+    }
+
+    /* Clips against default view frustum.
+     */
+    bool clip()
+    {
+    }
+
+    /* David Eberly "Clipping a Mesh Against a Plane"
+     */
+    bool planeClip()
+    {
+      ClipPlane clipPlane;
+      ClipVert[points.length] verts;
+      int negative;
+      int positive;
+
+      foreach (i, v; points)
+      {
+        verts[i].v = v;
+        verts[i].visible = true;
+      }
+
+      foreach (vi, ref v; points)
+      {
+        if (v.visible)
+        {
+          double distance = dot(clipPlane.normal, v.v,) - clipPlane.c;
+          if (distance >= epsilon)
+          {
+            positive++;
+          }
+          else if (distance <= -epsilon)
+          {
+            negative++;
+            v.visible = false;
+          }
+          else
+          {
+            v.distance = 0.0;
+          }
+        }
+      }
+
+      if (negative == 0)
+      {
+        // no vertices clipped
+        return true;
+      }
+
+      if (positive == 0)
+      {
+        // all vertices clipped
+        return false;
+      }
+
+      foreach (e; edges)
+      {
+        if (e.visible)
+        {
+          vec4 v0 = verts[e.a];
+          vec4 v1 = verts[e.b];
+          double d0 = v0.distance;
+          double d1 = v1.distance;
+          
+          if (d0 <= 0 && d1 <= 0)
+          {
+            e.visible = false;
+          }
+
+          if (d0 >= 0 && d1 >= 0)
+          {
+            continue;
+          }
+
+          double t = d0/(d0-d1);
+          vec4 intersect = (1-t) * v0.v + t * v1.v;
+          auto index = verts.length;
+          verts ~= intersect;
+          if (d0 > 0)
+            e.b = index;
+          else
+            e.a = index;
+        }
+      }
+    }
+  }
 }
 
 private struct Ray
@@ -104,6 +235,12 @@ vec3 xformVec(vec3 v, mat4 m)
 {
   vec4 t = vec4(v.x, v.y, v.z, 1) * m;
   return vec3(t.x/t.w, t.y/t.w, t.z/t.w);
+}
+
+struct ClippingVertex
+{
+  vec3  v;
+  bool  clipped;
 }
 
 class World
@@ -270,7 +407,9 @@ class World
   // There is also an example on line 681 of how to load a matrix from gl3n into opengl.
   // I'm not sure I need to do that yet, but it might be nice for when I have models
   // and shit to draw, and not just a handful of polygons per space.
-  void drawSpace(int spaceID, mat4 transform, mat4 pmat, size_t maxDepth, int prevSpaceID)
+  mat4 pmatPortal  = mat4.perspective(800, 600, 90, 0.00001, 100);
+  mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 100);
+  void drawSpace(int spaceID, mat4 transform, size_t maxDepth, int prevSpaceID)
   {
     Space space = spaces[spaceID];
     //writefln("[draw space]\t#%d d:%d", spaceID, maxDepth);
@@ -287,16 +426,16 @@ class World
         inverts[i] = space.verts[vi];
         vec3 v3 = space.verts[vi];
         vec4 v4 = vec4(v3.x, v3.y, v3.z, 1);
-        writeln("vert s0: ", v4);
+        //writeln("vert s0: ", v4);
         v4 = v4 * transform;
-        writeln("vert s1: ", v4);
-        v4 = v4 * pmat;
-        writeln("vert s2: ", v4);
+        //writeln("vert s1: ", v4);
+        v4 = v4 * pmatWorld;
+        //writeln("vert s2: ", v4);
         //v4 = v4 * (1.0 / v4.w);
         //writeln("vert s3: ", v4);
         verts[i] = v4;
       }
-      writeln("transform: ", transform);
+      writeln("modelview: ", transform);
       writeln("in  verts: ", inverts);
       writeln("out verts: ", verts);
 
@@ -313,7 +452,7 @@ class World
             face.data.solidColor.v[1],
             face.data.solidColor.v[2]);
 
-        foreach (v; verts)
+        foreach (v; verts[0..3])
         {
           //vec3 v = space.verts[vi];
           //vec4 V = vec4(v.x, v.y, v.z, 1f);
@@ -321,10 +460,18 @@ class World
           //glVertex3f(V.x/V.w, V.y/V.w, V.z/V.w);
 
           glVertex4f(v.x, v.y, v.z, v.w);
+          //v = clipAndPerspectiveDivide(v);
+          //glVertex2f(v.x, v.y);
         }
       }
       else if (face.data.type == FaceType.Remote)
       {
+        /* We want to calculate visibility of this portal. We may draw a
+         * blended quad here for debugging purposes, or we may use this
+         * data to determine visibility of this and subsequent spaces.
+         */
+        //Polygon3 polygon = Polygon3(verts);
+
         int nextSpaceID = face.data.remote.v.spaceID;
         if (descend && nextSpaceID != size_t.max)
         {
@@ -333,7 +480,6 @@ class World
           drawSpace(
             nextSpaceID,
             transform * face.data.remote.v.transform,
-            pmat,
             maxDepth,
             spaceID);
         }
@@ -355,15 +501,32 @@ bool cullFace(vec3 look, Tri tri)
 }
 bool cullFace2(vec4 a, vec4 b, vec4 c)
 {
-  a = a * (1.0 / a.w);
-  b = b * (1.0 / b.w);
-  c = c * (1.0 / c.w);
+  writeln("culling vert 0: ", a);
+  writeln("culling vert 1: ", b);
+  writeln("culling vert 2: ", c);
+
   auto f=a.x * b.y - a.y * b.x +
          b.x * c.y - b.y * c.x +
          c.x * a.y - c.y * a.x;
   writefln("cullFace2() sez %s", f);
   return f < 0;
 }
+
+version (fuckyou) {
+alias Tuple!(size_t,size_t) IndexPair;
+/* This function clips a polygon by a particular plane.
+ * Arguments:
+ *  P - the vertices of the polygon, in order. this will be modified by
+ *      clipping
+ * Returns false if the polygon is entirely clipped
+ */
+bool clipPolygon(vec3[] P, vec3 pn, vec3 pd)
+{
+  foreach (i, p; P)
+  {
+  }
+}
+
 /* Determines where a vector lies relative to the volume
  * (-1, -1, -1), (1, 1, 0)
  * a = vector
@@ -397,7 +560,7 @@ bool clipLineSegment(ref vec3 a, ref vec3 b)
   }
   if (a.x < -1 && b.x < -1)
     return false;
-  if (a.x <
+  //if (a.x <
 }
 /* Clips a triangle to the volume (-1, -1, -1), (1, 1, 0)
  * Returns the number of triangles that result from the clipping.
@@ -436,6 +599,7 @@ int planeClipsTriangle(ref vec3[3] t0, ref vec3[3] t1, int c, bool lt)
       }
     }
   }
+}
 }
 
 /* XXX I am now using code that I don't understand
@@ -676,12 +840,6 @@ class Camera
   {
     //glEnable(GL_CULL_FACE);
 
-    // Instantiate projection matrix
-    mat4 pmat = mat4.perspective(800, 600, 90, 0.1, 100);
-
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
     //glRotatef(-angle/PI*180f, 0, 1, 0);
     //glTranslatef(-pos.x, -pos.y, -pos.z);
     //glRotatef(spin, 0, 1, 0);
@@ -708,13 +866,10 @@ class Camera
     glClearDepth(1);
     glDepthFunc(GL_LESS);
 
-    glBegin(GL_QUADS);
+    glBegin(GL_TRIANGLES);
     mat4 mvmat = mat4.translation(-pos.x, -pos.y, -pos.z);
     mvmat.rotate(angle, vec3(0,1,0));
-    world.drawSpace(spaceID, mvmat, pmat, 3, -1);
+    world.drawSpace(spaceID, mvmat, 3, -1);
     glEnd();
-
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
   }
 }
