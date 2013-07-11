@@ -171,6 +171,22 @@ class Display
           break;
       }
     }
+
+    // mouse look update
+    int x, y;
+    int w = width;
+    int h = height;
+    SDL_ShowCursor(false);
+    SDL_GetMouseState(&x,&y);
+    SDL_WarpMouse(cast(ushort)(width/2),cast(ushort)(height/2));
+
+    double deltaYaw = (x-w/2)*-0.002;
+    double deltaPitch = (y-h/2)*-0.002;
+    //writefln("[MOUSE LOOK] %x %x %f %f", x, y, deltaYaw, deltaPitch);
+
+    camera.camYaw += deltaYaw;
+    camera.camPitch += deltaPitch;
+
     return isRunning;
   }
 }

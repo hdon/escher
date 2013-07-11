@@ -45,9 +45,10 @@ struct ClipVert4
 struct ClipPlane4
 {
   vec4 normal;
+  double c;
 }
 
-version (polygonclipper)
+version (never)
 {
   private struct Polygon4
   {
@@ -76,9 +77,8 @@ version (polygonclipper)
 
     /* David Eberly "Clipping a Mesh Against a Plane"
      */
-    bool planeClip()
+    bool planeClip(ClipPlane4 clipPlane)
     {
-      ClipPlane clipPlane;
       ClipVert[points.length] verts;
       int negative;
       int positive;
@@ -241,6 +241,163 @@ struct ClippingVertex
 {
   vec3  v;
   bool  clipped;
+}
+
+// THANKS GENA
+enum BoundaryBits {
+  NONE = 0,
+  BL = (1 << 0),
+  BR = (1 << 1),
+  BT = (1 << 2),
+  BB = (1 << 3),
+  BN = (1 << 4),
+  BF = (1 << 5),
+}
+
+BoundaryBits clipClassifyVertex(vec4 v)
+{
+  //writeln("classifying vector ", v);
+  BoundaryBits r;
+  if (v.w+v.x < 0)
+  {
+    writeln("w+x < 0");
+    r |= BoundaryBits.BL;
+  }
+  if (v.w-v.x < 0)
+  {
+    writeln("w-x < 0");
+    r |= BoundaryBits.BR;
+  }
+  if (v.w+v.y < 0)
+  {
+    writeln("w+y < 0");
+    r |= BoundaryBits.BT;
+  }
+  if (v.w-v.y < 0)
+  {
+    writeln("w-y < 0");
+    r |= BoundaryBits.BB;
+  }
+  if (v.z < 0)
+  {
+    writeln("z < 0");
+    r |= BoundaryBits.BN;
+  }
+  if (v.w-v.z < 0)
+  {
+    writeln("w-z < 0");
+    r |= BoundaryBits.BF;
+  }
+  return r;
+}
+
+bool clipSegment(ref vec4 a, ref vec4 b)
+{
+  BoundaryBits ac, bc;
+  
+  writeln("CLIPPING SEGMENT", a, b);
+
+  double t;
+
+  // ----- Planes: left and right
+  ac = clipClassifyVertex(a);
+  bc = clipClassifyVertex(b);
+
+  // Line segment completely visible
+  if ((ac | bc) == 0)
+    return true;
+
+  // Line segment trivially invisible
+  if ((ac & bc) != 0)
+    return false;
+
+  // plane w+x = 0
+  if (((ac | bc) & BoundaryBits.BL) != 0)
+  {
+    t = (a.w+a.x) / (a.w+a.x-b.w-b.x);
+    if (ac & BoundaryBits.BL)
+      a = (1-t)*a + t*b;
+    else
+      b = (1-t)*a + t*b;
+  }
+
+  // plane w-x = 0
+  if (((ac | bc) & BoundaryBits.BR) != 0)
+  {
+    t = (a.w-a.x) / (a.w-a.x-b.w+b.x);
+    if (ac & BoundaryBits.BR)
+      a = (1-t)*a + t*b;
+    else
+      b = (1-t)*a + t*b;
+  }
+
+  // ----- Planes: top and bottom
+  ac = clipClassifyVertex(a);
+  bc = clipClassifyVertex(b);
+
+  // Line segment completely visible
+  if ((ac | bc) == 0)
+    return true;
+
+  // Line segment trivially invisible
+  if ((ac & bc) != 0)
+    return false;
+
+  // plane w+y = 0
+  if (((ac | bc) & BoundaryBits.BT) != 0)
+  {
+    t = (a.w+a.y) / (a.w+a.y-b.w-b.y);
+    if (ac & BoundaryBits.BT)
+      a = (1-t)*a + t*b;
+    else
+      b = (1-t)*a + t*b;
+  }
+
+  // plane w-y = 0
+  if (((ac | bc) & BoundaryBits.BB) != 0)
+  {
+    t = (a.w-a.y) / (a.w-a.y-b.w+b.y);
+    if (ac & BoundaryBits.BB)
+      a = (1-t)*a + t*b;
+    else
+      b = (1-t)*a + t*b;
+  }
+
+  // ----- Planes: near and far
+  ac = clipClassifyVertex(a);
+  bc = clipClassifyVertex(b);
+
+  // Line segment completely visible
+  if ((ac | bc) == 0)
+    return true;
+
+  // Line segment trivially invisible
+  if ((ac & bc) != 0)
+    return false;
+
+  // plane z = 0
+  if (((ac | bc) & BoundaryBits.BN) != 0)
+  {
+    t = (a.z) / (a.z-b.z);
+    if (ac & BoundaryBits.BN)
+      a = (1-t)*a + t*b;
+    else
+      b = (1-t)*a + t*b;
+  }
+
+  // plane w-z = 0
+  if (((ac | bc) & BoundaryBits.BF) != 0)
+  {
+    t = (a.w-a.z) / (a.w-a.z-b.w+b.z);
+    if (ac & BoundaryBits.BF)
+      a = (1-t)*a + t*b;
+    else
+      b = (1-t)*a + t*b;
+  }
+
+  writeln("CLIPPED  SEGMENT", a, b);
+
+  return true;
 }
 
 class World
@@ -409,7 +566,7 @@ class World
   // and shit to draw, and not just a handful of polygons per space.
   mat4 pmatPortal  = mat4.perspective(800, 600, 90, 0.00001, 100);
   mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 100);
-  void drawSpace(int spaceID, mat4 transform, size_t maxDepth, int prevSpaceID)
+  void drawSpace(int spaceID, mat4 transform, size_t maxDepth, int prevSpaceID, int dmode)
   {
     Space space = spaces[spaceID];
     //writefln("[draw space]\t#%d d:%d", spaceID, maxDepth);
@@ -452,6 +609,7 @@ class World
             face.data.solidColor.v[1],
             face.data.solidColor.v[2]);
 
+        if (dmode == 0)
         foreach (v; verts[0..3])
         {
           //vec3 v = space.verts[vi];
@@ -459,9 +617,29 @@ class World
           //V = V * transform;
           //glVertex3f(V.x/V.w, V.y/V.w, V.z/V.w);
 
+          v *= 0.9;
           glVertex4f(v.x, v.y, v.z, v.w);
           //v = clipAndPerspectiveDivide(v);
           //glVertex2f(v.x, v.y);
+        }
+
+        if (dmode == 1)
+        {
+          glColor3ub(255, 0, 0);
+          foreach (i; 0..3)//, v; verts[0..3])
+          {
+            vec4 a = verts[i];
+            vec4 b = verts[(i+1)%3];
+            if (clipSegment(a, b))
+            {
+              a = a * (1.0 / a.w);
+              b = b * (1.0 / b.w);
+              a *= 0.9;
+              b *= 0.9;
+              glVertex2d(a.x, a.y);
+              glVertex2d(b.x, b.y);
+            }
+          }
         }
       }
       else if (face.data.type == FaceType.Remote)
@@ -481,7 +659,8 @@ class World
             nextSpaceID,
             transform * face.data.remote.v.transform,
             maxDepth,
-            spaceID);
+            spaceID,
+            dmode);
         }
       }
     }
@@ -733,7 +912,8 @@ class Camera
 
   vec3 pos;
   vec3 orient;
-  float angle;
+  double camYaw;
+  double camPitch;
 
   float vel;
   float turnRate;
@@ -744,9 +924,10 @@ class Camera
     this.spaceID = spaceID;
     this.pos = pos;
     this.vel = 0f;
-    this.angle = 0f;
     this.orient = vec3(0,0,0);
     this.turnRate = 0f;
+    this.camYaw = 0.0;
+    this.camPitch = 0.0;
   }
 
   void update(ulong delta)
@@ -755,18 +936,17 @@ class Camera
     // Remember old position for intersection tests
     vec3 oldpos = pos;
 
+    // Keep orientation inside 0-2pi
+    while (camYaw < 0.0)
+      camYaw += PI*2f;
+    while (camYaw >= PI*2f)
+      camYaw -= PI*2f;
+
     // Nudge position and orientation
     float deltaf = delta/1000f;
-    angle += turnRate * deltaf;
-    orient = vec3(sin(angle), 0, cos(angle));
+    orient = vec3(sin(camYaw), 0, cos(camYaw));
     vec3 movement = orient * (vel * deltaf);
     pos += movement;
-
-    // Keep orientation inside 0-2pi
-    while (angle < 0.0)
-      angle += PI*2f;
-    while (angle >= PI*2f)
-      angle -= PI*2f;
 
     //writefln("vel: %s turn: %s", vel, turnRate);
     /* Intersect space faces */
@@ -824,9 +1004,9 @@ class Camera
             lookPos = lookPos - pos;
             writeln("-op  vec: ", lookPos);
             writeln("transform: ", face.data.remote.v.transform);
-            writefln("angle: %f", angle);
-            angle = atan2(lookPos.x, lookPos.z);
-            writefln("angle: %f new", angle);
+            writefln("camYaw: %f", camYaw);
+            camYaw = atan2(lookPos.x, lookPos.z);
+            writefln("camYaw: %f new", camYaw);
 
             writefln("entered space %d", spaceID);
             break;
@@ -866,10 +1046,17 @@ class Camera
     glClearDepth(1);
     glDepthFunc(GL_LESS);
 
-    glBegin(GL_TRIANGLES);
     mat4 mvmat = mat4.translation(-pos.x, -pos.y, -pos.z);
-    mvmat.rotate(angle, vec3(0,1,0));
-    world.drawSpace(spaceID, mvmat, 3, -1);
+    mvmat.rotate(camYaw, vec3(0,1,0));
+    mvmat.rotate(camPitch, vec3(1,0,0));
+
+    glBegin(GL_TRIANGLES);
+    world.drawSpace(spaceID, mvmat, 3, -1, 0);
+    glEnd();
+
+    glDisable(GL_DEPTH_TEST);
+    glBegin(GL_LINES);
+    world.drawSpace(spaceID, mvmat, 3, -1, 1);
     glEnd();
   }
 }
