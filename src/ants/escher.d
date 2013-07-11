@@ -29,11 +29,6 @@ struct Tri
   vec3 c;
 }
 
-private struct Segment
-{
-  int a, b;
-}
-
 struct ClipVert4
 {
   vec4 v;
@@ -155,6 +150,31 @@ version (never)
   }
 }
 
+private struct Segment
+{
+  ulong a, b;
+}
+
+private struct Polygon4
+{
+  vec4 points[];
+  Segment edges[];
+
+  /* Constructor argument is an ordered list of points in the
+   * polygon. Edges are inferred from this data.
+   */
+  this(vec4[] data)
+  {
+    points.reserve(data.length);
+    edges.reserve(data.length);
+    foreach (i, v; data)
+    {
+      points ~= v;
+      edges ~= Segment(i, (i+1) % data.length);
+    }
+  }
+}
+
 private struct Ray
 {
   vec3 pos;
@@ -260,32 +280,32 @@ BoundaryBits clipClassifyVertex(vec4 v)
   BoundaryBits r;
   if (v.w+v.x < 0)
   {
-    writeln("w+x < 0");
+    //writeln("w+x < 0");
     r |= BoundaryBits.BL;
   }
   if (v.w-v.x < 0)
   {
-    writeln("w-x < 0");
+    //writeln("w-x < 0");
     r |= BoundaryBits.BR;
   }
   if (v.w+v.y < 0)
   {
-    writeln("w+y < 0");
+    //writeln("w+y < 0");
     r |= BoundaryBits.BT;
   }
   if (v.w-v.y < 0)
   {
-    writeln("w-y < 0");
+    //writeln("w-y < 0");
     r |= BoundaryBits.BB;
   }
   if (v.z < 0)
   {
-    writeln("z < 0");
+    //writeln("z < 0");
     r |= BoundaryBits.BN;
   }
   if (v.w-v.z < 0)
   {
-    writeln("w-z < 0");
+    //writeln("w-z < 0");
     r |= BoundaryBits.BF;
   }
   return r;
@@ -295,7 +315,7 @@ bool clipSegment(ref vec4 a, ref vec4 b)
 {
   BoundaryBits ac, bc;
   
-  writeln("CLIPPING SEGMENT", a, b);
+  //writeln("CLIPPING SEGMENT", a, b);
 
   double t;
 
@@ -395,7 +415,7 @@ bool clipSegment(ref vec4 a, ref vec4 b)
       b = (1-t)*a + t*b;
   }
 
-  writeln("CLIPPED  SEGMENT", a, b);
+  //writeln("CLIPPED  SEGMENT", a, b);
 
   return true;
 }
@@ -592,44 +612,35 @@ class World
         //writeln("vert s3: ", v4);
         verts[i] = v4;
       }
-      writeln("modelview: ", transform);
-      writeln("in  verts: ", inverts);
-      writeln("out verts: ", verts);
+      //writeln("modelview: ", transform);
+      //writeln("in  verts: ", inverts);
+      //writeln("out verts: ", verts);
 
       if (face.data.type == FaceType.SolidColor)
       {
-        if (cullFace2(verts[0], verts[1], verts[2]))
-          glColor3ub(
-            255-face.data.solidColor.v[0],
-            255-face.data.solidColor.v[1],
-            255-face.data.solidColor.v[2]);
-        else
+        if (dmode == 0)
+        {
           glColor3ub(
             face.data.solidColor.v[0],
             face.data.solidColor.v[1],
             face.data.solidColor.v[2]);
 
-        if (dmode == 0)
-        foreach (v; verts[0..3])
-        {
-          //vec3 v = space.verts[vi];
-          //vec4 V = vec4(v.x, v.y, v.z, 1f);
-          //V = V * transform;
-          //glVertex3f(V.x/V.w, V.y/V.w, V.z/V.w);
+          glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+          glVertex4f(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
+          glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
 
-          v *= 0.9;
-          glVertex4f(v.x, v.y, v.z, v.w);
-          //v = clipAndPerspectiveDivide(v);
-          //glVertex2f(v.x, v.y);
+          glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+          glVertex4f(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
+          glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
         }
 
         if (dmode == 1)
         {
           glColor3ub(255, 0, 0);
-          foreach (i; 0..3)//, v; verts[0..3])
+          foreach (i; 0..4)//, v; verts[0..3])
           {
             vec4 a = verts[i];
-            vec4 b = verts[(i+1)%3];
+            vec4 b = verts[(i+1)%4];
             if (clipSegment(a, b))
             {
               a = a * (1.0 / a.w);
