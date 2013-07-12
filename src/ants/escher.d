@@ -153,6 +153,14 @@ version (never)
 private struct Segment
 {
   ulong a, b;
+  bool visible;
+
+  this(ulong a, ulong b)
+  {
+    this.a = a;
+    this.b = b;
+    this.visible = true;
+  }
 }
 
 private struct Polygon4
@@ -172,6 +180,116 @@ private struct Polygon4
       points ~= v;
       edges ~= Segment(i, (i+1) % data.length);
     }
+  }
+
+  // clips this polygon
+  // returns false if polygon is completely clipped
+  bool clip()
+  {
+    writefln("Polygon4.clip()\npoints: %s\nedges: %s", points, edges);
+    bool visible;
+
+    foreach (i, ref edge; edges)
+    {
+      vec4 a = points[edge.a];
+      vec4 b = points[edge.b];
+      if (!clipSegment(a, b))
+      {
+        edge.visible = false;
+        continue;
+      }
+
+      visible = true;
+
+      if (a != points[edge.a])
+      {
+        edge.a = points.length;
+        points ~= a;
+      }
+      if (b != points[edge.b])
+      {
+        edge.b = points.length;
+        points ~= b;
+      }
+    }
+
+    if (!visible)
+      return false;
+
+    // fill in missing pieces
+    Segment[] resultEdges;
+
+    /* We'll have to iterate over all edges, filtering out invisible
+     * edges, and making one last loop to connect the last edge to the
+     * first edge.
+     *
+     * 'i' is the edge we're currently examining; this may
+     * not be visible, and it may also be edges.length, which indicates
+     * we are in the "columbus" run of the loop.
+     *
+     * 'j' is the previous visible edge we've encountered. we initialize
+     * it to the special value "edges.length" to indicate that we haven't
+     * yet come across our first visible edge.
+     *
+     * 'k' is the first visible edge we encounter. we initialize it to
+     * the special value edges.length to indicate that we are not yet
+     * in the "columbus" run of the loop. we want to check this before
+     * the meat of the loop so we can .. maybe
+     */
+    ulong i = 0;
+    ulong j = edges.length;
+    ulong k = edges.length;
+    while (1)
+    {
+      // If we've overrun our list of edges, we now use the last
+      // and first visible edge as our edge pair. We'll exit the
+      // loop after this
+      if (i == edges.length)
+      {
+        i = k;
+      }
+
+      if (edges[i].visible)
+      {
+        // Is this our first visible edge?
+        if (j == edges.length)
+        {
+          // We don't need to do much if this is our first visible edge,
+          // we just remember it so we can connect it to the last visible
+          // edge
+          k = i;
+        }
+        // We now have two visible edges to work with
+        else
+        {
+          // does the previous edge 'j' connect to the current edge 'i'?
+          if (edges[j].b != edges[i].a)
+          {
+            // it doesn't connect. we must connect them with a new segment
+            resultEdges ~= Segment(edges[j].b, edges[i].a);
+          }
+
+          // If this was our last run, we're done.
+          if (i == k)
+            break;
+        }
+
+        // Now that we've had an opportunity to join disconnected edges,
+        // we can append this edge.
+        resultEdges ~= edges[i];
+
+        // Remember the previous visible edge
+        j = i;
+      }
+      // Examine the next edge
+      i++;
+    }
+
+    // Store new edges
+    edges = resultEdges;
+    writefln("Polygon4.clip() result\npoints: %s\nedges: %s", points, edges);
+    
+    return true;
   }
 }
 
@@ -311,6 +429,7 @@ BoundaryBits clipClassifyVertex(vec4 v)
   return r;
 }
 
+// returns false if the segment is completely clipped (invisible)
 bool clipSegment(ref vec4 a, ref vec4 b)
 {
   BoundaryBits ac, bc;
@@ -636,13 +755,15 @@ class World
 
         if (dmode == 1)
         {
-          glColor3ub(255, 0, 0);
-          foreach (i; 0..4)//, v; verts[0..3])
+          auto polygon = new Polygon4(verts[]);
+
+          if (polygon.clip())
           {
-            vec4 a = verts[i];
-            vec4 b = verts[(i+1)%4];
-            if (clipSegment(a, b))
+            glColor3ub(255, 0, 0);
+            foreach (edge; polygon.edges)
             {
+              vec4 a = polygon.points[edge.a];
+              vec4 b = polygon.points[edge.b];
               a = a * (1.0 / a.w);
               b = b * (1.0 / b.w);
               a *= 0.9;
