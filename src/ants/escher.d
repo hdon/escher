@@ -186,17 +186,21 @@ private struct Polygon4
   // returns false if polygon is completely clipped
   bool clip()
   {
-    writefln("Polygon4.clip()\npoints: %s\nedges: %s", points, edges);
+    writefln("Polygon4.clip() edges: %s", edges);
+    writefln("Polygon4.clip() points: %s", points);
+    foreach (i, p; points)
+      writefln("Polygon4.clip() point %d boundbits %d vec %s", i, clipClassifyVertex(p), p);
 
     foreach (plane; 0..6)
     {
-      bool visible;
-      bool needRepair;
+      bool visible = false;
+      bool needRepair = false;
       foreach (i, ref edge; edges)
       {
         vec4 a = points[edge.a];
         vec4 b = points[edge.b];
         auto clipCode = clipSegment(a, b, plane);
+        writefln("Polygon4.clip() calling clipSegment() on segment %d %s result=%d", i, edge, clipCode);
         if (clipCode == 0)
         {
           edge.visible = false;
@@ -258,19 +262,24 @@ private struct Polygon4
     ulong k = edges.length;
     while (1)
     {
+      writefln("[REPAIR] examining edge %d/%d", i, edges.length);
+
       // If we've overrun our list of edges, we now use the last
       // and first visible edge as our edge pair. We'll exit the
       // loop after this
       if (i == edges.length)
       {
+        writefln("[REPAIR] no more visible edges, using first visible edge %d", k);
         i = k;
       }
 
+      writefln("[REPAIR] edge[i] = %s", edges[i]);
       if (edges[i].visible)
       {
         // Is this our first visible edge?
         if (j == edges.length)
         {
+          writefln("[REPAIR] cataloguing first visible edge %d", i);
           // We don't need to do much if this is our first visible edge,
           // we just remember it so we can connect it to the last visible
           // edge
@@ -279,9 +288,11 @@ private struct Polygon4
         // We now have two visible edges to work with
         else
         {
+          writefln("[REPAIR] examining edge pair %d, %d", j, i);
           // does the previous edge 'j' connect to the current edge 'i'?
           if (edges[j].b != edges[i].a)
           {
+            writefln("[REPAIR] synthesizing edge", edges[j].b, edges[i].a);
             // it doesn't connect. we must connect them with a new segment
             resultEdges ~= Segment(edges[j].b, edges[i].a);
           }
@@ -461,11 +472,11 @@ int clipSegment(ref vec4 a, ref vec4 b, int plane)
   bc = clipClassifyVertex(b);
 
   // Line segment completely visible
-  if ((ac | bc) == 0)
+  if (((ac | bc) & (1<<plane)) == 0)
     return 1;
 
   // Line segment trivially invisible
-  if ((ac & bc) != 0)
+  if (((ac & bc) & (1<<plane)) != 0)
     return 0;
 
   switch (plane)
@@ -719,6 +730,9 @@ class World
   mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 100);
   void drawSpace(int spaceID, mat4 transform, size_t maxDepth, int prevSpaceID, int dmode)
   {
+    writeln("[DRAW SPACE]");
+    writeln("[DRAW SPACE]");
+    writeln("[DRAW SPACE]");
     Space space = spaces[spaceID];
     //writefln("[draw space]\t#%d d:%d", spaceID, maxDepth);
     maxDepth--;
