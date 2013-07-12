@@ -751,7 +751,10 @@ class World
         //writeln("vert s0: ", v4);
         v4 = v4 * transform;
         //writeln("vert s1: ", v4);
-        v4 = v4 * pmatWorld;
+        if (face.data.type == FaceType.Remote)
+          v4 = v4 * pmatPortal;
+        else
+          v4 = v4 * pmatWorld;
         //writeln("vert s2: ", v4);
         //v4 = v4 * (1.0 / v4.w);
         //writeln("vert s3: ", v4);
@@ -778,7 +781,9 @@ class World
           glVertex4f(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
           glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
         }
-
+      }
+      else if (face.data.type == FaceType.Remote)
+      {
         if (dmode == 1)
         {
           auto polygon = new Polygon4(verts[]);
@@ -799,9 +804,6 @@ class World
             }
           }
         }
-      }
-      else if (face.data.type == FaceType.Remote)
-      {
         /* We want to calculate visibility of this portal. We may draw a
          * blended quad here for debugging purposes, or we may use this
          * data to determine visibility of this and subsequent spaces.
