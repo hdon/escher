@@ -187,35 +187,52 @@ private struct Polygon4
   bool clip()
   {
     writefln("Polygon4.clip()\npoints: %s\nedges: %s", points, edges);
-    bool visible;
 
-    foreach (i, ref edge; edges)
+    foreach (plane; 0..6)
     {
-      vec4 a = points[edge.a];
-      vec4 b = points[edge.b];
-      if (!clipSegment(a, b))
+      bool visible;
+      bool needRepair;
+      foreach (i, ref edge; edges)
       {
-        edge.visible = false;
-        continue;
-      }
+        vec4 a = points[edge.a];
+        vec4 b = points[edge.b];
+        auto clipCode = clipSegment(a, b, plane);
+        if (clipCode == 0)
+        {
+          edge.visible = false;
+          needRepair = true;
+          continue;
+        }
 
-      visible = true;
+        visible = true;
 
-      if (a != points[edge.a])
-      {
-        edge.a = points.length;
-        points ~= a;
+        if (clipCode == 1)
+          continue;
+
+        needRepair = true;
+
+        if (a != points[edge.a])
+        {
+          edge.a = points.length;
+          points ~= a;
+        }
+        if (b != points[edge.b])
+        {
+          edge.b = points.length;
+          points ~= b;
+        }
       }
-      if (b != points[edge.b])
-      {
-        edge.b = points.length;
-        points ~= b;
-      }
+      if (!visible)
+        return false;
+      if (needRepair)
+        repair();
     }
 
-    if (!visible)
-      return false;
+    return true;
+  }
 
+  void repair()
+  {
     // fill in missing pieces
     Segment[] resultEdges;
 
@@ -288,8 +305,6 @@ private struct Polygon4
     // Store new edges
     edges = resultEdges;
     writefln("Polygon4.clip() result\npoints: %s\nedges: %s", points, edges);
-    
-    return true;
   }
 }
 
@@ -430,113 +445,110 @@ BoundaryBits clipClassifyVertex(vec4 v)
 }
 
 // returns false if the segment is completely clipped (invisible)
-bool clipSegment(ref vec4 a, ref vec4 b)
+// returns
+//  0: completely clipped
+//  1: not clipped
+//  2: partly clipped
+int clipSegment(ref vec4 a, ref vec4 b, int plane)
 {
   BoundaryBits ac, bc;
-  
+
   //writeln("CLIPPING SEGMENT", a, b);
 
   double t;
 
-  // ----- Planes: left and right
   ac = clipClassifyVertex(a);
   bc = clipClassifyVertex(b);
 
   // Line segment completely visible
   if ((ac | bc) == 0)
-    return true;
+    return 1;
 
   // Line segment trivially invisible
   if ((ac & bc) != 0)
-    return false;
+    return 0;
 
-  // plane w+x = 0
-  if (((ac | bc) & BoundaryBits.BL) != 0)
+  switch (plane)
   {
-    t = (a.w+a.x) / (a.w+a.x-b.w-b.x);
-    if (ac & BoundaryBits.BL)
-      a = (1-t)*a + t*b;
-    else
-      b = (1-t)*a + t*b;
-  }
+    case 0:
+      // plane w+x = 0
+      if (((ac | bc) & BoundaryBits.BL) != 0)
+      {
+        t = (a.w+a.x) / (a.w+a.x-b.w-b.x);
+        if (ac & BoundaryBits.BL)
+          a = (1-t)*a + t*b;
+        else
+          b = (1-t)*a + t*b;
+      }
+      break;
 
-  // plane w-x = 0
-  if (((ac | bc) & BoundaryBits.BR) != 0)
-  {
-    t = (a.w-a.x) / (a.w-a.x-b.w+b.x);
-    if (ac & BoundaryBits.BR)
-      a = (1-t)*a + t*b;
-    else
-      b = (1-t)*a + t*b;
-  }
+    case 1:
+      // plane w-x = 0
+      if (((ac | bc) & BoundaryBits.BR) != 0)
+      {
+        t = (a.w-a.x) / (a.w-a.x-b.w+b.x);
+        if (ac & BoundaryBits.BR)
+          a = (1-t)*a + t*b;
+        else
+          b = (1-t)*a + t*b;
+      }
+      break;
 
-  // ----- Planes: top and bottom
-  ac = clipClassifyVertex(a);
-  bc = clipClassifyVertex(b);
+    case 2:
+      // plane w+y = 0
+      if (((ac | bc) & BoundaryBits.BT) != 0)
+      {
+        t = (a.w+a.y) / (a.w+a.y-b.w-b.y);
+        if (ac & BoundaryBits.BT)
+          a = (1-t)*a + t*b;
+        else
+          b = (1-t)*a + t*b;
+      }
+      break;
 
-  // Line segment completely visible
-  if ((ac | bc) == 0)
-    return true;
+    case 3:
+      // plane w-y = 0
+      if (((ac | bc) & BoundaryBits.BB) != 0)
+      {
+        t = (a.w-a.y) / (a.w-a.y-b.w+b.y);
+        if (ac & BoundaryBits.BB)
+          a = (1-t)*a + t*b;
+        else
+          b = (1-t)*a + t*b;
+      }
+      break;
 
-  // Line segment trivially invisible
-  if ((ac & bc) != 0)
-    return false;
+    case 4:
+      // plane z = 0
+      if (((ac | bc) & BoundaryBits.BN) != 0)
+      {
+        t = (a.z) / (a.z-b.z);
+        if (ac & BoundaryBits.BN)
+          a = (1-t)*a + t*b;
+        else
+          b = (1-t)*a + t*b;
+      }
+      break;
 
-  // plane w+y = 0
-  if (((ac | bc) & BoundaryBits.BT) != 0)
-  {
-    t = (a.w+a.y) / (a.w+a.y-b.w-b.y);
-    if (ac & BoundaryBits.BT)
-      a = (1-t)*a + t*b;
-    else
-      b = (1-t)*a + t*b;
-  }
+    case 5:
+      // plane w-z = 0
+      if (((ac | bc) & BoundaryBits.BF) != 0)
+      {
+        t = (a.w-a.z) / (a.w-a.z-b.w+b.z);
+        if (ac & BoundaryBits.BF)
+          a = (1-t)*a + t*b;
+        else
+          b = (1-t)*a + t*b;
+      }
+      break;
 
-  // plane w-y = 0
-  if (((ac | bc) & BoundaryBits.BB) != 0)
-  {
-    t = (a.w-a.y) / (a.w-a.y-b.w+b.y);
-    if (ac & BoundaryBits.BB)
-      a = (1-t)*a + t*b;
-    else
-      b = (1-t)*a + t*b;
-  }
-
-  // ----- Planes: near and far
-  ac = clipClassifyVertex(a);
-  bc = clipClassifyVertex(b);
-
-  // Line segment completely visible
-  if ((ac | bc) == 0)
-    return true;
-
-  // Line segment trivially invisible
-  if ((ac & bc) != 0)
-    return false;
-
-  // plane z = 0
-  if (((ac | bc) & BoundaryBits.BN) != 0)
-  {
-    t = (a.z) / (a.z-b.z);
-    if (ac & BoundaryBits.BN)
-      a = (1-t)*a + t*b;
-    else
-      b = (1-t)*a + t*b;
-  }
-
-  // plane w-z = 0
-  if (((ac | bc) & BoundaryBits.BF) != 0)
-  {
-    t = (a.w-a.z) / (a.w-a.z-b.w+b.z);
-    if (ac & BoundaryBits.BF)
-      a = (1-t)*a + t*b;
-    else
-      b = (1-t)*a + t*b;
+    default:
+      enforce(0, "unknown clipping plane");
   }
 
   //writeln("CLIPPED  SEGMENT", a, b);
 
-  return true;
+  return 2;
 }
 
 class World
