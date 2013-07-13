@@ -317,6 +317,62 @@ private struct Polygon4
     edges = resultEdges;
     //writefln("Polygon4.clip() result\npoints: %s\nedges: %s", points, edges);
   }
+
+  /* Calculate and return the signed area of this polygon.
+   * Assumes a closed ("repaired") polygon.
+   */
+  double signedArea()
+  {
+    enforce(edges.length >= 3, "polygons with less than 3 sides is no polygons");
+
+    /* Perform perspective divide, discard zw components */
+    vec2 verts[];
+    foreach (i, p; points)
+    {
+      verts ~= vec2(p.x/p.w, p.y/p.w);
+    }
+
+    double area = 0.0;
+    foreach (edge; edges)
+    {
+      vec2 a = verts[edge.a];
+      vec2 b = verts[edge.b];
+      area += a.x * b.y - a.y * b.x;
+    }
+
+    return area;
+  }
+
+  void drawTriangles()
+  {
+    // TODO arbitrary polygon triangulation!
+    enforce(edges.length >= 3, "polygons with less than 3 sides is not polygons!");
+    if (edges.length == 3)
+    {
+      foreach (edge; edges)
+      {
+        vec4 v = points[edge.a];
+        glVertex4d(v.x, v.y, v.z, v.w);
+      }
+    }
+    else if (edges.length == 4)
+    {
+      foreach (i; 0..3)
+      {
+        vec4 v = points[edges[i].a];
+        glVertex4d(v.x, v.y, v.z, v.w);
+      }
+      foreach (i; [2,3,0])
+      {
+        vec4 v = points[edges[i].a];
+        glVertex4d(v.x, v.y, v.z, v.w);
+      }
+    }
+    else
+    {
+      writefln("Polygon4.drawTriangles() skipping because %d sides", edges.length);
+    }
+  }
 }
 
 private struct Ray
@@ -768,59 +824,108 @@ class World
       {
         if (dmode == 0)
         {
-          glColor3ub(
-            face.data.solidColor.v[0],
-            face.data.solidColor.v[1],
-            face.data.solidColor.v[2]);
-
-          glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-          glVertex4f(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
-          glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-
-          glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-          glVertex4f(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
-          glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-        }
-      }
-      else if (face.data.type == FaceType.Remote)
-      {
-        if (dmode == 1)
-        {
           auto polygon = new Polygon4(verts[]);
 
           if (polygon.clip())
           {
-            glColor3ub(255, 0, 0);
-            foreach (edge; polygon.edges)
-            {
-              vec4 a = polygon.points[edge.a];
-              vec4 b = polygon.points[edge.b];
-              a = a * (1.0 / a.w);
-              b = b * (1.0 / b.w);
-              a *= 0.9;
-              b *= 0.9;
-              glVertex2d(a.x, a.y);
-              glVertex2d(b.x, b.y);
-            }
+            if (polygon.signedArea() > 0.0)
+              glColor3ub(
+                face.data.solidColor.v[0],
+                face.data.solidColor.v[1],
+                face.data.solidColor.v[2]);
+            else
+              glColor3ub(
+                255-face.data.solidColor.v[0],
+                255-face.data.solidColor.v[1],
+                255-face.data.solidColor.v[2]);
+
+            glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+            glVertex4f(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
+            glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+
+            glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+            glVertex4f(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
+            glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
           }
         }
-        /* We want to calculate visibility of this portal. We may draw a
-         * blended quad here for debugging purposes, or we may use this
-         * data to determine visibility of this and subsequent spaces.
-         */
-        //Polygon3 polygon = Polygon3(verts);
+      }
+      else if (face.data.type == FaceType.Remote)
+      {
+        auto polygon = new Polygon4(verts[]);
 
-        int nextSpaceID = face.data.remote.v.spaceID;
-        if (descend && nextSpaceID != size_t.max)
+        if (polygon.clip())
         {
-          //writefln("concatenating:\n%s", face.data.remote.v.transform);
-          //writefln("            \tentering face: %d", faceID);
-          drawSpace(
-            nextSpaceID,
-            transform * face.data.remote.v.transform,
-            maxDepth,
-            spaceID,
-            dmode);
+          if (polygon.signedArea() > 0.0)
+          {
+            if (dmode == 1)
+            {
+              glColor3ub(255, 0, 0);
+              foreach (edge; polygon.edges)
+              {
+                vec4 a = polygon.points[edge.a];
+                vec4 b = polygon.points[edge.b];
+                a = a * (1.0 / a.w);
+                b = b * (1.0 / b.w);
+                a *= 0.9;
+                b *= 0.9;
+                glVertex2d(a.x, a.y);
+                glVertex2d(b.x, b.y);
+              }
+            }
+
+            /* We want to calculate visibility of this portal. We may draw a
+             * blended quad here for debugging purposes, or we may use this
+             * data to determine visibility of this and subsequent spaces.
+             */
+            //Polygon3 polygon = Polygon3(verts);
+
+            int nextSpaceID = face.data.remote.v.spaceID;
+            if (descend && nextSpaceID != size_t.max)
+            {
+              //writefln("concatenating:\n%s", face.data.remote.v.transform);
+              //writefln("            \tentering face: %d", faceID);
+
+              version (stencil) {
+              // We'll now want to draw to the stencil buffer a polygon representing
+              // our portal
+              glEnd();
+              glClear(GL_STENCIL_BUFFER_BIT);
+
+              // Draw our portal stencil
+              glEnable(GL_STENCIL_TEST);
+              glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+              glDepthMask(GL_FALSE);
+              glStencilFunc(GL_NEVER, 1, 0xFF);
+              glStencilOp(GL_REPLACE, GL_KEEP, GL_KEEP);
+              glStencilMask(0xFF);
+              glBegin(GL_TRIANGLES);
+              polygon.drawTriangles();
+              glEnd();
+
+              // Draw space beyond the portal
+              glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+              glDepthMask(GL_TRUE);
+              glStencilMask(0);
+              glStencilFunc(GL_EQUAL, 1, 0xFF);
+              glBegin(GL_TRIANGLES);
+              }
+              
+              //glColor3f(1,0,0);
+              //polygon.drawTriangles();
+              drawSpace(
+                nextSpaceID,
+                transform * face.data.remote.v.transform,
+                maxDepth,
+                spaceID,
+                dmode);
+
+              version (stencil) {
+              glEnd();
+              glDisable(GL_STENCIL_TEST);
+              glBegin(GL_TRIANGLES);
+              }
+            }
+          }
         }
       }
     }
@@ -1211,12 +1316,12 @@ class Camera
     mvmat.rotate(camPitch, vec3(1,0,0));
 
     glBegin(GL_TRIANGLES);
-    world.drawSpace(spaceID, mvmat, 3, -1, 0);
+    world.drawSpace(spaceID, mvmat, 18, -1, 0);
     glEnd();
 
-    glDisable(GL_DEPTH_TEST);
+    /*glDisable(GL_DEPTH_TEST);
     glBegin(GL_LINES);
-    world.drawSpace(spaceID, mvmat, 3, -1, 1);
-    glEnd();
+    world.drawSpace(spaceID, mvmat, 18, -1, 1);
+    glEnd();*/
   }
 }
