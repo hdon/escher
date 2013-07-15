@@ -3,12 +3,14 @@ module display;
 import ants.md5 : MD5Model, MD5Animation;
 import ants.escher : World, Camera;
 import std.stdio : writeln, writefln;
-import std.string : toStringz;
+import std.string : toStringz, strlen;
 import derelict.sdl.sdl;
 import derelict.opengl.gl;
 import derelict.opengl.glu;
 import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.math : PI;
+import std.exception : enforce;
+import file = std.file;
 
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
@@ -31,6 +33,8 @@ class Display
     World world;
     Camera camera;
 
+    GLuint glprogram;
+
     void setupGL()
     {
       glMatrixMode(GL_PROJECTION);
@@ -45,6 +49,8 @@ class Display
 
     void init()
     {
+      GLint iresult;
+
       DerelictSDL.load();
       DerelictGL.load();
       DerelictGLU.load();
@@ -52,6 +58,57 @@ class Display
       SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
       assert(SDL_SetVideoMode(width, height, bpp, SDL_OPENGL | SDL_DOUBLEBUF) !is null);
       SDL_WM_SetCaption(toStringz("D is the best"), null);
+
+      writefln("calling glCreateProgram() %p", glCreateProgram);
+      glprogram = glCreateProgram();
+      writeln("calling glCreateProgram() DONE");
+      enforce(glprogram != 0, "glCreateProgram() failed");
+
+      char[] shaderSource;
+      GLint[1] shaderSourceLength;
+
+      GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+      enforce(glprogram != 0, "glCreateShader() failed");
+
+      // Read shader source into memory
+      writeln("reading shader");
+      shaderSource = cast(char[])file.read("glsl/simple.vs");
+      writeln("reading shader DONE");
+      // Store the length of the shader program
+      shaderSourceLength[0] = cast(GLint)shaderSource.length;
+
+      char* ps = shaderSource.ptr;
+      GLint* ls = shaderSourceLength.ptr;
+
+      writeln("calling glShaderSource()");
+      glShaderSource(vs, 1, &ps, shaderSourceLength.ptr);
+      writeln("calling glShaderSource() DONE");
+      glGetShaderiv(vs, GL_COMPILE_STATUS, &iresult);
+      enforce(iresult == GL_TRUE, "glShaderSOurce() failed");
+
+      GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+      enforce(glprogram != 0, "glCreateShader() failed");
+
+      // Read shader source into memory
+      shaderSource = cast(char[])file.read("glsl/plain-color.fs");
+      // Store the length of the shader program
+      shaderSourceLength[0] = cast(GLint)shaderSource.length;
+
+      ps = shaderSource.ptr;
+      ls = shaderSourceLength.ptr;
+
+      glShaderSource(vs, 1, &ps, shaderSourceLength.ptr);
+      glGetShaderiv(fs, GL_COMPILE_STATUS, &iresult);
+      enforce(iresult == GL_TRUE, "glShaderSOurce() failed");
+
+      glAttachShader(glprogram, vs);
+      glAttachShader(glprogram, fs);
+      glLinkProgram(glprogram);
+
+      glGetProgramiv(glprogram, GL_LINK_STATUS, &iresult);
+      enforce(iresult == GL_TRUE, "glLinkProgram() failed");
+
+      glUseProgram(glprogram);
 
       //model = new MD5Model("monkey.md5mesh");
       //anim = new MD5Animation(model, "monkey.md5anim");
