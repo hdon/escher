@@ -828,16 +828,37 @@ class World
 
           if (polygon.clip())
           {
-            if (polygon.signedArea() > 0.0)
-              glColor3ub(
-                face.data.solidColor.v[0],
-                face.data.solidColor.v[1],
-                face.data.solidColor.v[2]);
-            else
-              glColor3ub(
-                255-face.data.solidColor.v[0],
-                255-face.data.solidColor.v[1],
-                255-face.data.solidColor.v[2]);
+            if (polygon.signedArea() < 0.0)
+              continue;
+
+            glColor3ub(
+              face.data.solidColor.v[0],
+              face.data.solidColor.v[1],
+              face.data.solidColor.v[2]);
+
+            version (lighting) {
+              GLfloat[4] ambient;
+              ambient[0] = face.data.solidColor.v[0]/127.0;
+              ambient[1] = face.data.solidColor.v[1]/127.0;
+              ambient[2] = face.data.solidColor.v[2]/127.0;
+              ambient[3] = 1;
+
+              GLfloat[4] diffuse = ambient;
+              GLfloat[4] specular = [1,1,1,1];
+              glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
+              glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
+              glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
+
+              glMateriali(GL_FRONT, GL_SHININESS, 127);
+            }
+
+            // TODO precompute normals? bump map?
+            vec3 faceNorm = getTriangleNormal(
+              xformVec(space.verts[face.indices[0]], transform),
+              xformVec(space.verts[face.indices[1]], transform),
+              xformVec(space.verts[face.indices[2]], transform)).normalized;
+            writefln("face normal: %s", faceNorm);
+            glNormal3d(faceNorm.x, faceNorm.y, faceNorm.z);
 
             glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
             glVertex4f(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
@@ -889,17 +910,25 @@ class World
               // We'll now want to draw to the stencil buffer a polygon representing
               // our portal
               glEnd();
-              glClear(GL_STENCIL_BUFFER_BIT);
 
               // Draw our portal stencil
               glEnable(GL_STENCIL_TEST);
+              glClearStencil(0);
+              glClear(GL_STENCIL_BUFFER_BIT);
               glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
               glDepthMask(GL_FALSE);
               glStencilFunc(GL_NEVER, 1, 0xFF);
               glStencilOp(GL_REPLACE, GL_KEEP, GL_KEEP);
               glStencilMask(0xFF);
               glBegin(GL_TRIANGLES);
-              polygon.drawTriangles();
+              //polygon.drawTriangles();
+              glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+              glVertex4f(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
+              glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+
+              glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+              glVertex4f(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
+              glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
               glEnd();
 
               // Draw space beyond the portal
@@ -909,7 +938,7 @@ class World
               glStencilFunc(GL_EQUAL, 1, 0xFF);
               glBegin(GL_TRIANGLES);
               }
-              
+
               //glColor3f(1,0,0);
               //polygon.drawTriangles();
               drawSpace(
@@ -935,7 +964,7 @@ class World
 vec3 getTriangleNormal(vec3 a, vec3 b, vec3 c)
 {
   // TODO is order correct?
-  return cross(b-a, c-a);
+  return cross(a-b, a-c);
 }
 bool cullFace(vec3 look, Tri tri)
 {
@@ -1310,6 +1339,11 @@ class Camera
     glEnable(GL_DEPTH_TEST);
     glClearDepth(1);
     glDepthFunc(GL_LESS);
+
+    version (lighting) {
+      glEnable(GL_LIGHTING);
+      glEnable(GL_LIGHT0);
+    }
 
     mat4 mvmat = mat4.translation(-pos.x, -pos.y, -pos.z);
     mvmat.rotate(camYaw, vec3(0,1,0));
