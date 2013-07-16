@@ -49,7 +49,9 @@ class Display
 
     void init()
     {
+      GLenum err;
       GLint iresult;
+      GLboolean bresult;
 
       DerelictSDL.load();
       DerelictGL.load();
@@ -59,54 +61,123 @@ class Display
       assert(SDL_SetVideoMode(width, height, bpp, SDL_OPENGL | SDL_DOUBLEBUF) !is null);
       SDL_WM_SetCaption(toStringz("D is the best"), null);
 
-      writefln("calling glCreateProgram() %p", glCreateProgram);
+      DerelictGL.loadExtendedVersions(GLVersion.GL33);
+      const char *glVersionCP = glGetString(GL_VERSION);
+      const char[] glVersion = glVersionCP[0..strlen(glVersionCP)];
+      writeln("glGetString(GL_VERSION) = ", glVersion);
+
       glprogram = glCreateProgram();
-      writeln("calling glCreateProgram() DONE");
       enforce(glprogram != 0, "glCreateProgram() failed");
 
       char[] shaderSource;
-      GLint[1] shaderSourceLength;
+      int shaderSourceLength;
 
+      /////// Vertex shader
       GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-      enforce(glprogram != 0, "glCreateShader() failed");
+      enforce(vs != 0, "glCreateShader() failed");
 
       // Read shader source into memory
       writeln("reading shader");
       shaderSource = cast(char[])file.read("glsl/simple.vs");
+      writeln("shader source: ", shaderSource);
       writeln("reading shader DONE");
       // Store the length of the shader program
-      shaderSourceLength[0] = cast(GLint)shaderSource.length;
+      shaderSourceLength = cast(int)shaderSource.length;
 
       char* ps = shaderSource.ptr;
-      GLint* ls = shaderSourceLength.ptr;
 
       writeln("calling glShaderSource()");
-      glShaderSource(vs, 1, &ps, shaderSourceLength.ptr);
+      glShaderSource(vs, 1, &ps, &shaderSourceLength);
+      glCompileShader(vs);
       writeln("calling glShaderSource() DONE");
       glGetShaderiv(vs, GL_COMPILE_STATUS, &iresult);
-      enforce(iresult == GL_TRUE, "glShaderSOurce() failed");
+      if (iresult == GL_FALSE)
+      {
+        writeln("glShaderSource() failed!");
+        glGetShaderiv(vs, GL_INFO_LOG_LENGTH, &iresult);
+        writefln("GL_INFO_LOG_LENGTH: %d", iresult);
+        // GL_SHADER_COMPILER not defined
+        //glGetBooleanv(GL_SHADER_COMPILER, &bresult);
+        //writefln("GL_SHADER_COMPILER: %s", bresult);
 
+        err = glGetError();
+        if (err)
+        {
+          writefln("error: opengl: %s", err);
+          assert(0);
+        }
+        writeln("glGetError() is good");
+
+        assert(0);
+      }
+
+      /////// Fragment Shader
       GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-      enforce(glprogram != 0, "glCreateShader() failed");
+      enforce(fs != 0, "glCreateShader() failed");
 
       // Read shader source into memory
-      shaderSource = cast(char[])file.read("glsl/plain-color.fs");
+      writeln("reading shader");
+      shaderSource = cast(char[])file.read("glsl/simple.fs");
+      writeln("shader source: ", shaderSource);
+      writeln("reading shader DONE");
       // Store the length of the shader program
-      shaderSourceLength[0] = cast(GLint)shaderSource.length;
+      shaderSourceLength = cast(int)shaderSource.length;
 
       ps = shaderSource.ptr;
-      ls = shaderSourceLength.ptr;
 
-      glShaderSource(vs, 1, &ps, shaderSourceLength.ptr);
+      writeln("calling glShaderSource()");
+      glShaderSource(fs, 1, &ps, &shaderSourceLength);
+      glCompileShader(fs);
+      writeln("calling glShaderSource() DONE");
       glGetShaderiv(fs, GL_COMPILE_STATUS, &iresult);
-      enforce(iresult == GL_TRUE, "glShaderSOurce() failed");
+      if (iresult == GL_FALSE)
+      {
+        writeln("glShaderSource() failed!");
+        glGetShaderiv(fs, GL_INFO_LOG_LENGTH, &iresult);
+        writefln("GL_INFO_LOG_LENGTH: %d", iresult);
+        // GL_SHADER_COMPILER not defined
+        //glGetBooleanv(GL_SHADER_COMPILER, &bresult);
+        //writefln("GL_SHADER_COMPILER: %s", bresult);
+
+        err = glGetError();
+        if (err)
+        {
+          writefln("error: opengl: %s", err);
+          assert(0);
+        }
+        writeln("glGetError() is good");
+
+        assert(0);
+      }
 
       glAttachShader(glprogram, vs);
       glAttachShader(glprogram, fs);
       glLinkProgram(glprogram);
 
       glGetProgramiv(glprogram, GL_LINK_STATUS, &iresult);
-      enforce(iresult == GL_TRUE, "glLinkProgram() failed");
+      if (iresult == GL_FALSE)
+      {
+        writefln("glLinkProgram(%d) returned %d", glprogram, iresult);
+        glGetProgramiv(glprogram, GL_INFO_LOG_LENGTH, &iresult);
+        writefln("GL_INFO_LOG_LENGTH: %d", iresult);
+        char[] buf;
+        buf.length = iresult;
+        glGetProgramInfoLog(glprogram, iresult, null, buf.ptr);
+        writeln("glGetProgramInfoLog() sez: ", buf);
+        // GL_SHADER_COMPILER not defined
+        //glGetBooleanv(GL_SHADER_COMPILER, &bresult);
+        //writefln("GL_SHADER_COMPILER: %s", bresult);
+
+        err = glGetError();
+        if (err)
+        {
+          writefln("error: opengl: %s", err);
+          assert(0);
+        }
+        writeln("glGetError() is good");
+
+        assert(0);
+      }
 
       glUseProgram(glprogram);
 

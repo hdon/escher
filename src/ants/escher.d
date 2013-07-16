@@ -857,7 +857,7 @@ class World
               xformVec(space.verts[face.indices[0]], transform),
               xformVec(space.verts[face.indices[1]], transform),
               xformVec(space.verts[face.indices[2]], transform)).normalized;
-            writefln("face normal: %s", faceNorm);
+            //writefln("face normal: %s", faceNorm);
             glNormal3d(faceNorm.x, faceNorm.y, faceNorm.z);
 
             glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
