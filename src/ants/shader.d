@@ -4,6 +4,18 @@ import derelict.opengl.glu;
 import file = std.file;
 import std.exception : enforce;
 import std.stdio : writeln, writefln;
+import std.string : format, toStringz;
+import std.traits : isPointer, PointerTarget;
+
+private void glErrorCheck()
+{
+  GLenum err = glGetError();
+  if (err)
+  {
+    writefln("error: opengl: %s", err);
+    assert(0);
+  }
+}
 
 GLuint loadShader(GLenum type, string filename)
 {
@@ -49,6 +61,7 @@ GLuint loadShader(GLenum type, string filename)
     assert(0);
   }
 
+  glErrorCheck();
   return shaderObject;
 }
 
@@ -60,6 +73,13 @@ class Shader(GLenum type)
   {
     this.filename = filename;
     shaderObject = loadShader(type, filename);
+    writeln("Shader() ", shaderObject);
+  }
+
+  ~this()
+  {
+    writeln("glDeleteShader() ", shaderObject);
+    glDeleteShader(shaderObject);
   }
 }
 
@@ -106,20 +126,108 @@ GLuint linkProgram(VertexShader vs, FragmentShader fs)
 class ShaderProgram
 {
   GLuint programObject;
+  VertexShader vs;
+  FragmentShader fs;
 
   this(VertexShader vs, FragmentShader fs)
   {
+    this.vs = vs;
+    this.fs = fs;
     programObject = linkProgram(vs, fs);
   }
   this(string vsFilename, string fsFilename)
   {
-    programObject = linkProgram(
-      new VertexShader(vsFilename),
-      new FragmentShader(fsFilename));
+    this(new VertexShader(vsFilename), new FragmentShader(fsFilename));
+  }
+
+  ~this()
+  {
+    writeln("glDeleteProgram()");
+    glDeleteProgram(programObject);
+  }
+
+  version (mixin_gl_apis)
+  {
+    private static pure string gen_glUniform(T)(int n)
+    {
+      enum bool ptr = isPointer!T;
+
+      static if (ptr)
+      {
+        alias PointerTarget!T U;
+        enum string typeStrV = "v";
+      }
+      else
+      {
+        alias T U;
+        enum string typeStrV = "";
+      }
+
+      static if (is(U == float))      enum string typeStr = "f";
+      else static if (is(U == uint))  enum string typeStr = "ui";
+      else static if (is(U == int))   enum string typeStr = "i";
+      else static assert(0, "unsupprted type");
+
+      string myArgs = "GLint location";
+      string glArgs = "location";
+      char argName = 'a';
+
+      static if (isPointer!T)
+      {
+        myArgs ~= ", GLsizei count, " ~ T.stringof ~ " ptr";
+        glArgs ~= ", count, ptr";
+      }
+      else
+      {
+        foreach (i; 0..n)
+        {
+          myArgs ~= ", " ~ T.stringof ~ ' ' ~ argName;
+          glArgs ~= ", " ~ argName;
+          argName++;
+        }
+      }
+
+      return "void setUniform"
+             ~ "("
+             ~ myArgs
+             ~ ") { glUniform"
+             ~ cast(char)(n + '0') // WTF
+             ~ typeStr
+             ~ typeStrV
+             ~ "("
+             ~ glArgs
+             ~ "); }";
+    }
+
+    static pure string gen_glUniformAll()
+    {
+      string rval = "";
+      foreach (n; 1..5)
+      {
+        rval ~= '\n' ~ gen_glUniform!int(n);
+        rval ~= '\n' ~ gen_glUniform!uint(n);
+        rval ~= '\n' ~ gen_glUniform!float(n);
+        rval ~= '\n' ~ gen_glUniform!(int*)(n);
+        rval ~= '\n' ~ gen_glUniform!(uint*)(n);
+        rval ~= '\n' ~ gen_glUniform!(float*)(n);
+      }
+      return rval;
+    }
+
+    mixin(gen_glUniformAll());
+  }
+  else
+  {
+    void glUniform(string name, float a, float b, float c)
+    {
+      GLint location = glGetUniformLocation(programObject, name.toStringz());
+      glUniform3f(location, a, b, c);
+    }
   }
 
   void use()
   {
     glUseProgram(programObject);
+    glErrorCheck();
   }
 }

@@ -11,7 +11,6 @@ import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.math : PI;
 import std.exception : enforce;
 import file = std.file;
-import ants.shader;
 
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
@@ -73,48 +72,6 @@ class Display
       char[] shaderSource;
       int shaderSourceLength;
 
-      /////// Vertex shader
-      GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-      enforce(vs != 0, "glCreateShader() failed");
-
-      // Read shader source into memory
-      writeln("reading shader");
-      shaderSource = cast(char[])file.read("glsl/simple.vs");
-      writeln("shader source: ", shaderSource);
-      writeln("reading shader DONE");
-      // Store the length of the shader program
-      shaderSourceLength = cast(int)shaderSource.length;
-
-      char* ps = shaderSource.ptr;
-
-      writeln("calling glShaderSource()");
-      glShaderSource(vs, 1, &ps, &shaderSourceLength);
-      glCompileShader(vs);
-      writeln("calling glShaderSource() DONE");
-      glGetShaderiv(vs, GL_COMPILE_STATUS, &iresult);
-      if (iresult == GL_FALSE)
-      {
-        writeln("glShaderSource() failed!");
-        glGetShaderiv(vs, GL_INFO_LOG_LENGTH, &iresult);
-        writefln("GL_INFO_LOG_LENGTH: %d", iresult);
-        // GL_SHADER_COMPILER not defined
-        //glGetBooleanv(GL_SHADER_COMPILER, &bresult);
-        //writefln("GL_SHADER_COMPILER: %s", bresult);
-
-        err = glGetError();
-        if (err)
-        {
-          writefln("error: opengl: %s", err);
-          assert(0);
-        }
-        writeln("glGetError() is good");
-
-        assert(0);
-      }
-
-      ShaderProgram shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
-      shaderProgram.use();
-
       //model = new MD5Model("monkey.md5mesh");
       //anim = new MD5Animation(model, "monkey.md5anim");
 
@@ -174,13 +131,6 @@ class Display
     camera.draw();
 
     SDL_GL_SwapBuffers();
-
-    GLenum err = glGetError();
-    if (err)
-    {
-      writefln("error: opengl: %s", err);
-      assert(0);
-    }
 
     lastFrame = t;
   }

@@ -9,7 +9,25 @@ import std.string : splitLines, split;
 import file = std.file;
 import std.typecons : Tuple;
 import std.algorithm : sort;
+import ants.shader;
 debug import std.stdio : writeln, writefln;
+
+void explode()
+{
+  static bool explosion;
+  explosion = true;
+}
+
+void glErrorCheck()
+{
+  GLenum err = glGetError();
+  if (err)
+  {
+    writefln("error: opengl: %s", err);
+    explode();
+    //assert(0);
+  }
+}
 
 // TODO look this up
 // http://www.opengl.org/registry/specs/ARB/depth_clamp.txt
@@ -771,6 +789,11 @@ class World
     }
   }
 
+  ~this()
+  {
+    writeln("~World() - DESTRUCTED");
+  }
+
   // TODO TODO TODO TODO TODO TODO 
   // What I am working on right now:
   // I am about to turn the transform argument of drawSpace() into a mat4.
@@ -784,6 +807,8 @@ class World
   // and shit to draw, and not just a handful of polygons per space.
   mat4 pmatPortal  = mat4.perspective(800, 600, 90, 0.00001, 100);
   mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 100);
+  ShaderProgram shaderProgram;
+
   void drawSpace(int spaceID, mat4 transform, size_t maxDepth, int prevSpaceID, int dmode)
   {
     //writeln("[DRAW SPACE]");
@@ -1327,6 +1352,12 @@ class Camera
     glEnd();
     */
 
+    if (world.shaderProgram is null)
+    {
+      world.shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
+      world.shaderProgram.use();
+    }
+    glErrorCheck();
 
     glMatrixMode(GL_PROJECTION);
     glOrtho(-1, 1, -1, 1, -1, 0);
@@ -1349,9 +1380,11 @@ class Camera
     mvmat.rotate(camYaw, vec3(0,1,0));
     mvmat.rotate(camPitch, vec3(1,0,0));
 
+    glErrorCheck();
     glBegin(GL_TRIANGLES);
     world.drawSpace(spaceID, mvmat, 18, -1, 0);
     glEnd();
+    glErrorCheck();
 
     /*glDisable(GL_DEPTH_TEST);
     glBegin(GL_LINES);
