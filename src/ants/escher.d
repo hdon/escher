@@ -10,6 +10,8 @@ import file = std.file;
 import std.typecons : Tuple;
 import std.algorithm : sort;
 import ants.shader;
+import ants.md5 : MD5Model, MD5Animation;
+import derelict.opengl.glu;
 debug import std.stdio : writeln, writefln;
 
 void explode()
@@ -516,7 +518,7 @@ BoundaryBits clipClassifyVertex(vec4 v)
     //writeln("w-y < 0");
     r |= BoundaryBits.BB;
   }
-  if (v.z < 0)
+  if (v.w+v.z < 0)
   {
     //writeln("z < 0");
     r |= BoundaryBits.BN;
@@ -607,7 +609,8 @@ int clipSegment(ref vec4 a, ref vec4 b, int plane)
       // plane z = 0
       if (((ac | bc) & BoundaryBits.BN) != 0)
       {
-        t = (a.z) / (a.z-b.z);
+        //t = (a.z) / (a.z-b.z);
+        t = (a.w+a.z) / (a.w+a.z-b.w-b.z);
         if (ac & BoundaryBits.BN)
           a = (1-t)*a + t*b;
         else
@@ -639,6 +642,7 @@ int clipSegment(ref vec4 a, ref vec4 b, int plane)
 class World
 {
   Space[] spaces;
+  Entity[][] entities;
 
   this(string filename)
   {
@@ -782,6 +786,9 @@ class World
       }
     }
 
+    // Initialize entities
+    entities.length = spaces.length;
+
     debug
     {
       writeln("ESCHER WORLD LOADED");
@@ -856,10 +863,11 @@ class World
             if (polygon.signedArea() < 0.0)
               continue;
 
-            glColor3ub(
-              face.data.solidColor.v[0],
-              face.data.solidColor.v[1],
-              face.data.solidColor.v[2]);
+            //shaderProgram.sendVertexAttribute("ucolor",
+            glColor3f(
+              face.data.solidColor.v[0]/255f,
+              face.data.solidColor.v[1]/255f,
+              face.data.solidColor.v[2]/255f);
 
             version (lighting) {
               GLfloat[4] ambient;
@@ -877,6 +885,26 @@ class World
               glMateriali(GL_FRONT, GL_SHININESS, 127);
             }
 
+            version (customTransform)
+            {
+            }
+            else
+            {
+              mat4 m;
+
+              m = pmatWorld.transposed;
+              glMatrixMode(GL_PROJECTION);
+              glPushMatrix();
+              glLoadMatrixd(m.value_ptr);
+
+              m = transform.transposed;
+              glMatrixMode(GL_MODELVIEW);
+              glPushMatrix();
+              glLoadMatrixd(m.value_ptr);
+            }
+
+            glBegin(GL_TRIANGLES);
+
             // TODO precompute normals? bump map?
             vec3 faceNorm = getTriangleNormal(
               xformVec(space.verts[face.indices[0]], transform),
@@ -885,13 +913,36 @@ class World
             //writefln("face normal: %s", faceNorm);
             glNormal3d(faceNorm.x, faceNorm.y, faceNorm.z);
 
-            glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-            glVertex4f(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
-            glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+            version (customTransform)
+            {
+              glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+              glVertex4d(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
+              glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
 
-            glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-            glVertex4f(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
-            glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+              glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+              glVertex4d(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
+              glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+
+              glEnd();
+            }
+            else
+            {
+              glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
+              glVertex3d(inverts[1].x, inverts[1].y, inverts[1].z);
+              glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
+
+              glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
+              glVertex3d(inverts[3].x, inverts[3].y, inverts[3].z);
+              glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
+
+              glEnd();
+
+              glMatrixMode(GL_MODELVIEW);
+              glPopMatrix();
+
+              glMatrixMode(GL_PROJECTION);
+              glPopMatrix();
+            }
           }
         }
       }
@@ -983,6 +1034,53 @@ class World
         }
       }
     }
+
+    /* Draw entities */
+    foreach (entity; entities[spaceID])
+    {
+      entity.draw(transform, pmatWorld);
+    }
+  }
+}
+
+MD5Model playerModel;
+MD5Animation playerAnimation;
+Entity playerEntity;
+
+class Entity
+{
+  int spaceID;
+  vec3 pos;
+  this()
+  {
+    this.spaceID = 0;
+    this.pos = vec3(0,0,0);
+  }
+  void draw(mat4 mvmat, mat4 pmat)
+  {
+    //glDisable(GL_DEPTH_TEST);
+
+    mat4 m;
+
+    m = pmat.transposed;
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadMatrixd(m.value_ptr);
+
+    m = mvmat.transposed;
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadMatrixd(m.value_ptr);
+
+    playerAnimation.draw();
+
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+
+    //glEnable(GL_DEPTH_TEST);
   }
 }
 
@@ -1333,34 +1431,25 @@ class Camera
         }
       }
     }
+
+    // XXX
+    world.entities[playerEntity.spaceID].length = 0;
+    playerEntity.spaceID = spaceID;
+    playerEntity.pos = pos;
+    world.entities[playerEntity.spaceID] ~= playerEntity;
   }
 
   void draw()
   {
-    //glEnable(GL_CULL_FACE);
-
-    //glRotatef(-angle/PI*180f, 0, 1, 0);
-    //glTranslatef(-pos.x, -pos.y, -pos.z);
-    //glRotatef(spin, 0, 1, 0);
-    //glRotatef(spin, 0.9701425001453318, 0.24253562503633294, 0);
-
-    /*
-    glBegin(GL_TRIANGLES);
-    glColor3f (1, 0, 0); glVertex3f(-1, -1, -2);
-    glColor3f (0, 1, 0); glVertex3f( 1, -1, -2);
-    glColor3f (0, 0, 1); glVertex3f( 0,  1, -2);
-    glEnd();
-    */
-
-    if (world.shaderProgram is null)
+    /*if (world.shaderProgram is null)
     {
       world.shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
       world.shaderProgram.use();
-    }
+    }*/
     glErrorCheck();
 
     glMatrixMode(GL_PROJECTION);
-    glOrtho(-1, 1, -1, 1, -1, 0);
+    glOrtho(-1, 1, -1, 1, -1, 1);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -1381,14 +1470,12 @@ class Camera
     mvmat.rotate(camPitch, vec3(1,0,0));
 
     glErrorCheck();
-    glBegin(GL_TRIANGLES);
     world.drawSpace(spaceID, mvmat, 18, -1, 0);
-    glEnd();
     glErrorCheck();
 
-    /*glDisable(GL_DEPTH_TEST);
-    glBegin(GL_LINES);
-    world.drawSpace(spaceID, mvmat, 18, -1, 1);
-    glEnd();*/
+    //playerEntity.draw(
+      //jmat4.rotation(.75*PI, vec3(1,0,0)).transposed * mat4.translation(0, 0, -20).transposed,
+      //mat4.perspective(800, 600, 90, 0.1, 100).transposed);
+    glErrorCheck();
   }
 }

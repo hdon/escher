@@ -134,6 +134,10 @@ class ShaderProgram
     this.vs = vs;
     this.fs = fs;
     programObject = linkProgram(vs, fs);
+
+    // XXX
+    glBindAttribLocation(programObject, 1, "ucolor");
+    glErrorCheck();
   }
   this(string vsFilename, string fsFilename)
   {
@@ -222,6 +226,11 @@ class ShaderProgram
     {
       GLint location = glGetUniformLocation(programObject, name.toStringz());
       glUniform3f(location, a, b, c);
+    }
+
+    void sendVertexAttribute(string name, float a, float b, float c)
+    {
+      glVertexAttrib3f(1, a, b, c);
     }
   }
 

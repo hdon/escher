@@ -1,7 +1,7 @@
 module display;
 
 import ants.md5 : MD5Model, MD5Animation;
-import ants.escher : World, Camera;
+import ants.escher : World, Camera, Entity, playerEntity, playerModel, playerAnimation;
 import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen;
 import derelict.sdl.sdl;
@@ -66,22 +66,11 @@ class Display
       const char[] glVersion = glVersionCP[0..strlen(glVersionCP)];
       writeln("glGetString(GL_VERSION) = ", glVersion);
 
-      glprogram = glCreateProgram();
-      enforce(glprogram != 0, "glCreateProgram() failed");
-
-      char[] shaderSource;
-      int shaderSourceLength;
-
-      //model = new MD5Model("monkey.md5mesh");
-      //anim = new MD5Animation(model, "monkey.md5anim");
-
       world = new World(mapfilename);
       camera = new Camera(world, 0, vec3(0,0,0));
-
-      //model = new MD5Model("/home/donny/test-md5/test4.md5mesh");
-      //anim = new MD5Animation(model, "/home/donny/test-md5/test4.md5anim");
-      //model = new MD5Model("/home/donny/Downloads/MD5ModelLoader/MD5ModelLoader/data/Boblamp/boblampclean.md5mesh");
-      //anim = new MD5Animation(model, "/home/donny/Downloads/MD5ModelLoader/MD5ModelLoader/data/Boblamp/boblampclean.md5anim");
+      playerModel = new MD5Model("monkey.md5mesh");
+      playerAnimation = new MD5Animation(playerModel, "monkey.md5anim");
+      playerEntity = new Entity();
 
       setupGL();
     }

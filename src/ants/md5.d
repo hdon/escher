@@ -133,12 +133,6 @@ class MD5Model
   float spin;
   void draw()
   {
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glTranslatef(0, 0, -20);
-    glRotatef(spin, 0, 1, 0);
-    spin += 0.1;
     glBegin(GL_TRIANGLES);
     glColor3f (1, 0, 0); glVertex3f(-1, -1, -2);
     glColor3f (0, 1, 0); glVertex3f( 1, -1, -2);
@@ -162,9 +156,6 @@ class MD5Model
         }
       }
     }
-    glEnd();
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
   }
 
   this(string filename)
@@ -320,8 +311,8 @@ class MD5Model
 
     debug
     {
-      writeln(joints);
-      writeln(meshes);
+      //writeln(joints);
+      //writeln(meshes);
     }
   }
 }
@@ -560,21 +551,13 @@ class MD5Animation
 
     debug
     {
-      writeln(animation);
+      //writeln(animation);
     }
   }
 
   // TODO WHAT I'M DOING RIGHT NOW IS UPDATING THIS FUNCTION
   void renderSkeleton()
   {
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glTranslatef(0, 0, -60);
-    //glRotatef(spin, 0, 1, 0);
-    glRotatef(spin, 0, 1, 0);
-    glRotatef(270, 1, 0, 0);
-
     glPointSize(5);
     glColor3f(1, 0, 0);
     
@@ -604,9 +587,6 @@ class MD5Animation
     }
     glEnd();
 
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
-
     if (++frameDelay >= 1)
     {
       frameDelay = 0;
@@ -619,13 +599,6 @@ class MD5Animation
 
   void renderVerts()
   {
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glTranslatef(0, 0, -60);
-    //glRotatef(spin, 0, 1, 0);
-    glRotatef(spin, 0, 1, 0);
-    glRotatef(270, 1, 0, 0);
     glBegin(GL_LINES);
     glColor3f(0.2, 0.2, 1);
     foreach (mesh; model.meshes)
@@ -653,8 +626,6 @@ class MD5Animation
       }
     }
     glEnd();
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
   }
 
   void draw()
@@ -662,54 +633,6 @@ class MD5Animation
     // bs
     renderSkeleton();
     renderVerts();
-
-    /*glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glTranslatef(0, 0, -20);
-    glRotatef(spin, 0, 1, 0);
-    spin += 0.5;
-
-    // Compute weights
-
-    glBegin(GL_TRIANGLES);
-    glColor3f (1, 0, 0); glVertex3f(-1, -1, -2);
-    glColor3f (0, 1, 0); glVertex3f( 1, -1, -2);
-    glColor3f (0, 0, 1); glVertex3f( 0,  1, -2);
-    glColor3f(1, 1, 1);
-    foreach (mesh; model.meshes)
-    {
-      foreach (tri; mesh.tris)
-      {
-        foreach (vi; tri.vi)
-        {
-          Vert vert = mesh.verts[vi];
-          assert(vert.numWeights == 1, "only one weight per vertex is currently supported");
-          Weight weight = mesh.weights[vert.weightIndex];
-          assert(weight.weightBias == 1.0, "weight bias is wrong!");
-
-          Joint joint = model.joints[weight.jointIndex];
-
-          size_t base = numAnimatedComponents * frameNumber + weight.jointIndex * 3;
-          float x, y, z;
-
-          quat weightQuat = quat(0f, weight.pos.x, weight.pos.y, weight.pos.z);
-          computeUnitQuatW(weightQuat);
-
-          x = animation[base+0] + weightQuat.x;
-          y = animation[base+1] + weightQuat.y;
-          z = animation[base+2] + weightQuat.z;
-
-          glVertex3f(x, y, z);
-        }
-      }
-    }
-    glEnd();
-
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
-
-    frameNumber = (frameNumber+1) % numFrames;*/
   }
 
 }
