@@ -16,7 +16,6 @@ int main(string[] args)
   while (isRunning)
   {
     isRunning = display.event();
-    display.clear();
     display.drawGLFrame();
   }
 

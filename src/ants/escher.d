@@ -814,18 +814,28 @@ class World
   // and shit to draw, and not just a handful of polygons per space.
   mat4 pmatPortal  = mat4.perspective(800, 600, 90, 0.00001, 100);
   mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 100);
-  ShaderProgram shaderProgram;
+  //XXX ShaderProgram shaderProgram;
 
-  void drawSpace(int spaceID, mat4 transform, size_t maxDepth, int prevSpaceID, int dmode)
+  void drawSpace(int spaceID, mat4 transform, ubyte portalDepth, int prevSpaceID, int dmode)
   {
+    writefln("[draw space]\t#%d d:%d", spaceID, portalDepth);
     //writeln("[DRAW SPACE]");
     //writeln("[DRAW SPACE]");
     //writeln("[DRAW SPACE]");
     Space space = spaces[spaceID];
-    //writefln("[draw space]\t#%d d:%d", spaceID, maxDepth);
-    maxDepth--;
-    bool descend = maxDepth > 0;
+    portalDepth--;
+    bool descend = portalDepth > 0;
     vec3 lookVec = vec3(0.0, 0.0, 1.0);
+
+    /* Configure the GL for drawing. We must respect the stencil buffer. It tells us
+     * where on the screen we should be visible.
+     */
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glStencilMask(0);
+    glStencilFunc(GL_LEQUAL, portalDepth, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glEnable(GL_DEPTH_TEST);
 
     foreach (faceID, face; space.faces)
     {
@@ -863,8 +873,8 @@ class World
             if (polygon.signedArea() < 0.0)
               continue;
 
-            //shaderProgram.sendVertexAttribute("ucolor",
-            glColor3f(
+            shaderProgram.sendVertexAttribute("ucolor",
+            //glColor3f(
               face.data.solidColor.v[0]/255f,
               face.data.solidColor.v[1]/255f,
               face.data.solidColor.v[2]/255f);
@@ -982,22 +992,16 @@ class World
               //writefln("concatenating:\n%s", face.data.remote.v.transform);
               //writefln("            \tentering face: %d", faceID);
 
-              version (stencil) {
-              // We'll now want to draw to the stencil buffer a polygon representing
-              // our portal
-              glEnd();
-
               // Draw our portal stencil
               glEnable(GL_STENCIL_TEST);
-              glClearStencil(0);
-              glClear(GL_STENCIL_BUFFER_BIT);
               glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
               glDepthMask(GL_FALSE);
-              glStencilFunc(GL_NEVER, 1, 0xFF);
-              glStencilOp(GL_REPLACE, GL_KEEP, GL_KEEP);
+              glStencilFunc(GL_LEQUAL, portalDepth, 0xFF);
+              glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
               glStencilMask(0xFF);
+
+              // Send portal polygon
               glBegin(GL_TRIANGLES);
-              //polygon.drawTriangles();
               glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
               glVertex4f(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
               glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
@@ -1007,28 +1011,13 @@ class World
               glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
               glEnd();
 
-              // Draw space beyond the portal
-              glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-              glDepthMask(GL_TRUE);
-              glStencilMask(0);
-              glStencilFunc(GL_EQUAL, 1, 0xFF);
-              glBegin(GL_TRIANGLES);
-              }
-
-              //glColor3f(1,0,0);
               //polygon.drawTriangles();
               drawSpace(
                 nextSpaceID,
                 transform * face.data.remote.v.transform,
-                maxDepth,
+                portalDepth,
                 spaceID,
                 dmode);
-
-              version (stencil) {
-              glEnd();
-              glDisable(GL_STENCIL_TEST);
-              glBegin(GL_TRIANGLES);
-              }
             }
           }
         }
@@ -1046,11 +1035,13 @@ class World
 MD5Model playerModel;
 MD5Animation playerAnimation;
 Entity playerEntity;
+ShaderProgram shaderProgram;
 
 class Entity
 {
   int spaceID;
   vec3 pos;
+  double angle;
   this()
   {
     this.spaceID = 0;
@@ -1071,7 +1062,14 @@ class Entity
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadMatrixd(m.value_ptr);
+    // XXX for dumbomonkey!!!
+    glTranslatef(pos.x, pos.y, pos.z);
+    glRotatef(angle*180.0/PI, 0, 1, 0);
+    glRotatef(180, 0, 1, 0);
+    glRotatef(90, 1, 0, 0);
+    glScalef(.5, .5, .5);
 
+    shaderProgram.sendVertexAttribute("ucolor", .25, 1, .25);
     playerAnimation.draw();
 
     glMatrixMode(GL_MODELVIEW);
@@ -1390,7 +1388,7 @@ class Camera
 
         if (tris)
         {
-          writefln("intersected face %d", faceIndex);
+          //writefln("intersected face %d", faceIndex);
           if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
           {
             // Move to the space we're entering
@@ -1410,22 +1408,22 @@ class Camera
             this.pos.z = pos.z;
 
             vec4 lookPos = vec4(orient.x, orient.y, orient.z, 0f) + preTransformPos4;
-            writeln("old  vec: ", oldpos);
-            writeln("look vec: ", lookPos);
+            //writeln("old  vec: ", oldpos);
+            //writeln("look vec: ", lookPos);
             lookPos = lookPos * face.data.remote.v.untransform;
-            writeln("new  vec: ", lookPos);
+            //writeln("new  vec: ", lookPos);
             lookPos.x = lookPos.x / lookPos.w;
             lookPos.y = lookPos.y / lookPos.w;
             lookPos.z = lookPos.z / lookPos.w;
-            writeln("/w   vec: ", lookPos);
+            //writeln("/w   vec: ", lookPos);
             lookPos = lookPos - pos;
-            writeln("-op  vec: ", lookPos);
-            writeln("transform: ", face.data.remote.v.transform);
-            writefln("camYaw: %f", camYaw);
+            //writeln("-op  vec: ", lookPos);
+            //writeln("transform: ", face.data.remote.v.transform);
+            //writefln("camYaw: %f", camYaw);
             camYaw = atan2(lookPos.x, lookPos.z);
-            writefln("camYaw: %f new", camYaw);
+            //writefln("camYaw: %f new", camYaw);
 
-            writefln("entered space %d", spaceID);
+            //writefln("entered space %d", spaceID);
             break;
           }
         }
@@ -1436,16 +1434,57 @@ class Camera
     world.entities[playerEntity.spaceID].length = 0;
     playerEntity.spaceID = spaceID;
     playerEntity.pos = pos;
+    playerEntity.angle = camYaw;
     world.entities[playerEntity.spaceID] ~= playerEntity;
+  }
+
+  void lol()
+  {
+    glClearDepth(1);
+    glDepthFunc(GL_LESS);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
+    glClearStencil(0);
+    glClear(GL_STENCIL_BUFFER_BIT);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glDepthMask(GL_FALSE);
+    glStencilFunc(GL_GEQUAL, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glStencilMask(0xFF);
+
+    glBegin(GL_QUADS);
+    shaderProgram.sendVertexAttribute("ucolor", 1.0, 0.0, 1.0);
+    glVertex2d( 0.5,  0.5);
+    glVertex2d(-0.5,  0.5);
+    glVertex2d(-0.5, -0.5);
+    glVertex2d( 0.5, -0.5);
+    glEnd();
+
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilMask(0xFF);
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glStencilMask(0);
+    glStencilFunc(GL_EQUAL, 1, 0xFF);
+    glEnable(GL_DEPTH_TEST);
   }
 
   void draw()
   {
-    /*if (world.shaderProgram is null)
+    ubyte portalDepth = 18;
+
+    /*XXXi f (world.shaderProgram is null)
     {
       world.shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
       world.shaderProgram.use();
     }*/
+    if (shaderProgram is null)
+    {
+      shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
+      shaderProgram.use();
+    }
     glErrorCheck();
 
     glMatrixMode(GL_PROJECTION);
@@ -1454,10 +1493,12 @@ class Camera
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    glDisable(GL_BLEND);
-
-    glEnable(GL_DEPTH_TEST);
     glClearDepth(1);
+    glClearStencil(portalDepth);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glClear(GL_STENCIL_BUFFER_BIT);
+
     glDepthFunc(GL_LESS);
 
     version (lighting) {
@@ -1470,6 +1511,7 @@ class Camera
     mvmat.rotate(camPitch, vec3(1,0,0));
 
     glErrorCheck();
+    writeln("[world.drawSpace() entry]");
     world.drawSpace(spaceID, mvmat, 18, -1, 0);
     glErrorCheck();
 

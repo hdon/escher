@@ -58,6 +58,7 @@ class Display
       DerelictGLU.load();
       assert(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) == 0);
       SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+      SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
       assert(SDL_SetVideoMode(width, height, bpp, SDL_OPENGL | SDL_DOUBLEBUF) !is null);
       SDL_WM_SetCaption(toStringz("D is the best"), null);
 
@@ -99,11 +100,6 @@ class Display
     DerelictGLU.unload();
     DerelictGL.unload();
     DerelictSDL.unload();
-  }
-
-  void clear()
-  {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   }
 
   uint lastFrame;
