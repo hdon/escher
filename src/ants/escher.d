@@ -437,10 +437,11 @@ struct FaceDataSolidColor
   FaceType  type;
   ubyte[3]  v;
 }
+
 struct FaceDataRemote
 {
-  FaceType  type;
-  Remote    v;
+  FaceType type;
+  int remoteID;
 }
 
 union FaceData
@@ -459,6 +460,7 @@ class Face
 class Space
 {
   int       id;
+  Remote[]  remotes;
   vec3[]    verts;
   Face[]    faces;
 }
@@ -467,6 +469,7 @@ private enum ParserMode
 {
   expectNumSpaces,
   expectSpace,
+  expectRemote,
   expectVert,
   expectFace
 }
@@ -653,13 +656,19 @@ class World
 
     // Used to check for file sanity
     int spaceID;
-    size_t numSpaces, numVerts, numFaces;
+    size_t numSpaces, numVerts, numFaces, numRemotes;
 
     foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
     {
       auto words = split(line);
 
       writeln("processing: ", line);
+      if (lineNo == 0)
+      {
+        enforce(line == "escher version 2", "first line of map must be: escher version 2");
+        continue;
+      }
+
       if (words.length)
       switch (mode)
       {
@@ -674,19 +683,90 @@ class World
           enforce(words[0] == "space", "expected space");
           enforce(words[2] == "numverts", "expected numverts");
           enforce(words[4] == "numfaces", "expected numfaces");
+          enforce(words[6] == "numremotes", "expected numremotes");
           spaceID = to!int(words[1]);
           enforce(spaceID == spaces.length, "spaces disorganized");
 
           numVerts = to!size_t(words[3]);
           numFaces = to!size_t(words[5]);
+          numRemotes = to!size_t(words[7]);
 
           space = new Space();
           space.id = spaceID;
           space.verts.reserve(numVerts);
           space.faces.reserve(numFaces);
+          space.remotes.reserve(numRemotes);
           spaces ~= space;
 
-          mode = ParserMode.expectVert;
+          if (numRemotes > 0)
+            mode = ParserMode.expectRemote;
+          else
+            mode = ParserMode.expectVert;
+          break;
+
+        case ParserMode.expectRemote:
+          enforce(words[0] == "remote", "expected remote");
+          enforce(to!size_t(words[1]) == space.remotes.length, "remotes disorganized");
+
+          Remote remote;
+
+          enforce(words[2] == "space", "expected space while parsing remote");
+          remote.spaceID = to!int(words[3]); // not size_t because -1 special value
+
+          /* -1 is a special case where we don't care about anything else. It's not
+           * a real remote face anyhow.
+           */
+          if (remote.spaceID >= 0)
+          {
+            enforce(words[4] == "translation", "expected translation");
+            vec3 translation;
+
+            bool hasRotation = false;
+            vec3 rotationAxis;
+            float rotationAngle;
+
+            // TODO scaling
+
+            translation = vec3(
+              to!float(words[5]),
+              to!float(words[6]),
+              to!float(words[7]));
+
+            if (words.length > 8)
+            {
+              enforce(words[8] == "orientation", "expected orientation");
+
+              hasRotation = true;
+
+              rotationAngle = to!float(words[9]) / 180f * PI;
+              rotationAxis = vec3(to!float(words[10]),
+                                  to!float(words[11]),
+                                  to!float(words[12]));
+            }
+
+            mat4 transform = mat4.identity;
+            mat4 untransform = mat4.identity;
+
+            untransform.translate(-translation.x, -translation.y, -translation.z);
+
+            if (hasRotation)
+            {
+              transform.rotate(rotationAngle, rotationAxis);
+              untransform.rotate(-rotationAngle, rotationAxis);
+            }
+
+            transform.translate(translation.x, translation.y, translation.z);
+
+            writeln("space transform\n", transform);
+
+            remote.transform = transform;
+            remote.untransform = untransform;
+          }
+
+          space.remotes ~= remote;
+
+          if (space.remotes.length == numRemotes)
+            mode = ParserMode.expectVert;
           break;
 
         case ParserMode.expectVert:
@@ -722,53 +802,7 @@ class World
           else if (words[6] == "remote")
           {
             face.data.type = FaceType.Remote;
-            int remoteSpaceID = to!int(words[7]); // not size_t because -1 special value
-            face.data.remote.v.spaceID = remoteSpaceID;
-            if (remoteSpaceID >= 0)
-            {
-              vec3 translation;
-
-              bool hasRotation = false;
-              vec3 rotationAxis;
-              float rotationAngle;
-
-              // TODO scaling
-
-              translation = vec3(
-                to!float(words[8]),
-                to!float(words[9]),
-                to!float(words[10]));
-
-              if (words.length >= 16)
-              {
-                enforce(words[11] == "orientation", "expected orientation");
-
-                hasRotation = true;
-
-                rotationAngle = to!float(words[12]) / 180f * PI;
-                rotationAxis = vec3(to!float(words[13]),
-                                    to!float(words[14]),
-                                    to!float(words[15]));
-              }
-
-              mat4 transform = mat4.identity;
-              mat4 untransform = mat4.identity;
-
-              untransform.translate(-translation.x, -translation.y, -translation.z);
-
-              if (hasRotation)
-              {
-                transform.rotate(rotationAngle, rotationAxis);
-                untransform.rotate(-rotationAngle, rotationAxis);
-              }
-
-              transform.translate(translation.x, translation.y, translation.z);
-
-              writeln("space transform\n", transform);
-
-              face.data.remote.v.transform = transform;
-              face.data.remote.v.untransform = untransform;
-            }
+            face.data.remote.remoteID = to!int(words[7]);
           }
           else
           {
@@ -986,7 +1020,8 @@ class World
              */
             //Polygon3 polygon = Polygon3(verts);
 
-            int nextSpaceID = face.data.remote.v.spaceID;
+            int remoteID = face.data.remote.remoteID;
+            int nextSpaceID = spaces[spaceID].remotes[remoteID].spaceID;
             if (descend && nextSpaceID != size_t.max)
             {
               //writefln("concatenating:\n%s", face.data.remote.v.transform);
@@ -1014,7 +1049,7 @@ class World
               //polygon.drawTriangles();
               drawSpace(
                 nextSpaceID,
-                transform * face.data.remote.v.transform,
+                transform * spaces[spaceID].remotes[remoteID].transform,
                 portalDepth,
                 spaceID,
                 dmode);
@@ -1389,42 +1424,49 @@ class Camera
         if (tris)
         {
           //writefln("intersected face %d", faceIndex);
-          if (face.data.type == FaceType.Remote && face.data.remote.v.spaceID >= 0)
+          if (face.data.type == FaceType.Remote)
           {
-            // Move to the space we're entering
-            spaceID = face.data.remote.v.spaceID;
+            writefln("trying to crash spaceID=%d remoteID=%d num space remotes=%d",
+              spaceID, face.data.remote.remoteID, world.spaces[spaceID].remotes.length);
 
-            /* Scene coordinates are now relative to the space we've entered.
-             * We must adjust our own coordinates so that we enter the space
-             * at the correct position. We also need to adjust our orientation.
-             */
-            vec4 preTransformPos4 = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
-            vec4 pos = preTransformPos4 * face.data.remote.v.untransform;
-            pos.x = pos.x / pos.w;
-            pos.y = pos.y / pos.w;
-            pos.z = pos.z / pos.w;
-            this.pos.x = pos.x;
-            this.pos.y = pos.y;
-            this.pos.z = pos.z;
+            Remote remote = world.spaces[spaceID].remotes[face.data.remote.remoteID];
+            if (FaceType.Remote && remote.spaceID >= 0)
+            {
+              // Move to the space we're entering
+              spaceID = remote.spaceID;
 
-            vec4 lookPos = vec4(orient.x, orient.y, orient.z, 0f) + preTransformPos4;
-            //writeln("old  vec: ", oldpos);
-            //writeln("look vec: ", lookPos);
-            lookPos = lookPos * face.data.remote.v.untransform;
-            //writeln("new  vec: ", lookPos);
-            lookPos.x = lookPos.x / lookPos.w;
-            lookPos.y = lookPos.y / lookPos.w;
-            lookPos.z = lookPos.z / lookPos.w;
-            //writeln("/w   vec: ", lookPos);
-            lookPos = lookPos - pos;
-            //writeln("-op  vec: ", lookPos);
-            //writeln("transform: ", face.data.remote.v.transform);
-            //writefln("camYaw: %f", camYaw);
-            camYaw = atan2(lookPos.x, lookPos.z);
-            //writefln("camYaw: %f new", camYaw);
+              /* Scene coordinates are now relative to the space we've entered.
+               * We must adjust our own coordinates so that we enter the space
+               * at the correct position. We also need to adjust our orientation.
+               */
+              vec4 preTransformPos4 = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
+              vec4 pos = preTransformPos4 * remote.untransform;
+              pos.x = pos.x / pos.w;
+              pos.y = pos.y / pos.w;
+              pos.z = pos.z / pos.w;
+              this.pos.x = pos.x;
+              this.pos.y = pos.y;
+              this.pos.z = pos.z;
 
-            //writefln("entered space %d", spaceID);
-            break;
+              vec4 lookPos = vec4(orient.x, orient.y, orient.z, 0f) + preTransformPos4;
+              //writeln("old  vec: ", oldpos);
+              //writeln("look vec: ", lookPos);
+              lookPos = lookPos * remote.untransform;
+              //writeln("new  vec: ", lookPos);
+              lookPos.x = lookPos.x / lookPos.w;
+              lookPos.y = lookPos.y / lookPos.w;
+              lookPos.z = lookPos.z / lookPos.w;
+              //writeln("/w   vec: ", lookPos);
+              lookPos = lookPos - pos;
+              //writeln("-op  vec: ", lookPos);
+              //writeln("transform: ", remote.transform);
+              //writefln("camYaw: %f", camYaw);
+              camYaw = atan2(lookPos.x, lookPos.z);
+              //writefln("camYaw: %f new", camYaw);
+
+              //writefln("entered space %d", spaceID);
+              break;
+            }
           }
         }
       }
