@@ -14,6 +14,12 @@ import ants.md5 : MD5Model, MD5Animation;
 import derelict.opengl.glu;
 debug import std.stdio : writeln, writefln;
 
+version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}
+else{ pragma(msg, "rendering with OPENGL transforms"); }
+
+version(stencil) {pragma(msg, "rendering WITH stencils");}
+else{ pragma(msg, "rendering WITHOUT stencils"); }
+
 void explode()
 {
   static bool explosion;
@@ -642,6 +648,107 @@ int clipSegment(ref vec4 a, ref vec4 b, int plane)
   return 2;
 }
 
+void processSomeVerts(ref vec4[4] outVerts, vec3[] verts, int[] indices, mat4 mvmat, mat4 pmat)
+{
+  enforce(verts.length == 4, "lol only 4 verts allowed");
+  foreach (i, vi; indices)
+  {
+    vec3 v3 = verts[vi];
+    vec4 v4 = vec4(v3.x, v3.y, v3.z, 1);
+    v4 = v4 * mvmat;
+    v4 = v4 * pmat;
+    outVerts[i] = v4;
+  }
+}
+
+bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
+{
+  writeln("drawFace() ", face);
+  vec4[4] verts;
+  vec3[4] inverts;
+  foreach (i, vi; face.indices)
+  {
+    inverts[i] = space.verts[vi];
+    vec3 v3 = space.verts[vi];
+    vec4 v4 = vec4(v3.x, v3.y, v3.z, 1);
+    v4 = v4 * mvmat;
+    v4 = v4 * pmat;
+    verts[i] = v4;
+  }
+
+  auto polygon = new Polygon4(verts[]);
+
+  if (!polygon.clip())
+    return false;
+
+  if (polygon.signedArea() < 0.0)
+    return false;
+
+  if (face.data.type == FaceType.SolidColor)
+  {
+    writefln("drawing solid color face %d %d %d",
+        face.data.solidColor.v[0],
+        face.data.solidColor.v[1],
+        face.data.solidColor.v[2]);
+    shaderProgram.sendVertexAttribute("ucolor",
+        face.data.solidColor.v[0]/255f,
+        face.data.solidColor.v[1]/255f,
+        face.data.solidColor.v[2]/255f);
+
+    version (sendNormals)
+    {
+      vec3 faceNorm = getTriangleNormal(
+          xformVec(space.verts[face.indices[0]], transform),
+          xformVec(space.verts[face.indices[1]], transform),
+          xformVec(space.verts[face.indices[2]], transform)).normalized;
+      glNormal3d(faceNorm.x, faceNorm.y, faceNorm.z);
+    }
+  }
+  else
+  {
+    version (stencil) {
+    } else {
+      shaderProgram.sendVertexAttribute("ucolor", 1, 0, 1);
+    }
+  }
+
+  version (customTransform)
+  {
+    glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+    glVertex4d(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
+    glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+
+    glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+    glVertex4d(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
+    glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+  }
+  else
+  {
+    glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
+    glVertex3d(inverts[1].x, inverts[1].y, inverts[1].z);
+    glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
+
+    glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
+    glVertex3d(inverts[3].x, inverts[3].y, inverts[3].z);
+    glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
+  }
+
+  return true;
+}
+
+void loadMVP(mat4 mvmat, mat4 pmat)
+{
+  mat4 m;
+
+  m = pmat.transposed;
+  glMatrixMode(GL_PROJECTION);
+  glLoadMatrixd(m.value_ptr);
+
+  m = mvmat.transposed;
+  glMatrixMode(GL_MODELVIEW);
+  glLoadMatrixd(m.value_ptr);
+}
+
 class World
 {
   Space[] spaces;
@@ -850,8 +957,103 @@ class World
   mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 100);
   //XXX ShaderProgram shaderProgram;
 
-  void drawSpace(int spaceID, mat4 transform, ubyte portalDepth, int prevSpaceID, int dmode)
+  void drawSpace(int spaceID, mat4 transform, ubyte portalDepth, int dmode)
   {
+    Space space = spaces[spaceID];
+
+    /* First we'll draw solid faces. This requires a stencil test, but does not
+     * draw to the stencil.
+     */
+    version (customTransform) {} else loadMVP(transform, pmatWorld);
+    version (stencil) {
+      glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+      glDepthMask(GL_TRUE);
+      glStencilMask(0);
+      glStencilFunc(GL_EQUAL, portalDepth, 0xFF);
+      glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    }
+    glBegin(GL_TRIANGLES);
+    foreach (faceID, face; space.faces)
+    {
+      if (face.data.type != FaceType.SolidColor)
+        continue;
+
+      drawFace(space, face, transform, pmatWorld);
+    }
+    glEnd();
+
+    /* Now we'll draw our entities.
+     */
+    foreach (entity; entities[spaceID])
+    {
+      entity.draw(transform, pmatWorld);
+    }
+
+    /* Now we'll draw remote spaces. This requires identifying visible faces which are
+     * connected to each remote space, and drawing them onto the stencil buffer. Then
+     * we can render the remote face through this stencil. When rendering of the remote
+     * space is done, we'll "undraw" the stencil we drew. We still respect the previous
+     * stencil rules when we make this draw.
+     */
+    if (portalDepth > 0)
+    foreach (remoteID, remote; space.remotes)
+    {
+      version (customTransform) {} else loadMVP(transform, pmatPortal);
+      version (stencil) {
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        glDepthMask(GL_FALSE);
+        glStencilMask(0xFF);
+        glStencilFunc(GL_EQUAL, portalDepth, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
+      }
+
+      bool drawRemote = false;
+      glBegin(GL_TRIANGLES);
+      foreach (faceID, face; space.faces)
+      {
+        if (face.data.type != FaceType.Remote || face.data.remote.remoteID != remoteID)
+          continue;
+        if (drawFace(space, face, transform, pmatPortal))
+          drawRemote = true;
+      }
+      glEnd();
+
+      /* We'll draw the remote space now, but only if one of the remote faces to this
+       * remote was visible.
+       */
+      if (!drawRemote)
+        continue;
+
+      drawSpace(
+          remote.spaceID,
+          transform * spaces[spaceID].remotes[remoteID].transform,
+          cast(ubyte)(portalDepth-1),
+          dmode);
+
+      /* Now we must undraw the stencils we drew for this remote
+       */
+      version (stencil) {
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        glDepthMask(GL_FALSE);
+        glStencilMask(0xFF);
+        glStencilFunc(GL_LEQUAL, portalDepth-1, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+      }
+      glBegin(GL_TRIANGLES);
+      foreach (faceID, face; space.faces)
+      {
+        if (face.data.type != FaceType.Remote && face.data.remote.remoteID != remoteID)
+          continue;
+        if (drawFace(space, face, transform, pmatPortal))
+          drawRemote = true;
+      }
+      glEnd();
+    }
+  }
+
+  void xxxdrawSpace(int spaceID, mat4 transform, ubyte portalDepth, int prevSpaceID, int dmode)
+  {
+    assert(0);
     writefln("[draw space]\t#%d d:%d", spaceID, portalDepth);
     //writeln("[DRAW SPACE]");
     //writeln("[DRAW SPACE]");
@@ -1047,7 +1249,7 @@ class World
               glEnd();
 
               //polygon.drawTriangles();
-              drawSpace(
+              xxxdrawSpace(
                 nextSpaceID,
                 transform * spaces[spaceID].remotes[remoteID].transform,
                 portalDepth,
@@ -1482,6 +1684,7 @@ class Camera
 
   void lol()
   {
+    assert(0);
     glClearDepth(1);
     glDepthFunc(GL_LESS);
     glDisable(GL_DEPTH_TEST);
@@ -1515,7 +1718,7 @@ class Camera
 
   void draw()
   {
-    ubyte portalDepth = 18;
+    ubyte portalDepth = 2;
 
     /*XXXi f (world.shaderProgram is null)
     {
@@ -1535,11 +1738,19 @@ class Camera
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    glClearDepth(1);
-    glClearStencil(portalDepth);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    glDepthMask(GL_TRUE);
+    glClearDepth(1);
     glClear(GL_DEPTH_BUFFER_BIT);
-    glClear(GL_STENCIL_BUFFER_BIT);
+
+    version (stencil) {
+      glStencilMask(255);
+      glClearStencil(portalDepth);
+      glClear(GL_STENCIL_BUFFER_BIT);
+    }
 
     glDepthFunc(GL_LESS);
 
@@ -1548,13 +1759,18 @@ class Camera
       glEnable(GL_LIGHT0);
     }
 
+    glEnable(GL_DEPTH_TEST);
+    version (stencil) glEnable(GL_STENCIL_TEST);
+
     mat4 mvmat = mat4.translation(-pos.x, -pos.y, -pos.z);
     mvmat.rotate(camYaw, vec3(0,1,0));
     mvmat.rotate(camPitch, vec3(1,0,0));
 
+    shaderProgram.sendVertexAttribute("ucolor", 1.0, 0, 0);
+
     glErrorCheck();
-    writeln("[world.drawSpace() entry]");
-    world.drawSpace(spaceID, mvmat, 18, -1, 0);
+    writeln("drawSpace() entry");
+    world.drawSpace(spaceID, mvmat, portalDepth, 0);
     glErrorCheck();
 
     //playerEntity.draw(
