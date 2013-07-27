@@ -47,13 +47,29 @@ class OBJECT_OT_HelloButton(bpy.types.Operator):
   def execute(self, context):
     return{'FINISHED'}  
  
+def getMeshMaterial(me, mat):
+  '''Gets the index of a material in a mesh, and returns it.
+     If it is not already a material of the mesh, it is added.'''
+  if mat.name in me.materials:
+    return me.materials.find(mat.name)
+  rval = len(me.materials)
+  me.materials.append(mat)
+  return rval
+
 class ESCHER_OT_Portalize_Face(bpy.types.Operator):
   '''Portalize selected faces'''
   bl_idname = "escher.portalize_face"
   bl_label = "Portalize Mesh Face"
   
-  def execute(self, context):
-    print(getPortalMaterial())
+  def execute(self, cx):
+    mat = getPortalMaterial()
+    me = cx.object.data
+    imat = getMeshMaterial(me, mat)
+    bm = getEditMesh(cx)
+    if bm:
+      for fa in selectedFaces(bm):
+        fa.material_index = imat
+    cx.object.show_transparent = True
     return {'FINISHED'}
   
   @classmethod
