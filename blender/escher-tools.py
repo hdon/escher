@@ -27,8 +27,9 @@ class ObjectPanel(bpy.types.Panel):
   bl_context = "object"
  
   def draw(self, context):
-    self.layout.operator("hello.hello", text='Bonjour').country = "France"
+    #self.layout.operator("hello.hello", text='Bonjour').country = "France"
     self.layout.operator("escher.portalize_face")
+    self.layout.operator("escher.link_remote")
 
 class MaterialPanel(bpy.types.Panel):
   bl_label = "Escher (Material)"
@@ -70,16 +71,35 @@ class ESCHER_OT_Portalize_Face(bpy.types.Operator):
       for fa in selectedFaces(bm):
         fa.material_index = imat
     cx.object.show_transparent = True
+    self.report({'INFO'}, 'Portalized face materials!')
     return {'FINISHED'}
   
   @classmethod
   def poll(cls, cx):
     me = getEditMesh(cx)
     if me:
-      print('found active mesh')
       fa = list(selectedFaces(me))
       if len(fa):
         return True
     return False
+
+class ESCHER_OT_LinkRemote(bpy.types.Operator):
+  '''Links a remote space to this one'''
+  bl_idname = "escher.link_remote"
+  bl_label = "Link Remote"
+  
+  @classmethod
+  def poll(cls, cx):
+    return cx.object.select
+
+  def execute(sefl, cx):
+    # This empty object represents the remote space
+    eo = bpy.data.objects.new('EscherRemote', None)
+    bpy.context.scene.objects.link(eo)
+    eo.parent = cx.object
+    bpy.ops.object.select_all(action='DESELECT')
+    eo.select = True
+    bpy.ops.transform.translate()
+    return {'FINISHED'}
 
 bpy.utils.register_module(__name__)
