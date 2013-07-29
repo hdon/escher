@@ -20,26 +20,16 @@ def getPortalMaterial():
   mat.alpha = 0.5
   return mat
 
-class ObjectPanel(bpy.types.Panel):
-  bl_label = "Escher (Object)"
-  bl_space_type = "PROPERTIES"
-  bl_region_type = "WINDOW"
-  bl_context = "object"
- 
+class NPanel(bpy.types.Panel):
+  bl_label = 'Escher'
+  bl_space_type = 'VIEW_3D'
+  bl_region_type = 'TOOLS'
+  
   def draw(self, context):
-    #self.layout.operator("hello.hello", text='Bonjour').country = "France"
-    self.layout.operator("escher.portalize_face")
-    self.layout.operator("escher.link_remote")
+    self.layout.operator('escher.portalize_face')
+    self.layout.operator('escher.link_remote')
+    self.layout.operator('escher.realize_remote')
 
-class MaterialPanel(bpy.types.Panel):
-  bl_label = "Escher (Material)"
-  bl_space_type = "PROPERTIES"
-  bl_region_type = "WINDOW"
-  bl_context = "material"
- 
-  def draw(self, context):
-    self.layout.operator("hello.hello", text='Ciao').country = "Italy"
- 
 class OBJECT_OT_HelloButton(bpy.types.Operator):
   bl_idname = "hello.hello"
   bl_label = "Say Hello"
@@ -90,9 +80,9 @@ class ESCHER_OT_LinkRemote(bpy.types.Operator):
   
   @classmethod
   def poll(cls, cx):
-    return cx.object.select
+    return cx.mode == 'OBJECT' and cx.object and cx.object.type == 'MESH'
 
-  def execute(sefl, cx):
+  def execute(self, cx):
     # This empty object represents the remote space
     eo = bpy.data.objects.new('EscherRemote', None)
     bpy.context.scene.objects.link(eo)
@@ -100,6 +90,35 @@ class ESCHER_OT_LinkRemote(bpy.types.Operator):
     bpy.ops.object.select_all(action='DESELECT')
     eo.select = True
     bpy.ops.transform.translate()
+    return {'FINISHED'}
+
+class ESCHER_OT_RealizeRemote(bpy.types.Operator):
+  '''Creates an object parented to the symbolic EMPTY object representing an Escher Remote.
+  
+  The object created is referred to as an SSO, or "Secondary Space Object." This object is
+  disposable and probably won't get saved in the .blend file. The PSO, or "Primary Space
+  Object," is not expendable, as it has children which are important, and of course its
+  data is the mesh representing the geometry of the Escher Space.'''
+  
+  bl_idname = 'escher.realize_remote'
+  bl_label = 'Realize Remote'
+
+  @classmethod
+  def poll(cls, cx):
+    return cx.mode == 'OBJECT' and cx.object and cx.object.type == 'EMPTY' and \
+        'escher_remote_space_name' in cx.object
+
+  def execute(self, cx):
+    eo = cx.object
+    for child in eo.children:
+      if child.name.startswith('EscherSSO_'):
+        self.report({'INFO'}, 'Escher Remote Space already realized!')
+        return {'FINISHED'}
+    remoteName = cx.object['escher_remote_space_name']
+    remoteMesh = bpy.data.meshes[remoteName]
+    remoteObj = bpy.data.objects.new('EscherSSO_' + remoteName, remoteMesh)
+    cx.scene.objects.link(remoteObj)
+    remoteObj.parent = eo
     return {'FINISHED'}
 
 bpy.utils.register_module(__name__)
