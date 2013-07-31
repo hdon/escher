@@ -32,15 +32,7 @@ class OBJECT_OT_NewSpaceButton(bpy.types.Operator):
     #   hide PSO
     #   create SSO (Secondary Space Object) and parent to the EMPTY
     return {'FINISHED'}
-    
-class OBJECT_OT_HelloButton(bpy.types.Operator):
-  bl_idname = "hello.hello"
-  bl_label = "Say Hello"
-  country = bpy.props.StringProperty()
 
-  def execute(self, context):
-    return{'FINISHED'}  
- 
 def getMeshMaterial(me, mat):
   '''Gets the index of a material in a mesh, and returns it.
      If it is not already a material of the mesh, it is added.'''
@@ -208,6 +200,19 @@ def makePSO(spaceName, me=None):
   pso.show_transparent = True
   return pso
 
+def cloneGraph(o, sc):
+  r = o.copy()
+  sc.objects.link(r)
+  for c in o.children:
+    d = cloneGraph(c, sc)
+    d.parent = r
+  return r
+
+def graphWalk(o, fn):
+  fn(o)
+  for c in o.children:
+    graphWalk(c, fn)
+
 def makeSSO(spaceName):
   psoName = spaceName2psoName(spaceName)
   if psoName not in bpy.data.objects:
@@ -288,6 +293,24 @@ class EscherFocusSpace(bpy.types.Operator):
     context.window_manager.invoke_search_popup(self)
     return {'FINISHED'}
 
+def selectObject(o):
+  o.select = True
+
+class EscherDeepCopy(bpy.types.Operator):
+  '''Copies a portion of the scene graph'''
+  bl_idname = 'escher.deep_copy'
+  bl_label = 'Deep Copy'
+
+  @classmethod
+  def poll(cls, cx):
+    return cx.mode == 'OBJECT' and cx.object
+
+  def execute(self, cx):
+    o = cloneGraph(cx.object, cx.scene)
+    bpy.ops.object.select_all(action='DESELECT')
+    graphWalk(o, selectObject)
+    return {'FINISHED'}
+
 def showGraph(ob):
   hideGraph(ob, False)
 
@@ -310,6 +333,7 @@ class NPanel(bpy.types.Panel):
     layout.operator('escher.select_remote')
     layout.operator('escher.new_space')
     layout.operator('escher.focus_space')
+    layout.operator('escher.deep_copy')
 
 def register():
   #bpy.types.Object.escher_space_name = bpy.props.EnumProperty(items=escher_space_names)
