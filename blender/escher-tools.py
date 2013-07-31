@@ -118,11 +118,11 @@ class ESCHER_OT_RealizeRemote(bpy.types.Operator):
       if child.name.startswith('EscherSSO_'):
         self.report({'INFO'}, 'Escher Remote Space already realized!')
         return {'FINISHED'}
-    remoteName = cx.object['escher_remote_space_name']
-    remoteMesh = bpy.data.meshes[remoteName]
-    remoteObj = bpy.data.objects.new('EscherSSO_' + remoteName, remoteMesh)
-    cx.scene.objects.link(remoteObj)
-    remoteObj.parent = eo
+    remoteSpaceName = eo['escher_remote_space_name']
+    sso = makeSSO(remoteSpaceName)
+    cx.scene.objects.link(sso)
+    sso.parent = eo
+    # TODO lock all transforms of the SSO
     return {'FINISHED'}
 
 class EscherSelectRemote(bpy.types.Operator):
@@ -152,10 +152,6 @@ class EscherSelectRemote(bpy.types.Operator):
     remoteSpaceName = psoName2spaceName(remotePsoName)
     removeSsosFromRemoteEmpty(cx.object, cx)
     cx.object['escher_remote_space_name'] = remoteSpaceName
-    sso = makeSSO(remoteSpaceName)
-    cx.scene.objects.link(sso)
-    sso.parent = cx.object
-    # TODO lock all transforms of the SSO
     return {'FINISHED'}
 
   def invoke(self, context, event):
