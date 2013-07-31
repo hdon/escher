@@ -63,7 +63,6 @@ class ESCHER_OT_Portalize_Face(bpy.types.Operator):
     if bm:
       for fa in selectedFaces(bm):
         fa.material_index = imat
-    cx.object.show_transparent = True
     self.report({'INFO'}, 'Portalized face materials!')
     return {'FINISHED'}
   
@@ -116,7 +115,7 @@ class ESCHER_OT_RealizeRemote(bpy.types.Operator):
     eo = cx.object
     for child in eo.children:
       if child.name.startswith('EscherSSO_'):
-        self.report({'INFO'}, 'Escher Remote Space already realized!')
+        showGraph(child)
         return {'FINISHED'}
     remoteSpaceName = eo['escher_remote_space_name']
     sso = makeSSO(remoteSpaceName)
@@ -202,8 +201,11 @@ def makePSO(spaceName, me=None):
     bm.faces.new((bm.verts[0], bm.verts[1], bm.verts[5], bm.verts[4]))
     bm.faces.new((bm.verts[2], bm.verts[6], bm.verts[7], bm.verts[3]))
     me = bpy.data.meshes.new(spaceName2meshName(spaceName))
+    # Assign default material (makes life easier)
+    me.materials.append(bpy.data.materials['Material'])
     bm.to_mesh(me)
   pso = bpy.data.objects.new(spaceName2psoName(spaceName), me)
+  pso.show_transparent = True
   return pso
 
 def makeSSO(spaceName):
@@ -212,10 +214,16 @@ def makeSSO(spaceName):
     raise KeyError('Could not find "%s"' % psoName)
   ssoName = spaceName2ssoName(spaceName)
   sso = bpy.data.objects.new(ssoName, bpy.data.objects[psoName].data)
+  sso.show_transparent = True
   return sso
 
 def isUnqualifiedSpaceName(spaceName):
   return not (spaceName.startswith('EscherPSO_') or spaceName.startswith('EscherSSO_') or spaceName.startswith('EscherSM_'))
+
+def toUnqualifiedSpaceName(spaceName):
+  if isUnqualifiedSpaceName(spaceName):
+    return spaceName
+  return spaceName[spaceName.find('_')+1:]
 
 def spaceName2meshName(spaceName):
   if isUnqualifiedSpaceName(spaceName):
@@ -238,6 +246,56 @@ def psoName2spaceName(psoName):
   else:
     raise ValueError('Invalid Escher PSO name string')
 
+class EscherFocusSpace(bpy.types.Operator):
+  '''Focus on a space by hiding all other spaces and displaying one space's PPO'''
+  bl_idname = 'escher.focus_space'
+  bl_label = 'Focus Space'
+  bl_property = "enumprop"
+
+  def item_cb(self, cx):
+    rval = [(c.name, c.name[10:], '') for c in self.choices]
+    if cx.object:
+      rval = [('*current*', 'Currently Selected Object', '')] + rval
+    return rval
+
+  # This has to be a bpy.props.CollectionProperty(), it can't be a Python List!!!
+  choices = bpy.props.CollectionProperty(type=bpy.types.PropertyGroup)
+  enumprop = bpy.props.EnumProperty(items=item_cb)
+
+  @classmethod
+  def poll(cls, cx):
+    return cx.mode == 'OBJECT'
+
+  def execute(self, cx):
+    if self.enumprop == '*current*':
+      psoName = spaceName2psoName(toUnqualifiedSpaceName(cx.object.name))
+    else:
+      psoName = self.enumprop
+
+    for ob in cx.scene.objects:
+      if ob.type == 'MESH':
+        hideGraph(ob)
+
+    pso = bpy.data.objects[psoName]
+    showGraph(pso)
+    return {'FINISHED'}
+
+  def invoke(self, context, event):
+    self.choices.clear()
+    for ob in bpy.data.objects:
+      if ob.name.startswith('EscherPSO_'):
+        self.choices.add().name = ob.name
+    context.window_manager.invoke_search_popup(self)
+    return {'FINISHED'}
+
+def showGraph(ob):
+  hideGraph(ob, False)
+
+def hideGraph(ob, hide=True):
+  ob.hide = hide
+  for o in ob.children:
+    hideGraph(o, hide)
+
 class NPanel(bpy.types.Panel):
   bl_label = 'Escher Tools'
   bl_space_type = 'VIEW_3D'
@@ -251,6 +309,7 @@ class NPanel(bpy.types.Panel):
     layout.operator('mesh.flip_normals', text='Flip Normals')
     layout.operator('escher.select_remote')
     layout.operator('escher.new_space')
+    layout.operator('escher.focus_space')
 
 def register():
   #bpy.types.Object.escher_space_name = bpy.props.EnumProperty(items=escher_space_names)
