@@ -20,6 +20,7 @@ Copyright 2013 Don Viszneki <don@codebad.com> all rights reserved.
 """
 import bpy
 from bpy_extras.io_utils import ExportHelper
+from bpy.props import StringProperty
 
 def getDiffuseColorString(mat):
     c = mat.diffuse_color
@@ -55,13 +56,17 @@ class ExportEscher(bpy.types.Operator, ExportHelper):
   bl_label        = "Escher Map Exporter";
   bl_options      = {'PRESET'};
 
-  filename_ext    = ".esc";
+  filename_ext    = ".esc4";
+  filter_glob = StringProperty(default="*.esc4", options={'HIDDEN'})
+
+  filepath = bpy.props.StringProperty(
+      name="File Path", 
+      description="Output file path", 
+      maxlen=1024, default="")
 
   def execute(self, context):
-    print('[escher]', context)
-    for k in dir(context):
-      print('  ', k)
-    #escherExport(bpy.data.materials, bpy.data.objects, bpy.context.scene, filename)
+    print('exporting esc4 to filename "%s"' % self.properties.filepath)
+    escherExport(bpy.data.materials, bpy.data.objects, bpy.context.scene, self.properties.filepath)
     return {'FINISHED'};
 
 def menu_func(self, context):
