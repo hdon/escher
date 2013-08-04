@@ -34,6 +34,48 @@ def emitVert(v, uv):
 def unlocalizeMaterialIndex(mats, me, mai):
   return me.materials[mai]
 
+# These functions were taken from escher-tools.py
+# TODO put common functions in a common module somewhere
+#      Or maybe merge this module with the other one
+def isUnqualifiedSpaceName(spaceName):
+  return not (spaceName.startswith('EscherPSO_') or spaceName.startswith('EscherSSO_') or spaceName.startswith('EscherSM_'))
+
+def toUnqualifiedSpaceName(spaceName):
+  if isUnqualifiedSpaceName(spaceName):
+    return spaceName
+  return spaceName[spaceName.find('_')+1:]
+
+def spaceName2meshName(spaceName):
+  if isUnqualifiedSpaceName(spaceName):
+    return 'EscherSM_' + spaceName
+  raise ValueError('Invalid space name!')
+
+def spaceName2psoName(spaceName):
+  if isUnqualifiedSpaceName(spaceName):
+    return 'EscherPSO_' + spaceName
+  raise ValueError('Invalid space name!')
+
+def spaceName2ssoName(spaceName):
+  if isUnqualifiedSpaceName(spaceName):
+    return 'EscherSSO_' + spaceName
+  raise ValueError('Invalid space name!')
+
+def classifySpaceName(spaceName):
+  if spaceName.startswith('EscherPSO_'):
+    return 'PSO'
+  if spaceName.startswith('EscherSSO_'):
+    return 'SSO'
+  return 'UNQUALIFIED'
+
+def objectIsRemote(o):
+  return o.type == 'EMPTY' and o.name.startswith('EscherRemote')
+
+def vec3toStr(v):
+  return '%s %s %s' % (repr(v.x), repr(v.y), repr(v.z))
+
+def euler2str(v):
+  return '%s %s %s' % (repr(v.x), repr(v.y), repr(v.z))
+
 class SuperMap:
   def __init__(self):
     self.keys = []
@@ -83,10 +125,10 @@ def escherExport(materials, objects, scene, filename):
   PSOs = SuperMap()
   # TODO enumerate scene.objects instead? might be faster
   for ob in objects:
-    if ob.name.startswith('EscherPSO_'):
+    if classifySpaceName(ob.name) == 'PSO':
       if ob.type != 'MESH':
         raise Exception('PSO type is not MESH')
-      PSOs[ob.name] = ob
+      PSOs[toUnqualifiedSpaceName(ob.name)] = ob
 
   out = open(filename, 'w')
   out.write('escher version 4\n')
@@ -102,10 +144,16 @@ def escherExport(materials, objects, scene, filename):
 
   for iPSO, PSO in enumerate(PSOs):
     me = PSO.data
-    remotes = list(filter(lambda o:o.name.startswith('EscherRemote'), PSO.children))
+    remotes = list(filter(objectIsRemote, PSO.children))
     # Write "space" command
     out.write('space %d numverts %d numfaces %d numremotes %d\n' %
       (iPSO, len(me.vertices), len(me.polygons), len(remotes)))
+    # Write "remote" commands
+    for iRemote, remote in enumerate(remotes):
+      remoteIndex = PSOs.str2int(remote['escher_remote_space_name'])
+      translation = vec3toStr(remote.location)
+      orientation = euler2str(remote.rotation_euler)
+      out.write('remote %d space %d translation %s orientation %s\n' % (iRemote, remoteIndex, translation, orientation))
     # Write "vert" commands
     for vi, v in enumerate(me.vertices):
       out.write('vert %d %f %f %f\n' %
