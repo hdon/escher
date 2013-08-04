@@ -132,6 +132,17 @@ class Display
           isRunning = false;
           break;
         case SDL_KEYDOWN:
+          if (event.key.keysym.sym == 'p' || event.key.keysym.sym == 'o')
+          {
+            if (event.type == SDL_KEYDOWN)
+            {
+              int delta = event.key.keysym.sym == 'p' ? 1 : -1;
+              int oldSpaceID = camera.spaceID;
+              camera.spaceID = cast(int)((camera.spaceID + world.spaces.length + delta) % world.spaces.length);
+              writeln("[warp] %d to %d", oldSpaceID, camera.spaceID);
+            }
+            break;
+          }
         case SDL_KEYUP:
           if (event.key.keysym.sym == SDLK_ESCAPE)
           {
