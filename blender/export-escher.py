@@ -142,6 +142,7 @@ def escherExport(materials, objects, scene, filename):
       textureFilePath = mat.texture_slots[0].texture.image.filepath
       out.write('texture %s %s\n' % (texMapType, basename(textureFilePath)))
 
+  out.write('numspaces %d\n' % len(PSOs))
   for iPSO, PSO in enumerate(PSOs):
     me = PSO.data
     remotes = list(filter(objectIsRemote, PSO.children))
