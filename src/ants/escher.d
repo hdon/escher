@@ -20,6 +20,9 @@ else{ pragma(msg, "rendering with OPENGL transforms"); }
 version(stencil) {pragma(msg, "rendering WITH stencils");}
 else{ pragma(msg, "rendering WITHOUT stencils"); }
 
+version (lighting) {pragma(msg, "rendering WITH lighting"); }
+else{ pragma(msg, "rendering WITHOUT lighting"); }
+
 void explode()
 {
   static bool explosion;
@@ -441,7 +444,7 @@ enum FaceType
 struct FaceDataSolidColor
 {
   FaceType  type;
-  ubyte[3]  v;
+  float[3]  v;
 }
 
 struct FaceDataRemote
@@ -459,7 +462,7 @@ union FaceData
 
 class Face
 {
-  size_t[4] indices;
+  size_t[] indices;
   FaceData  data;
 }
 
@@ -663,9 +666,19 @@ void processSomeVerts(ref vec4[4] outVerts, vec3[] verts, int[] indices, mat4 mv
 
 bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
 {
+  size_t nverts = face.indices.length;
+  if (nverts != 3 && nverts != 4)
+  {
+    writefln("skipping face because it has %d verts", nverts);
+    return false;
+  }
+
+  // XXX support n-gons
   writeln("drawFace() ", face);
-  vec4[4] verts;
-  vec3[4] inverts;
+  vec4[] verts;
+  vec3[] inverts;
+  verts.length = nverts;
+  inverts.length = nverts;
   foreach (i, vi; face.indices)
   {
     inverts[i] = space.verts[vi];
@@ -686,14 +699,14 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
 
   if (face.data.type == FaceType.SolidColor)
   {
-    writefln("drawing solid color face %d %d %d",
+    writefln("drawing solid color face %f %f %f",
         face.data.solidColor.v[0],
         face.data.solidColor.v[1],
         face.data.solidColor.v[2]);
     shaderProgram.sendVertexAttribute("ucolor",
-        face.data.solidColor.v[0]/255f,
-        face.data.solidColor.v[1]/255f,
-        face.data.solidColor.v[2]/255f);
+        face.data.solidColor.v[0],
+        face.data.solidColor.v[1],
+        face.data.solidColor.v[2]);
 
     version (sendNormals)
     {
@@ -714,23 +727,41 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
 
   version (customTransform)
   {
-    glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-    glVertex4d(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
-    glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+    if (nverts == 4)
+    {
+      glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+      glVertex4d(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
+      glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
 
-    glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-    glVertex4d(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
-    glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+      glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+      glVertex4d(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
+      glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+    }
+    else
+    {
+      glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
+      glVertex4d(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
+      glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+    }
   }
   else
   {
-    glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
-    glVertex3d(inverts[1].x, inverts[1].y, inverts[1].z);
-    glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
+    if (nverts == 4)
+    {
+      glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
+      glVertex3d(inverts[1].x, inverts[1].y, inverts[1].z);
+      glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
 
-    glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
-    glVertex3d(inverts[3].x, inverts[3].y, inverts[3].z);
-    glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
+      glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
+      glVertex3d(inverts[3].x, inverts[3].y, inverts[3].z);
+      glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
+    }
+    else
+    {
+      glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
+      glVertex3d(inverts[1].x, inverts[1].y, inverts[1].z);
+      glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
+    }
   }
 
   return true;
@@ -772,7 +803,7 @@ class World
       writeln("processing: ", line);
       if (lineNo == 0)
       {
-        enforce(line == "escher version 2", "first line of map must be: escher version 2");
+        enforce(line == "escher version 3", "first line of map must be: escher version 2");
         continue;
       }
 
@@ -894,22 +925,25 @@ class World
           enforce(to!size_t(words[1]) == space.faces.length, "faces disorganized");
 
           Face face = new Face();
-          face.indices[0] = to!size_t(words[2]);
-          face.indices[1] = to!size_t(words[3]);
-          face.indices[2] = to!size_t(words[4]);
-          face.indices[3] = to!size_t(words[5]);
+          size_t n = to!size_t(words[2]);
+          face.indices.reserve(n);
+          foreach (i; 0..n)
+          {
+            writefln("  processing face vertex %d/%d: %s", i, n, words[3+i]);
+            face.indices ~= to!size_t(words[3+i]);
+          }
 
-          if (words[6] == "rgb")
+          if (words[n+3] == "rgb")
           {
             face.data.type = FaceType.SolidColor;
-            face.data.solidColor.v[0] = to!ubyte(words[7]);
-            face.data.solidColor.v[1] = to!ubyte(words[8]);
-            face.data.solidColor.v[2] = to!ubyte(words[9]);
+            face.data.solidColor.v[0] = to!float(words[n+4]);
+            face.data.solidColor.v[1] = to!float(words[n+5]);
+            face.data.solidColor.v[2] = to!float(words[n+6]);
           }
-          else if (words[6] == "remote")
+          else if (words[n+3] == "remote")
           {
             face.data.type = FaceType.Remote;
-            face.data.remote.remoteID = to!int(words[7]);
+            face.data.remote.remoteID = to!int(words[n+4]);
           }
           else
           {
@@ -1048,223 +1082,6 @@ class World
           drawRemote = true;
       }
       glEnd();
-    }
-  }
-
-  void xxxdrawSpace(int spaceID, mat4 transform, ubyte portalDepth, int prevSpaceID, int dmode)
-  {
-    assert(0);
-    writefln("[draw space]\t#%d d:%d", spaceID, portalDepth);
-    //writeln("[DRAW SPACE]");
-    //writeln("[DRAW SPACE]");
-    //writeln("[DRAW SPACE]");
-    Space space = spaces[spaceID];
-    portalDepth--;
-    bool descend = portalDepth > 0;
-    vec3 lookVec = vec3(0.0, 0.0, 1.0);
-
-    /* Configure the GL for drawing. We must respect the stencil buffer. It tells us
-     * where on the screen we should be visible.
-     */
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDepthMask(GL_TRUE);
-    glStencilMask(0);
-    glStencilFunc(GL_LEQUAL, portalDepth, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glEnable(GL_DEPTH_TEST);
-
-    foreach (faceID, face; space.faces)
-    {
-      vec4[4] verts;
-      vec3[4] inverts;
-      foreach (i, vi; face.indices)
-      {
-        inverts[i] = space.verts[vi];
-        vec3 v3 = space.verts[vi];
-        vec4 v4 = vec4(v3.x, v3.y, v3.z, 1);
-        //writeln("vert s0: ", v4);
-        v4 = v4 * transform;
-        //writeln("vert s1: ", v4);
-        if (face.data.type == FaceType.Remote)
-          v4 = v4 * pmatPortal;
-        else
-          v4 = v4 * pmatWorld;
-        //writeln("vert s2: ", v4);
-        //v4 = v4 * (1.0 / v4.w);
-        //writeln("vert s3: ", v4);
-        verts[i] = v4;
-      }
-      //writeln("modelview: ", transform);
-      //writeln("in  verts: ", inverts);
-      //writeln("out verts: ", verts);
-
-      if (face.data.type == FaceType.SolidColor)
-      {
-        if (dmode == 0)
-        {
-          auto polygon = new Polygon4(verts[]);
-
-          if (polygon.clip())
-          {
-            if (polygon.signedArea() < 0.0)
-              continue;
-
-            shaderProgram.sendVertexAttribute("ucolor",
-            //glColor3f(
-              face.data.solidColor.v[0]/255f,
-              face.data.solidColor.v[1]/255f,
-              face.data.solidColor.v[2]/255f);
-
-            version (lighting) {
-              GLfloat[4] ambient;
-              ambient[0] = face.data.solidColor.v[0]/127.0;
-              ambient[1] = face.data.solidColor.v[1]/127.0;
-              ambient[2] = face.data.solidColor.v[2]/127.0;
-              ambient[3] = 1;
-
-              GLfloat[4] diffuse = ambient;
-              GLfloat[4] specular = [1,1,1,1];
-              glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
-              glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
-              glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
-
-              glMateriali(GL_FRONT, GL_SHININESS, 127);
-            }
-
-            version (customTransform)
-            {
-            }
-            else
-            {
-              mat4 m;
-
-              m = pmatWorld.transposed;
-              glMatrixMode(GL_PROJECTION);
-              glPushMatrix();
-              glLoadMatrixd(m.value_ptr);
-
-              m = transform.transposed;
-              glMatrixMode(GL_MODELVIEW);
-              glPushMatrix();
-              glLoadMatrixd(m.value_ptr);
-            }
-
-            glBegin(GL_TRIANGLES);
-
-            // TODO precompute normals? bump map?
-            vec3 faceNorm = getTriangleNormal(
-              xformVec(space.verts[face.indices[0]], transform),
-              xformVec(space.verts[face.indices[1]], transform),
-              xformVec(space.verts[face.indices[2]], transform)).normalized;
-            //writefln("face normal: %s", faceNorm);
-            glNormal3d(faceNorm.x, faceNorm.y, faceNorm.z);
-
-            version (customTransform)
-            {
-              glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-              glVertex4d(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
-              glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-
-              glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-              glVertex4d(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
-              glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-
-              glEnd();
-            }
-            else
-            {
-              glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
-              glVertex3d(inverts[1].x, inverts[1].y, inverts[1].z);
-              glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
-
-              glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
-              glVertex3d(inverts[3].x, inverts[3].y, inverts[3].z);
-              glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
-
-              glEnd();
-
-              glMatrixMode(GL_MODELVIEW);
-              glPopMatrix();
-
-              glMatrixMode(GL_PROJECTION);
-              glPopMatrix();
-            }
-          }
-        }
-      }
-      else if (face.data.type == FaceType.Remote)
-      {
-        auto polygon = new Polygon4(verts[]);
-
-        if (polygon.clip())
-        {
-          if (polygon.signedArea() > 0.0)
-          {
-            if (dmode == 1)
-            {
-              glColor3ub(255, 0, 0);
-              foreach (edge; polygon.edges)
-              {
-                vec4 a = polygon.points[edge.a];
-                vec4 b = polygon.points[edge.b];
-                a = a * (1.0 / a.w);
-                b = b * (1.0 / b.w);
-                a *= 0.9;
-                b *= 0.9;
-                glVertex2d(a.x, a.y);
-                glVertex2d(b.x, b.y);
-              }
-            }
-
-            /* We want to calculate visibility of this portal. We may draw a
-             * blended quad here for debugging purposes, or we may use this
-             * data to determine visibility of this and subsequent spaces.
-             */
-            //Polygon3 polygon = Polygon3(verts);
-
-            int remoteID = face.data.remote.remoteID;
-            int nextSpaceID = spaces[spaceID].remotes[remoteID].spaceID;
-            if (descend && nextSpaceID != size_t.max)
-            {
-              //writefln("concatenating:\n%s", face.data.remote.v.transform);
-              //writefln("            \tentering face: %d", faceID);
-
-              // Draw our portal stencil
-              glEnable(GL_STENCIL_TEST);
-              glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-              glDepthMask(GL_FALSE);
-              glStencilFunc(GL_LEQUAL, portalDepth, 0xFF);
-              glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-              glStencilMask(0xFF);
-
-              // Send portal polygon
-              glBegin(GL_TRIANGLES);
-              glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-              glVertex4f(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
-              glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-
-              glVertex4f(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-              glVertex4f(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
-              glVertex4f(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-              glEnd();
-
-              //polygon.drawTriangles();
-              xxxdrawSpace(
-                nextSpaceID,
-                transform * spaces[spaceID].remotes[remoteID].transform,
-                portalDepth,
-                spaceID,
-                dmode);
-            }
-          }
-        }
-      }
-    }
-
-    /* Draw entities */
-    foreach (entity; entities[spaceID])
-    {
-      entity.draw(transform, pmatWorld);
     }
   }
 }
@@ -1614,11 +1431,11 @@ class Camera
          *          SOMEWHERE but i have no idea where. For now I will leave it like this but
          *          this problem needs to be solved!
          */
-        if (passThruTest(oldpos, movement.normalized, space.verts[face.indices[0]], space.verts[face.indices[1]], space.verts[face.indices[3]], movement.length))
+        if (face.indices.length == 4 && passThruTest(oldpos, movement.normalized, space.verts[face.indices[0]], space.verts[face.indices[1]], space.verts[face.indices[3]], movement.length))
         {
           tris += 1;
         }
-        if (passThruTest(oldpos, movement.normalized, space.verts[face.indices[2]], space.verts[face.indices[3]], space.verts[face.indices[1]], movement.length))
+        if (face.indices.length == 4 && passThruTest(oldpos, movement.normalized, space.verts[face.indices[2]], space.verts[face.indices[3]], space.verts[face.indices[1]], movement.length))
         {
           tris += 10;
         }
@@ -1682,40 +1499,6 @@ class Camera
     world.entities[playerEntity.spaceID] ~= playerEntity;
   }
 
-  void lol()
-  {
-    assert(0);
-    glClearDepth(1);
-    glDepthFunc(GL_LESS);
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_STENCIL_TEST);
-    glClearStencil(0);
-    glClear(GL_STENCIL_BUFFER_BIT);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glDepthMask(GL_FALSE);
-    glStencilFunc(GL_GEQUAL, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glStencilMask(0xFF);
-
-    glBegin(GL_QUADS);
-    shaderProgram.sendVertexAttribute("ucolor", 1.0, 0.0, 1.0);
-    glVertex2d( 0.5,  0.5);
-    glVertex2d(-0.5,  0.5);
-    glVertex2d(-0.5, -0.5);
-    glVertex2d( 0.5, -0.5);
-    glEnd();
-
-    glStencilFunc(GL_EQUAL, 0, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    glStencilMask(0xFF);
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDepthMask(GL_TRUE);
-    glStencilMask(0);
-    glStencilFunc(GL_EQUAL, 1, 0xFF);
-    glEnable(GL_DEPTH_TEST);
-  }
-
   void draw()
   {
     ubyte portalDepth = 2;
@@ -1727,7 +1510,7 @@ class Camera
     }*/
     if (shaderProgram is null)
     {
-      shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
+      shaderProgram = new ShaderProgram("simple.vs", "flashlight-shader.fs");
       shaderProgram.use();
     }
     glErrorCheck();
