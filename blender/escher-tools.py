@@ -213,6 +213,10 @@ def graphWalk(o, fn):
   for c in o.children:
     graphWalk(c, fn)
 
+def makeSso_copy(o, cx):
+  '''This function exists for makeSSO'''
+  # TODO
+
 def makeSSO(spaceName):
   psoName = spaceName2psoName(spaceName)
   if psoName not in bpy.data.objects:
@@ -252,7 +256,7 @@ def psoName2spaceName(psoName):
     raise ValueError('Invalid Escher PSO name string')
 
 class EscherFocusSpace(bpy.types.Operator):
-  '''Focus on a space by hiding all other spaces and displaying one space's PPO'''
+  '''Focus on a space by hiding all other spaces and displaying one space's PSO'''
   bl_idname = 'escher.focus_space'
   bl_label = 'Focus Space'
   bl_property = "enumprop"

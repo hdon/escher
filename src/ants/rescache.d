@@ -2,17 +2,10 @@ module ants.rescache;
 
 mixin template ResourceCacheMixin(T, KT=string)
 {
-  /* TODO this kind of pointer obfuscation is WRONG. It should work
-   *      for now BUT it may not work forever. D says that some day
-   *      there may be a copying/moving garbage collector that defrags
-   *      the heap. One of the responsibilities of such a GC is to
-   *      adjust pointers to the new addresses, but it can't do that
-   *      if it can't see them!
-   *  XXX */
   union ResourcePtr
   {
     Resource r;
-    size_t p;
+    int p;
   }
 
   struct ResourcePionter
@@ -23,7 +16,7 @@ mixin template ResourceCacheMixin(T, KT=string)
     this(Resource r)
     {
       u.r = r;
-      u.p ^= cast(size_t)-1;
+      u.p ^= -1;
       dead = false;
     }
 
@@ -32,7 +25,7 @@ mixin template ResourceCacheMixin(T, KT=string)
       if (dead)
         return null;
       auto rp = u;
-      rp.p ^= cast(size_t)-1;
+      rp.p ^= -1;
       return rp.r;
     }
   }
@@ -41,10 +34,6 @@ mixin template ResourceCacheMixin(T, KT=string)
 
   static Resource get(KT k)
   {
-    /* TODO don't remove then iterate again;
-            mleise in #d told me that will
-            invalidate the iterator
-     */
     foreach (k2, v; arr)
     {
       if (v.dead)
@@ -79,7 +68,7 @@ mixin template ResourceCacheMixin(T, KT=string)
 
     ~this()
     {
-      debug writefln("[debug] rescache.ResourceMixin dtor: k/v = %x/%v", k, v);
+      debug writefln("[debug] dmise.util.rescache.ResourceMixin dtor: k/v = %x/%v", k, v);
       forget(this.k);
     }
   }

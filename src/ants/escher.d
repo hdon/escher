@@ -12,6 +12,7 @@ import std.algorithm : sort;
 import ants.shader;
 import ants.md5 : MD5Model, MD5Animation;
 import derelict.opengl.glu;
+import ants.texture;
 debug import std.stdio : writeln, writefln;
 
 version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}
@@ -474,8 +475,31 @@ class Space
   Face[]    faces;
 }
 
+enum TextureApplication
+{
+  Color
+}
+
+class MaterialTexture
+{
+  Texture texture;
+  TextureApplication application;
+}
+
+class Material
+{
+  MaterialTexture[]     texes;
+  void use()
+  {
+    // TODO
+  }
+}
+
 private enum ParserMode
 {
+  expectNumMaterials,
+  expectMaterial,
+  expectTexture,
   expectNumSpaces,
   expectSpace,
   expectRemote,
@@ -787,7 +811,7 @@ class World
 
   this(string filename)
   {
-    ParserMode mode = ParserMode.expectNumSpaces;
+    ParserMode mode = ParserMode.expectNumMaterials;
 
     // Convenient reference to the Space we're currently loading
     Space space;
@@ -803,18 +827,47 @@ class World
       writeln("processing: ", line);
       if (lineNo == 0)
       {
-        enforce(line == "escher version 3", "first line of map must be: escher version 2");
+        enforce(line == "escher version 4", "first line of map must be: escher version 2");
         continue;
       }
 
       if (words.length)
       switch (mode)
       {
+        case ParserMode.expectNumMaterials:
+          enforce(words[0] == "nummaterials", "expected nummaterials");
+          numMaterials = to!size_t(words[1]);
+          materials.reserve(numMaterials);
+          if (numMaterials > 0)
+            mode = ParserMode.expectMaterial;
+          else
+            mode = ParserMode.expectNumSpaces;
+          break;
+
         case ParserMode.expectNumSpaces:
           enforce(words[0] == "numspaces", "expected numspaces");
           numSpaces = to!size_t(words[1]);
           spaces.reserve(numSpaces);
           mode = ParserMode.expectSpace;
+          break;
+
+        case ParserMode.expectMaterial:
+          enforce(words[0] == "material", "expected material");
+          materialID = to!int(words[1]);
+          enforce(materialID != materials.length, "materials disorganized");
+          enforce(words[3] == "numtex", "expected numtex");
+          numTextures = to!int(words[4]);
+          if (numTextures == 0)
+          {
+            if (materials.length == numMaterials)
+              mode = ParserMode.expectNumSpaces;
+            else
+              mode = ParserMode.expectMaterial;
+          }
+          else
+          {
+            mode = ParserMode.expectTexture;
+          }
           break;
 
         case ParserMode.expectSpace:
