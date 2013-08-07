@@ -1,6 +1,5 @@
 module ants.shader;
-import derelict.opengl.gl;
-import derelict.opengl.glu;
+import derelict.opengl3.gl3;
 import file = std.file;
 import std.exception : enforce;
 import std.stdio : writeln, writefln;
@@ -231,6 +230,16 @@ class ShaderProgram
     void sendVertexAttribute(string name, float a, float b, float c)
     {
       glVertexAttrib3f(1, a, b, c);
+    }
+
+    GLuint getUniformLocation(string name)
+    {
+      return glGetUniformLocation(programObject, name.toStringz());
+    }
+
+    GLuint getAttribLocation(string name)
+    {
+      return glGetAttribLocation(programObject, name.toStringz());
     }
   }
 

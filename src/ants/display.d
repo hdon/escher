@@ -4,9 +4,9 @@ import ants.md5 : MD5Model, MD5Animation;
 import ants.escher : World, Camera, Entity, playerEntity, playerModel, playerAnimation;
 import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen;
-import derelict.sdl.sdl;
-import derelict.opengl.gl;
-import derelict.opengl.glu;
+import derelict.sdl2.sdl;
+import derelict.sdl2.image;
+import derelict.opengl3.gl3;
 import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.math : PI;
 import std.exception : enforce;
@@ -37,32 +37,44 @@ class Display
 
     void setupGL()
     {
-      glMatrixMode(GL_PROJECTION);
-      glLoadIdentity();
+      //glMatrixMode(GL_PROJECTION);
+      //glLoadIdentity();
       //gluPerspective(fov, cast(float)width/height, znear, zfar);
-      glOrtho(-1, 1, -1, 1, -1, 1);
-      glMatrixMode(GL_MODELVIEW);
-      glLoadIdentity();
+      //glOrtho(-1, 1, -1, 1, -1, 1);
+      //glMatrixMode(GL_MODELVIEW);
+      //glLoadIdentity();
       glDisable(GL_DEPTH_TEST);
       glDisable(GL_BLEND);
     }
 
+    SDL_Window* displayWindow;
+    SDL_Renderer* displayRenderer;
     void init()
     {
+      SDL_RendererInfo displayRendererInfo;
       GLenum err;
       GLint iresult;
       GLboolean bresult;
 
-      DerelictSDL.load();
-      DerelictGL.load();
-      DerelictGLU.load();
+      DerelictSDL2.load();
+      DerelictSDL2Image.load();
+      DerelictGL3.load();
       assert(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) == 0);
+
+      /* Code from: https://gist.github.com/exavolt/2360410 */
+      SDL_CreateWindowAndRenderer(800, 600, SDL_WINDOW_OPENGL, &displayWindow, &displayRenderer);
+      SDL_GetRendererInfo(displayRenderer, &displayRendererInfo);
+      /*TODO: Check that we have OpenGL */
+      if ((displayRendererInfo.flags & SDL_RENDERER_ACCELERATED) == 0 ||
+          (displayRendererInfo.flags & SDL_RENDERER_TARGETTEXTURE) == 0) {
+        /*TODO: Handle this. We have no render surface and not accelerated. */
+      }
+
       SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
       SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-      assert(SDL_SetVideoMode(width, height, bpp, SDL_OPENGL | SDL_DOUBLEBUF) !is null);
-      SDL_WM_SetCaption(toStringz("D is the best"), null);
+      //SDL_WM_SetCaption(toStringz("D is the best"), null);
 
-      DerelictGL.loadExtendedVersions(GLVersion.GL33);
+      DerelictGL3.reload();
       const char *glVersionCP = glGetString(GL_VERSION);
       const char[] glVersion = glVersionCP[0..strlen(glVersionCP)];
       writeln("glGetString(GL_VERSION) = ", glVersion);
@@ -97,9 +109,8 @@ class Display
   static void cleanup()
   {
     SDL_Quit();
-    DerelictGLU.unload();
-    DerelictGL.unload();
-    DerelictSDL.unload();
+    DerelictGL3.unload();
+    DerelictSDL2.unload();
   }
 
   uint lastFrame;
@@ -115,7 +126,7 @@ class Display
     camera.update(delta);
     camera.draw();
 
-    SDL_GL_SwapBuffers();
+    SDL_RenderPresent(displayRenderer);
 
     lastFrame = t;
   }
@@ -143,6 +154,11 @@ class Display
             }
             break;
           }
+
+          if (event.key.repeat == 0)
+            camera.key(event.key.keysym.sym, event.key.state != 0);
+          break;
+
         case SDL_KEYUP:
           if (event.key.keysym.sym == SDLK_ESCAPE)
           {
@@ -150,31 +166,16 @@ class Display
             break;
           }
 
-          float f = 0f;
-          // right-handed system means forward = -z
-          if (event.key.keysym.sym == SDLK_w)
-            f = -3f;
-          else if (event.key.keysym.sym == SDLK_s)
-            f = 3f;
-          if (f != 0f)
-          {
-            camera.vel += event.type == SDL_KEYDOWN ? f : -f;
-          }
-
-          f = 0f;
-          if (event.key.keysym.sym == SDLK_a)
-            f = PI;
-          else if (event.key.keysym.sym == SDLK_d)
-            f = -PI;
-          if (f != 0f)
-          {
-            camera.turnRate += event.type == SDL_KEYDOWN ? f : -f;
-          }
-          
           if (event.key.keysym.sym == SDLK_p && event.type == SDL_KEYDOWN)
           {
             writeln("position: ", camera.pos);
+            break;
           }
+
+          if (event.key.repeat == 0)
+            camera.key(event.key.keysym.sym, event.key.state != 0);
+          break;
+
         default:
           break;
       }
@@ -186,7 +187,9 @@ class Display
     int h = height;
     SDL_ShowCursor(false);
     SDL_GetMouseState(&x,&y);
-    SDL_WarpMouse(cast(ushort)(width/2),cast(ushort)(height/2));
+    SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
+    SDL_WarpMouseInWindow(displayWindow, cast(ushort)(width/2),cast(ushort)(height/2));
+    SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
 
     double deltaYaw = (x-w/2)*-0.002;
     double deltaPitch = (y-h/2)*-0.002;

@@ -1,5 +1,8 @@
 module ants.escher;
-import derelict.opengl.gl;
+
+import derelict.sdl2.sdl;
+import derelict.sdl2.image;
+import derelict.opengl3.gl3;
 import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.conv;
 import gl3n.interpolate : lerp;
@@ -11,18 +14,20 @@ import std.typecons : Tuple;
 import std.algorithm : sort;
 import ants.shader;
 import ants.md5 : MD5Model, MD5Animation;
-import derelict.opengl.glu;
 import ants.texture;
+import ants.vertexer;
 debug import std.stdio : writeln, writefln;
 
-version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}
-else{ pragma(msg, "rendering with OPENGL transforms"); }
+/*version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}
+else{ pragma(msg, "rendering with OPENGL transforms"); }*/
 
 version(stencil) {pragma(msg, "rendering WITH stencils");}
 else{ pragma(msg, "rendering WITHOUT stencils"); }
 
 version (lighting) {pragma(msg, "rendering WITH lighting"); }
 else{ pragma(msg, "rendering WITHOUT lighting"); }
+
+Vertexer vertexer;
 
 void explode()
 {
@@ -51,6 +56,8 @@ alias Vector!(double, 3) vec3;
 alias Vector!(double, 4) vec4;
 alias Matrix!(double, 4, 4) mat4;
 alias Quaternion!(double) quat;
+
+alias Vector!(float, 3) ColorVec;
 
 struct Tri
 {
@@ -373,7 +380,7 @@ private struct Polygon4
     return area;
   }
 
-  void drawTriangles()
+  version (triangulation) void drawTriangles()
   {
     // TODO arbitrary polygon triangulation!
     enforce(edges.length >= 3, "polygons with less than 3 sides is not polygons!");
@@ -446,6 +453,7 @@ struct FaceDataSolidColor
 {
   FaceType  type;
   float[3]  v;
+  int       materialID;
 }
 
 struct FaceDataRemote
@@ -465,6 +473,12 @@ class Face
 {
   size_t[] indices;
   FaceData  data;
+
+  override
+  string toString()
+  {
+    return to!string(indices);
+  }
 }
 
 class Space
@@ -473,6 +487,12 @@ class Space
   Remote[]  remotes;
   vec3[]    verts;
   Face[]    faces;
+
+  override
+  string toString()
+  {
+    return to!string(faces);
+  }
 }
 
 enum TextureApplication
@@ -698,7 +718,7 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
   }
 
   // XXX support n-gons
-  writeln("drawFace() ", face);
+  //writeln("drawFace() ", face);
   vec4[] verts;
   vec3[] inverts;
   verts.length = nverts;
@@ -714,20 +734,26 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
   }
 
   auto polygon = new Polygon4(verts[]);
+  //writefln("polygon: ", polygon.points);
 
   if (!polygon.clip())
     return false;
+  //writefln("polygon passed clipping");
 
-  if (polygon.signedArea() < 0.0)
+  double signedArea = polygon.signedArea();
+  //writefln("signed area: %f\n", signedArea);
+  if (signedArea < 0.0)
     return false;
+
+  ColorVec color;
 
   if (face.data.type == FaceType.SolidColor)
   {
-    writefln("drawing solid color face %f %f %f",
+    /*writefln("drawing solid color face %f %f %f",
         face.data.solidColor.v[0],
         face.data.solidColor.v[1],
-        face.data.solidColor.v[2]);
-    shaderProgram.sendVertexAttribute("ucolor",
+        face.data.solidColor.v[2]);*/
+    color = ColorVec(
         face.data.solidColor.v[0],
         face.data.solidColor.v[1],
         face.data.solidColor.v[2]);
@@ -749,63 +775,34 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
     }
   }
 
-  version (customTransform)
+  if (nverts == 4)
   {
-    if (nverts == 4)
-    {
-      glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-      glVertex4d(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
-      glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
+    vertexer.add(inverts[0], color);
+    vertexer.add(inverts[1], color);
+    vertexer.add(inverts[2], color);
 
-      glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-      glVertex4d(verts[3].x, verts[3].y, verts[3].z, verts[3].w);
-      glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-    }
-    else
-    {
-      glVertex4d(verts[0].x, verts[0].y, verts[0].z, verts[0].w);
-      glVertex4d(verts[1].x, verts[1].y, verts[1].z, verts[1].w);
-      glVertex4d(verts[2].x, verts[2].y, verts[2].z, verts[2].w);
-    }
+    vertexer.add(inverts[2], color);
+    vertexer.add(inverts[3], color);
+    vertexer.add(inverts[0], color);
+  }
+  else if (nverts == 3)
+  {
+    vertexer.add(inverts[0], color);
+    vertexer.add(inverts[1], color);
+    vertexer.add(inverts[2], color);
   }
   else
   {
-    if (nverts == 4)
-    {
-      glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
-      glVertex3d(inverts[1].x, inverts[1].y, inverts[1].z);
-      glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
-
-      glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
-      glVertex3d(inverts[3].x, inverts[3].y, inverts[3].z);
-      glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
-    }
-    else
-    {
-      glVertex3d(inverts[0].x, inverts[0].y, inverts[0].z);
-      glVertex3d(inverts[1].x, inverts[1].y, inverts[1].z);
-      glVertex3d(inverts[2].x, inverts[2].y, inverts[2].z);
-    }
+    writefln("unsupported number of verts: %d\n", nverts);
+    assert(0, "unsupported number of verts");
   }
 
   return true;
 }
 
-void loadMVP(mat4 mvmat, mat4 pmat)
-{
-  mat4 m;
-
-  m = pmat.transposed;
-  glMatrixMode(GL_PROJECTION);
-  glLoadMatrixd(m.value_ptr);
-
-  m = mvmat.transposed;
-  glMatrixMode(GL_MODELVIEW);
-  glLoadMatrixd(m.value_ptr);
-}
-
 class World
 {
+  Material[] materials;
   Space[] spaces;
   Entity[][] entities;
 
@@ -817,8 +814,8 @@ class World
     Space space;
 
     // Used to check for file sanity
-    int spaceID;
-    size_t numSpaces, numVerts, numFaces, numRemotes;
+    int spaceID, materialID;
+    size_t numSpaces, numVerts, numFaces, numRemotes, numMaterials, numTextures;
 
     foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
     {
@@ -854,9 +851,11 @@ class World
         case ParserMode.expectMaterial:
           enforce(words[0] == "material", "expected material");
           materialID = to!int(words[1]);
-          enforce(materialID != materials.length, "materials disorganized");
+          enforce(materialID == materials.length, "materials disorganized");
           enforce(words[3] == "numtex", "expected numtex");
           numTextures = to!int(words[4]);
+          materials ~= new Material();
+
           if (numTextures == 0)
           {
             if (materials.length == numMaterials)
@@ -868,6 +867,26 @@ class World
           {
             mode = ParserMode.expectTexture;
           }
+          break;
+
+        case ParserMode.expectTexture:
+          auto materialTexture = new MaterialTexture();
+          enforce(words[0] == "texture", "expected texture");
+          if (words[1] == "COLOR")
+          {
+            materialTexture.application = TextureApplication.Color;
+          }
+          else
+          {
+            assert(0, "unknown texture application");
+          }
+          materialTexture.texture = getTexture(words[2]);
+          materials[materialID].texes ~= materialTexture;
+          // XXX
+          if (materials.length == numMaterials)
+            mode = ParserMode.expectNumSpaces;
+          else
+            mode = ParserMode.expectMaterial;
           break;
 
         case ParserMode.expectSpace:
@@ -912,27 +931,22 @@ class World
             enforce(words[4] == "translation", "expected translation");
             vec3 translation;
 
-            bool hasRotation = false;
-            vec3 rotationAxis;
-            float rotationAngle;
+            double[3] rotationEuler;
 
             // TODO scaling
 
             translation = vec3(
-              to!float(words[5]),
-              to!float(words[6]),
-              to!float(words[7]));
+              to!double(words[5]),
+              to!double(words[6]),
+              to!double(words[7]));
 
             if (words.length > 8)
             {
               enforce(words[8] == "orientation", "expected orientation");
 
-              hasRotation = true;
-
-              rotationAngle = to!float(words[9]) / 180f * PI;
-              rotationAxis = vec3(to!float(words[10]),
-                                  to!float(words[11]),
-                                  to!float(words[12]));
+              rotationEuler[0] = to!double(words[9]);
+              rotationEuler[1] = to!double(words[10]);
+              rotationEuler[2] = to!double(words[11]);
             }
 
             mat4 transform = mat4.identity;
@@ -940,11 +954,18 @@ class World
 
             untransform.translate(-translation.x, -translation.y, -translation.z);
 
-            if (hasRotation)
+            // TODO clean this up with the new unit vectors you got dav1d to include
+            /*foreach (i; 0..3)
             {
-              transform.rotate(rotationAngle, rotationAxis);
-              untransform.rotate(-rotationAngle, rotationAxis);
-            }
+              transform.rotate(rotationEuler[i], rotationAxis);
+              untransform.rotate(-rotationEuler[i], rotationAxis);
+            }*/
+            transform.rotate  ( rotationEuler[0], vec3(1, 0, 0));
+            untransform.rotate(-rotationEuler[0], vec3(1, 0, 0));
+            transform.rotate  ( rotationEuler[1], vec3(0, 1, 0));
+            untransform.rotate(-rotationEuler[1], vec3(0, 1, 0));
+            transform.rotate  ( rotationEuler[2], vec3(0, 0, 1));
+            untransform.rotate(-rotationEuler[2], vec3(0, 0, 1));
 
             transform.translate(translation.x, translation.y, translation.z);
 
@@ -978,29 +999,40 @@ class World
           enforce(to!size_t(words[1]) == space.faces.length, "faces disorganized");
 
           Face face = new Face();
-          size_t n = to!size_t(words[2]);
-          face.indices.reserve(n);
-          foreach (i; 0..n)
-          {
-            writefln("  processing face vertex %d/%d: %s", i, n, words[3+i]);
-            face.indices ~= to!size_t(words[3+i]);
-          }
 
-          if (words[n+3] == "rgb")
+          if (words[2] == "remote")
           {
-            face.data.type = FaceType.SolidColor;
-            face.data.solidColor.v[0] = to!float(words[n+4]);
-            face.data.solidColor.v[1] = to!float(words[n+5]);
-            face.data.solidColor.v[2] = to!float(words[n+6]);
-          }
-          else if (words[n+3] == "remote")
-          {
+            assert(0, "TODO");
+            // TODO process face remote
             face.data.type = FaceType.Remote;
-            face.data.remote.remoteID = to!int(words[n+4]);
+            face.data.remote.remoteID = -1;
+          }
+          else if (words[2] == "mat")
+          {
+            int faceMaterialID = to!int(words[3]);
+            face.data.solidColor.materialID = faceMaterialID;
+
+            enforce(words[4] == "indices", "expected indices");
+            size_t n = to!size_t(words[5]);
+            writefln("face has %d indices", n);
+
+            face.indices.reserve(n);
+            foreach (i; 0..n)
+            {
+              writefln("  processing face vertex %d/%d: %s", i, n, words[6+i*3]);
+              face.indices ~= to!size_t(words[6+i*3]);
+              // TODO grab vertex attributes!
+            }
+
+            // XXX we just give a bullshit color for now based on materialID
+            face.data.type = FaceType.SolidColor;
+            face.data.solidColor.v[0] = (faceMaterialID & 1) ? 0.25 : 0.125;
+            face.data.solidColor.v[1] = (faceMaterialID & 2) ? 0.25 : 0.125;
+            face.data.solidColor.v[2] = (faceMaterialID & 4) ? 0.25 : 0.125;
           }
           else
           {
-            assert(0, "unknown face type");
+            assert(0, "expected either \"mat\" or \"remote\"");
           }
 
           space.faces ~= face;
@@ -1051,7 +1083,6 @@ class World
     /* First we'll draw solid faces. This requires a stencil test, but does not
      * draw to the stencil.
      */
-    version (customTransform) {} else loadMVP(transform, pmatWorld);
     version (stencil) {
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
       glDepthMask(GL_TRUE);
@@ -1059,7 +1090,8 @@ class World
       glStencilFunc(GL_EQUAL, portalDepth, 0xFF);
       glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     }
-    glBegin(GL_TRIANGLES);
+    
+    // Draw some triangles
     foreach (faceID, face; space.faces)
     {
       if (face.data.type != FaceType.SolidColor)
@@ -1067,7 +1099,8 @@ class World
 
       drawFace(space, face, transform, pmatWorld);
     }
-    glEnd();
+    vertexer.draw(shaderProgram, transform, pmatWorld);
+    glErrorCheck();
 
     /* Now we'll draw our entities.
      */
@@ -1085,7 +1118,6 @@ class World
     if (portalDepth > 0)
     foreach (remoteID, remote; space.remotes)
     {
-      version (customTransform) {} else loadMVP(transform, pmatPortal);
       version (stencil) {
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
         glDepthMask(GL_FALSE);
@@ -1095,7 +1127,7 @@ class World
       }
 
       bool drawRemote = false;
-      glBegin(GL_TRIANGLES);
+      // Draw some triangles
       foreach (faceID, face; space.faces)
       {
         if (face.data.type != FaceType.Remote || face.data.remote.remoteID != remoteID)
@@ -1103,7 +1135,8 @@ class World
         if (drawFace(space, face, transform, pmatPortal))
           drawRemote = true;
       }
-      glEnd();
+      vertexer.draw(shaderProgram, transform, pmatPortal);
+      glErrorCheck();
 
       /* We'll draw the remote space now, but only if one of the remote faces to this
        * remote was visible.
@@ -1126,7 +1159,7 @@ class World
         glStencilFunc(GL_LEQUAL, portalDepth-1, 0xFF);
         glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
       }
-      glBegin(GL_TRIANGLES);
+      // Draw some triangles
       foreach (faceID, face; space.faces)
       {
         if (face.data.type != FaceType.Remote && face.data.remote.remoteID != remoteID)
@@ -1134,7 +1167,8 @@ class World
         if (drawFace(space, face, transform, pmatPortal))
           drawRemote = true;
       }
-      glEnd();
+      vertexer.draw(shaderProgram, transform, pmatPortal);
+      glErrorCheck();
     }
   }
 }
@@ -1156,36 +1190,15 @@ class Entity
   }
   void draw(mat4 mvmat, mat4 pmat)
   {
-    //glDisable(GL_DEPTH_TEST);
-
-    mat4 m;
-
-    m = pmat.transposed;
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadMatrixd(m.value_ptr);
-
-    m = mvmat.transposed;
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadMatrixd(m.value_ptr);
     // XXX for dumbomonkey!!!
-    glTranslatef(pos.x, pos.y, pos.z);
+    /*glTranslatef(pos.x, pos.y, pos.z);
     glRotatef(angle*180.0/PI, 0, 1, 0);
     glRotatef(180, 0, 1, 0);
     glRotatef(90, 1, 0, 0);
-    glScalef(.5, .5, .5);
+    glScalef(.5, .5, .5);*/
 
-    shaderProgram.sendVertexAttribute("ucolor", .25, 1, .25);
-    playerAnimation.draw();
-
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
-
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-
-    //glEnable(GL_DEPTH_TEST);
+    //shaderProgram.sendVertexAttribute("ucolor", .25, 1, .25);
+    //playerAnimation.draw();
   }
 }
 
@@ -1440,6 +1453,9 @@ class Camera
   float vel;
   float turnRate;
 
+  bool keyForward;
+  bool keyBackward;
+
   this(World world, int spaceID, vec3 pos)
   {
     this.world = world;
@@ -1450,6 +1466,23 @@ class Camera
     this.turnRate = 0f;
     this.camYaw = 0.0;
     this.camPitch = 0.0;
+  }
+
+  void key(int keysym, bool down)
+  {
+    switch (keysym)
+    {
+      case 's':
+        keyForward = down;
+        break;
+
+      case 'w':
+        keyBackward = down;
+        break;
+
+      default:
+        break;
+    }
   }
 
   void update(ulong delta)
@@ -1463,6 +1496,15 @@ class Camera
       camYaw += PI*2f;
     while (camYaw >= PI*2f)
       camYaw -= PI*2f;
+
+    // Set velocity lol
+    if (keyForward == keyBackward)
+      vel = 0;
+    else if (keyForward)
+      vel = 3;
+    else if (keyBackward)
+      vel = -3;
+    //writefln("movement keys: %s %s vel: %s", keyForward, keyBackward, vel);
 
     // Nudge position and orientation
     float deltaf = delta/1000f;
@@ -1563,16 +1605,14 @@ class Camera
     }*/
     if (shaderProgram is null)
     {
-      shaderProgram = new ShaderProgram("simple.vs", "flashlight-shader.fs");
+      shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
       shaderProgram.use();
     }
     glErrorCheck();
-
-    glMatrixMode(GL_PROJECTION);
-    glOrtho(-1, 1, -1, 1, -1, 1);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    if (vertexer is null)
+    {
+      vertexer = new Vertexer();
+    }
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glClearColor(0, 0, 0, 1);
@@ -1604,8 +1644,13 @@ class Camera
 
     shaderProgram.sendVertexAttribute("ucolor", 1.0, 0, 0);
 
+    //vertexer.add(vec3(0, 0, 0), ColorVec(1, 0, 0));
+    //vertexer.add(vec3(1, 0, 0), ColorVec(0, 1, 0));
+    //vertexer.add(vec3(0, 1, 0), ColorVec(0, 0, 1));
+    //vertexer.draw(shaderProgram, mat4.identity, mat4.orthographic(0, 1, 0, 1, 0, 1));
+
     glErrorCheck();
-    writeln("drawSpace() entry");
+    //writeln("drawSpace() entry");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
     glErrorCheck();
 

@@ -4,7 +4,7 @@ import std.string;
 import std.conv;
 import std.algorithm : map, appender;
 import std.exception : enforce;
-import derelict.opengl.gl;
+import derelict.opengl3.gl3;
 import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
 import gl3n.interpolate : lerp;
 import std.math : sqrt;
@@ -12,6 +12,22 @@ import std.math : sqrt;
 debug
 {
   import std.stdio : writeln, writefln;
+}
+
+private void glVertex3f(float a, float b, float c)
+{
+}
+
+private void glColor3f(float a, float b, float c)
+{
+}
+
+private void glBegin(GLenum a)
+{
+}
+
+private void glEnd()
+{
 }
 
 private struct Ray
