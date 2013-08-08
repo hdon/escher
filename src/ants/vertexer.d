@@ -2,8 +2,10 @@ module ants.vertexer;
 import ants.shader;
 import gl3n.linalg : Vector, Matrix;
 import derelict.opengl3.gl3;
+import ants.texture;
 
 private alias Vector!(double, 3) vec3d;
+private alias Vector!(double, 2) vec2d;
 private alias Vector!(float, 3) vec3f;
 alias Matrix!(double, 4, 4) mat4d;
 alias Matrix!(float, 4, 4) mat4f;
@@ -11,14 +13,18 @@ alias Matrix!(float, 4, 4) mat4f;
 class Vertexer
 {
   double[]  positions;
+  double[]  UVs;
   float[]   colors;
   uint      numVerts;
 
+  Texture myTex;
+
   this()
   {
+    myTex = getTexture("test.png");
   }
 
-  void add(vec3d pos, vec3f color)
+  void add(vec3d pos, vec2d uv, vec3f color)
   {
     positions ~= pos.x;
     positions ~= pos.y;
@@ -26,6 +32,8 @@ class Vertexer
     colors ~= color.x;
     colors ~= color.y;
     colors ~= color.z;
+    UVs ~= uv.x;
+    UVs ~= uv.y;
     numVerts++;
   }
 
@@ -36,25 +44,35 @@ class Vertexer
     mat4f pMat = mat4f(pMatd);
 
     GLuint    vertexArrayObject;
+
     GLuint    positionBufferObject;
     GLuint    colorBufferObject;
+    GLuint    uvBufferObject;
+
     GLuint    positionVertexAttribLocation;
     GLuint    colorVertexAttribLocation;
+    GLuint    uvVertexAttribLocation;
+
+    GLuint    texUniformLocation;
+
     GLuint    modelViewMatrixUniformLocation;
     GLuint    projectionMatrixUniformLocation;
 
     modelViewMatrixUniformLocation = shaderProgram.getUniformLocation("viewMatrix");
     projectionMatrixUniformLocation = shaderProgram.getUniformLocation("projMatrix");
+    texUniformLocation = shaderProgram.getUniformLocation("tex");
 
     glUniformMatrix4fv(modelViewMatrixUniformLocation, 1, GL_TRUE, mvMat.value_ptr);
     glUniformMatrix4fv(projectionMatrixUniformLocation, 1, GL_TRUE, pMat.value_ptr);
 
     positionVertexAttribLocation = shaderProgram.getAttribLocation("position");
     colorVertexAttribLocation = shaderProgram.getAttribLocation("color");
+    uvVertexAttribLocation = shaderProgram.getAttribLocation("uvV");
 
     glGenVertexArrays(1, &vertexArrayObject);
     glGenBuffers(1, &positionBufferObject);
     glGenBuffers(1, &colorBufferObject);
+    glGenBuffers(1, &uvBufferObject);
 
     glBindVertexArray(vertexArrayObject);
 
@@ -64,18 +82,32 @@ class Vertexer
     glVertexAttribPointer(positionVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
 
     glBindBuffer(GL_ARRAY_BUFFER, colorBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, colors.length * double.sizeof, colors.ptr, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, colors.length * float.sizeof, colors.ptr, GL_STREAM_DRAW);
     glEnableVertexAttribArray(colorVertexAttribLocation);
     glVertexAttribPointer(colorVertexAttribLocation, 3, GL_FLOAT, 0, 0, null);
+
+    glBindBuffer(GL_ARRAY_BUFFER, uvBufferObject);
+    glBufferData(GL_ARRAY_BUFFER, UVs.length * double.sizeof, UVs.ptr, GL_STREAM_DRAW);
+    glEnableVertexAttribArray(uvVertexAttribLocation);
+    glVertexAttribPointer(uvVertexAttribLocation, 2, GL_DOUBLE, 0, 0, null);
+
+    glActiveTexture(GL_TEXTURE0); 
+    glBindTexture(GL_TEXTURE_2D, myTex.v);
+    glUniform1i(texUniformLocation, 0);
+    //glActiveTexture(GL_TEXTURE1); 
+    //glBindTexture(GL_TEXTURE_2D, texture1);
+    //glUniform1i(_textureUniform, 1);
 
     glDrawArrays(GL_TRIANGLES, 0, numVerts);
 
     glDeleteVertexArrays(1, &vertexArrayObject);
     glDeleteBuffers(1, &positionBufferObject);
     glDeleteBuffers(1, &colorBufferObject);
+    glDeleteBuffers(1, &uvBufferObject);
 
     positions.length = 0;
     colors.length = 0;
+    UVs.length = 0;
     numVerts = 0;
   }
 }

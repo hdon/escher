@@ -742,7 +742,7 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
 
   double signedArea = polygon.signedArea();
   //writefln("signed area: %f\n", signedArea);
-  if (signedArea < 0.0)
+  if (signedArea > 0.0)
     return false;
 
   ColorVec color;
@@ -777,19 +777,20 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
 
   if (nverts == 4)
   {
-    vertexer.add(inverts[0], color);
-    vertexer.add(inverts[1], color);
-    vertexer.add(inverts[2], color);
+    //vec3[4] UVs = [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)];
+    vertexer.add(inverts[0], vec2(0, 0), color);
+    vertexer.add(inverts[1], vec2(1, 0), color);
+    vertexer.add(inverts[2], vec2(1, 1), color);
 
-    vertexer.add(inverts[2], color);
-    vertexer.add(inverts[3], color);
-    vertexer.add(inverts[0], color);
+    vertexer.add(inverts[2], vec2(1, 1), color);
+    vertexer.add(inverts[3], vec2(0, 1), color);
+    vertexer.add(inverts[0], vec2(0, 0), color);
   }
   else if (nverts == 3)
   {
-    vertexer.add(inverts[0], color);
-    vertexer.add(inverts[1], color);
-    vertexer.add(inverts[2], color);
+    vertexer.add(inverts[0], vec2(0, 0), color);
+    vertexer.add(inverts[1], vec2(1, 0), color);
+    vertexer.add(inverts[2], vec2(0, 1), color);
   }
   else
   {
