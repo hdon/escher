@@ -471,7 +471,8 @@ union FaceData
 
 class Face
 {
-  size_t[] indices;
+  size_t[]  indices;
+  vec2[]    UVs;
   FaceData  data;
 
   override
@@ -721,11 +722,14 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
   //writeln("drawFace() ", face);
   vec4[] verts;
   vec3[] inverts;
+  vec2[] UVs;
   verts.length = nverts;
   inverts.length = nverts;
+  UVs.length = nverts;
   foreach (i, vi; face.indices)
   {
     inverts[i] = space.verts[vi];
+    UVs[i] = face.UVs[i];
     vec3 v3 = space.verts[vi];
     vec4 v4 = vec4(v3.x, v3.y, v3.z, 1);
     v4 = v4 * mvmat;
@@ -778,19 +782,19 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
   if (nverts == 4)
   {
     //vec3[4] UVs = [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)];
-    vertexer.add(inverts[0], vec2(0, 0), color);
-    vertexer.add(inverts[1], vec2(1, 0), color);
-    vertexer.add(inverts[2], vec2(1, 1), color);
+    vertexer.add(inverts[0], UVs[0], color);
+    vertexer.add(inverts[1], UVs[1], color);
+    vertexer.add(inverts[2], UVs[2], color);
 
-    vertexer.add(inverts[2], vec2(1, 1), color);
-    vertexer.add(inverts[3], vec2(0, 1), color);
-    vertexer.add(inverts[0], vec2(0, 0), color);
+    vertexer.add(inverts[2], UVs[2], color);
+    vertexer.add(inverts[3], UVs[3], color);
+    vertexer.add(inverts[0], UVs[0], color);
   }
   else if (nverts == 3)
   {
-    vertexer.add(inverts[0], vec2(0, 0), color);
-    vertexer.add(inverts[1], vec2(1, 0), color);
-    vertexer.add(inverts[2], vec2(0, 1), color);
+    vertexer.add(inverts[0], UVs[0], color);
+    vertexer.add(inverts[1], UVs[1], color);
+    vertexer.add(inverts[2], UVs[2], color);
   }
   else
   {
@@ -1018,11 +1022,12 @@ class World
             writefln("face has %d indices", n);
 
             face.indices.reserve(n);
+            face.UVs.reserve(n);
             foreach (i; 0..n)
             {
               writefln("  processing face vertex %d/%d: %s", i, n, words[6+i*3]);
               face.indices ~= to!size_t(words[6+i*3]);
-              // TODO grab vertex attributes!
+              face.UVs ~= vec2(to!double(words[7+i*3]), to!double(words[8+i*3]));
             }
 
             // XXX we just give a bullshit color for now based on materialID
