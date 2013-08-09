@@ -761,22 +761,6 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
         face.data.solidColor.v[0],
         face.data.solidColor.v[1],
         face.data.solidColor.v[2]);
-
-    version (sendNormals)
-    {
-      vec3 faceNorm = getTriangleNormal(
-          xformVec(space.verts[face.indices[0]], transform),
-          xformVec(space.verts[face.indices[1]], transform),
-          xformVec(space.verts[face.indices[2]], transform)).normalized;
-      glNormal3d(faceNorm.x, faceNorm.y, faceNorm.z);
-    }
-  }
-  else
-  {
-    version (stencil) {
-    } else {
-      shaderProgram.sendVertexAttribute("ucolor", 1, 0, 1);
-    }
   }
 
   if (nverts == 4)
@@ -1647,8 +1631,6 @@ class Camera
     mat4 mvmat = mat4.translation(-pos.x, -pos.y, -pos.z);
     mvmat.rotate(camYaw, vec3(0,1,0));
     mvmat.rotate(camPitch, vec3(1,0,0));
-
-    shaderProgram.sendVertexAttribute("ucolor", 1.0, 0, 0);
 
     //vertexer.add(vec3(0, 0, 0), ColorVec(1, 0, 0));
     //vertexer.add(vec3(1, 0, 0), ColorVec(0, 1, 0));

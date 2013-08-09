@@ -149,98 +149,14 @@ class ShaderProgram
     glDeleteProgram(programObject);
   }
 
-  version (mixin_gl_apis)
+  GLuint getUniformLocation(string name)
   {
-    private static pure string gen_glUniform(T)(int n)
-    {
-      enum bool ptr = isPointer!T;
-
-      static if (ptr)
-      {
-        alias PointerTarget!T U;
-        enum string typeStrV = "v";
-      }
-      else
-      {
-        alias T U;
-        enum string typeStrV = "";
-      }
-
-      static if (is(U == float))      enum string typeStr = "f";
-      else static if (is(U == uint))  enum string typeStr = "ui";
-      else static if (is(U == int))   enum string typeStr = "i";
-      else static assert(0, "unsupprted type");
-
-      string myArgs = "GLint location";
-      string glArgs = "location";
-      char argName = 'a';
-
-      static if (isPointer!T)
-      {
-        myArgs ~= ", GLsizei count, " ~ T.stringof ~ " ptr";
-        glArgs ~= ", count, ptr";
-      }
-      else
-      {
-        foreach (i; 0..n)
-        {
-          myArgs ~= ", " ~ T.stringof ~ ' ' ~ argName;
-          glArgs ~= ", " ~ argName;
-          argName++;
-        }
-      }
-
-      return "void setUniform"
-             ~ "("
-             ~ myArgs
-             ~ ") { glUniform"
-             ~ cast(char)(n + '0') // WTF
-             ~ typeStr
-             ~ typeStrV
-             ~ "("
-             ~ glArgs
-             ~ "); }";
-    }
-
-    static pure string gen_glUniformAll()
-    {
-      string rval = "";
-      foreach (n; 1..5)
-      {
-        rval ~= '\n' ~ gen_glUniform!int(n);
-        rval ~= '\n' ~ gen_glUniform!uint(n);
-        rval ~= '\n' ~ gen_glUniform!float(n);
-        rval ~= '\n' ~ gen_glUniform!(int*)(n);
-        rval ~= '\n' ~ gen_glUniform!(uint*)(n);
-        rval ~= '\n' ~ gen_glUniform!(float*)(n);
-      }
-      return rval;
-    }
-
-    mixin(gen_glUniformAll());
+    return glGetUniformLocation(programObject, name.toStringz());
   }
-  else
+
+  GLuint getAttribLocation(string name)
   {
-    void glUniform(string name, float a, float b, float c)
-    {
-      GLint location = glGetUniformLocation(programObject, name.toStringz());
-      glUniform3f(location, a, b, c);
-    }
-
-    void sendVertexAttribute(string name, float a, float b, float c)
-    {
-      glVertexAttrib3f(1, a, b, c);
-    }
-
-    GLuint getUniformLocation(string name)
-    {
-      return glGetUniformLocation(programObject, name.toStringz());
-    }
-
-    GLuint getAttribLocation(string name)
-    {
-      return glGetAttribLocation(programObject, name.toStringz());
-    }
+    return glGetAttribLocation(programObject, name.toStringz());
   }
 
   void use()
