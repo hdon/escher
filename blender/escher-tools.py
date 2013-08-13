@@ -11,11 +11,13 @@ def getEditMesh(cx):
         return bmesh.from_edit_mesh(ob.data)
   return None
 
-def getPortalMaterial():
-  if 'EscherPortalMaterial' in bpy.data.materials:
-    return bpy.data.materials['EscherPortalMaterial']
-  mat = bpy.data.materials.new('EscherPortalMaterial')
-  mat.diffuse_color = Color((1,0,1))
+def getPortalMaterial(n):
+  matName = 'EscherPortalMaterial%03d' % n
+  if matName in bpy.data.materials:
+    return bpy.data.materials[matName]
+  mat = bpy.data.materials.new(matName)
+  c = n+1
+  mat.diffuse_color = Color((c&1, c&2, c&4))
   mat.use_transparency = True
   mat.alpha = 0.5
   return mat
@@ -33,7 +35,7 @@ class OBJECT_OT_NewSpaceButton(bpy.types.Operator):
     #   create SSO (Secondary Space Object) and parent to the EMPTY
     return {'FINISHED'}
 
-def getMeshMaterial(me, mat):
+def getMeshMaterialByMaterial(me, mat):
   '''Gets the index of a material in a mesh, and returns it.
      If it is not already a material of the mesh, it is added.'''
   if mat.name in me.materials:
@@ -45,17 +47,33 @@ def getMeshMaterial(me, mat):
 class ESCHER_OT_Portalize_Face(bpy.types.Operator):
   '''Portalize selected faces'''
   bl_idname = "escher.portalize_face"
-  bl_label = "Portalize Mesh Face"
-  
+  bl_label = "Mesh Face: Portal++"
+
   def execute(self, cx):
-    mat = getPortalMaterial()
-    me = cx.object.data
-    imat = getMeshMaterial(me, mat)
+    if cx.object.type != 'MESH':
+      raise TypeError("Selected object must be MESH")
     bm = getEditMesh(cx)
     if bm:
+      me = cx.object.data
+      matName = None
+      for fa in selectedFaces(bm):
+        mat = me.materials[fa.material_index]
+        if isPortalMaterialName(mat.name):
+          matName = mat.name
+          break
+      if matName:
+        numRemotes = 0
+        for ob in cx.object.children:
+          if objectIsRemote(ob):
+            numRemotes += 1
+        remoteIndex = (portalMaterialName2remoteIndex(matName) + 1) % numRemotes
+      else:
+        remoteIndex = 0
+      mat = getPortalMaterial(remoteIndex)
+      imat = getMeshMaterialByMaterial(me, mat)
       for fa in selectedFaces(bm):
         fa.material_index = imat
-    self.report({'INFO'}, 'Portalized face materials!')
+      self.report({'INFO'}, 'Portalized face materials!')
     return {'FINISHED'}
   
   @classmethod
@@ -71,17 +89,19 @@ class ESCHER_OT_LinkRemote(bpy.types.Operator):
   '''Links a remote space to this one'''
   bl_idname = "escher.link_remote"
   bl_label = "Link Remote"
-  
+
   @classmethod
   def poll(cls, cx):
     return cx.mode == 'OBJECT' and cx.object and cx.object.type == 'MESH'
 
   def execute(self, cx):
+    pso = cx.object
     # This empty object represents the remote space
     eo = bpy.data.objects.new('EscherRemote', None)
     cx.scene.objects.link(eo)
     eo['escher_remote_space_name'] = '*none*'
-    eo.parent = cx.object
+    eo['escher_portal_index'] = findUnusedPortalIndexInPSO(pso)
+    eo.parent = pso
     bpy.ops.object.select_all(action='DESELECT')
     eo.select = True
     bpy.ops.transform.translate()
@@ -226,6 +246,44 @@ def makeSSO(spaceName):
   sso.show_transparent = True
   return sso
 
+def findUnusedPortalIndexInPSO(PSO):
+  '''Each Remote Object has a property assigning it to a particular
+  remote index, which corresponds to a particular EscherPortalMaterial.
+  This function is used to find which EscherPortalMaterial should be
+  assigned to a new Remote Object given the PSO it is intended for.'''
+  mats = list()
+  for ob in PSO.children:
+    if ob.type == 'EMPTY' and 'escher_remote_space_name' in ob:
+      if 'escher_portal_index' not in ob:
+        raise KeyError("Escher Remote Object should have an 'escher_portal_index' property!")
+      n = ob['escher_portal_index']
+      if type(n) is not int:
+        raise TypeError("Escher Remote Object property 'escher_portal_index' is not an int!")
+      if n in mats:
+        raise KeyError("Found duplicate 'escher_portal_index' property among PSO's Remote Objects!")
+      mats.append(n)
+  n = 0
+  mats.sort()
+  for mat in mats:
+    if n != mat:
+      return n
+    n += 1
+  return n
+
+def portalMaterialName2remoteIndex(matName):
+  if not isPortalMaterialName(matName):
+    raise ValueError('Invalid Escher Portal Material name')
+  s = matName[20:]
+  if len(s):
+    return int(s)
+  return 0
+
+def objectIsRemote(o):
+  return o.type == 'EMPTY' and o.name.startswith('EscherRemote')
+
+def isPortalMaterialName(matName):
+  return matName.startswith('EscherPortalMaterial')
+
 def isUnqualifiedSpaceName(spaceName):
   return not (spaceName.startswith('EscherPSO_') or spaceName.startswith('EscherSSO_') or spaceName.startswith('EscherSM_'))
 
@@ -341,6 +399,7 @@ class NPanel(bpy.types.Panel):
 
 def register():
   #bpy.types.Object.escher_space_name = bpy.props.EnumProperty(items=escher_space_names)
+  bpy.types.Object
   bpy.utils.register_module(__name__)
 
 def unregister():

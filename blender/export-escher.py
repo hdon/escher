@@ -37,6 +37,17 @@ def unlocalizeMaterialIndex(mats, me, mai):
 # These functions were taken from escher-tools.py
 # TODO put common functions in a common module somewhere
 #      Or maybe merge this module with the other one
+def portalMaterialName2remoteIndex(matName):
+  if not isPortalMaterialName(matName):
+    raise ValueError('Invalid Escher Portal Material name')
+  s = matName[20:]
+  if len(s):
+    return int(s)
+  return 0
+
+def isPortalMaterialName(matName):
+  return matName.startswith('EscherPortalMaterial')
+
 def isUnqualifiedSpaceName(spaceName):
   return not (spaceName.startswith('EscherPSO_') or spaceName.startswith('EscherSSO_') or spaceName.startswith('EscherSM_'))
 
@@ -151,7 +162,11 @@ def escherExport(materials, objects, scene, filename):
       (iPSO, len(me.vertices), len(me.polygons), len(remotes)))
     # Write "remote" commands
     for iRemote, remote in enumerate(remotes):
-      remoteIndex = PSOs.str2int(remote['escher_remote_space_name'])
+      remoteSpaceName = remote['escher_remote_space_name']
+      if remoteSpaceName == '*none*':
+        remoteIndex = -1
+      else:
+        remoteIndex = PSOs.str2int(remoteSpaceName)
       translation = vec3toStr(remote.location)
       orientation = euler2str(remote.rotation_euler)
       out.write('remote %d space %d translation %s orientation %s\n' % (iRemote, remoteIndex, translation, orientation))
@@ -160,11 +175,13 @@ def escherExport(materials, objects, scene, filename):
       out.write('vert %d %f %f %f\n' %
         (vi, v.co.x, v.co.z, v.co.y))
     # Write "face" commands
-    # TODO multiple UV layers
-    UVs = me.uv_layers[0]
     for ipg, pg, in enumerate(me.polygons):
-      mat = mats.str2int(PSO.material_slots[pg.material_index].material.name)
-      out.write('face %d mat %d indices %d' % (ipg, mat, pg.loop_total))
+      matName = PSO.material_slots[pg.material_index].material.name
+      if isPortalMaterialName(matName):
+        faceClass = 'remote %d' % portalMaterialName2remoteIndex(matName)
+      else:
+        faceClass = 'mat %d' % mats.str2int(matName)
+      out.write('face %d %s indices %d' % (ipg, faceClass, pg.loop_total))
       for li in pg.loop_indices:
         vi = me.loops[li].vertex_index
         out.write(' %d' % vi)
