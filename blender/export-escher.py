@@ -186,7 +186,7 @@ def escherExport(materials, objects, scene, filename):
         vi = me.loops[li].vertex_index
         out.write(' %d' % vi)
         for uvlayer in me.uv_layers:
-          uv = uvlayer.data[li].uv
+          uv = -uvlayer.data[li].uv
           out.write(' %f %f' % (uv.x, uv.y))
       out.write('\n')
   out.close()
