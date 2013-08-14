@@ -82,10 +82,10 @@ def objectIsRemote(o):
   return o.type == 'EMPTY' and o.name.startswith('EscherRemote')
 
 def vec3toStr(v):
-  return '%s %s %s' % (repr(v.x), repr(v.y), repr(v.z))
+  return '%s %s %s' % (repr(v.x), repr(v.z), repr(v.y))
 
 def euler2str(v):
-  return '%s %s %s' % (repr(v.x), repr(v.y), repr(v.z))
+  return '%s %s %s' % (repr(v.x), repr(v.z), repr(v.y))
 
 class SuperMap:
   def __init__(self):
@@ -182,7 +182,7 @@ def escherExport(materials, objects, scene, filename):
       else:
         faceClass = 'mat %d' % mats.str2int(matName)
       out.write('face %d %s indices %d' % (ipg, faceClass, pg.loop_total))
-      for li in pg.loop_indices:
+      for li in reversed(pg.loop_indices):
         vi = me.loops[li].vertex_index
         out.write(' %d' % vi)
         for uvlayer in me.uv_layers:

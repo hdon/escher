@@ -150,7 +150,8 @@ class Display
               int delta = event.key.keysym.sym == 'p' ? 1 : -1;
               int oldSpaceID = camera.spaceID;
               camera.spaceID = cast(int)((camera.spaceID + world.spaces.length + delta) % world.spaces.length);
-              writeln("[warp] %d to %d", oldSpaceID, camera.spaceID);
+              camera.pos = vec3(0,0,0);
+              writefln("[warp] %d to %d", oldSpaceID, camera.spaceID);
             }
             break;
           }

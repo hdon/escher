@@ -27,6 +27,8 @@ else{ pragma(msg, "rendering WITHOUT stencils"); }
 version (lighting) {pragma(msg, "rendering WITH lighting"); }
 else{ pragma(msg, "rendering WITHOUT lighting"); }
 
+bool portalDiagnosticMode;
+
 Vertexer vertexer;
 
 void explode()
@@ -35,12 +37,12 @@ void explode()
   explosion = true;
 }
 
-void glErrorCheck()
+void glErrorCheck(string source)
 {
   GLenum err = glGetError();
   if (err)
   {
-    writefln("error: opengl: %s", err);
+    writefln("error @ %s: opengl: %s", source, err);
     explode();
     //assert(0);
   }
@@ -738,15 +740,16 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
   }
 
   auto polygon = new Polygon4(verts[]);
-  //writefln("polygon: ", polygon.points);
+  //writeln("num verts: ", nverts);
+  //writeln("polygon: ", polygon.points);
 
   if (!polygon.clip())
     return false;
   //writefln("polygon passed clipping");
 
   double signedArea = polygon.signedArea();
-  //writefln("signed area: %f\n", signedArea);
-  if (signedArea > 0.0)
+  //writefln("signed area: %f", signedArea);
+  if (signedArea < 0.0)
     return false;
 
   ColorVec color;
@@ -761,6 +764,10 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
         face.data.solidColor.v[0],
         face.data.solidColor.v[1],
         face.data.solidColor.v[2]);
+  }
+  else
+  {
+    color = ColorVec(1, 0, 1);
   }
 
   if (nverts == 4)
@@ -803,17 +810,17 @@ class World
     Space space;
 
     // Used to check for file sanity
-    int spaceID, materialID;
+    int spaceID, remoteID, materialID;
     size_t numSpaces, numVerts, numFaces, numRemotes, numMaterials, numTextures;
 
     foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
     {
       auto words = split(line);
 
-      writeln("processing: ", line);
+      writefln("processing line #%d: %s", lineNo+1, line);
       if (lineNo == 0)
       {
-        enforce(line == "escher version 4", "first line of map must be: escher version 2");
+        enforce(line == "escher version 4", "first line of map must be: escher version 4");
         continue;
       }
 
@@ -991,38 +998,37 @@ class World
 
           if (words[2] == "remote")
           {
-            assert(0, "TODO");
-            // TODO process face remote
             face.data.type = FaceType.Remote;
-            face.data.remote.remoteID = -1;
+            face.data.remote.remoteID = to!int(words[3]);
           }
           else if (words[2] == "mat")
           {
             int faceMaterialID = to!int(words[3]);
             face.data.solidColor.materialID = faceMaterialID;
 
-            enforce(words[4] == "indices", "expected indices");
-            size_t n = to!size_t(words[5]);
-            writefln("face has %d indices", n);
-
-            face.indices.reserve(n);
-            face.UVs.reserve(n);
-            foreach (i; 0..n)
-            {
-              writefln("  processing face vertex %d/%d: %s", i, n, words[6+i*3]);
-              face.indices ~= to!size_t(words[6+i*3]);
-              face.UVs ~= vec2(to!double(words[7+i*3]), to!double(words[8+i*3]));
-            }
-
             // XXX we just give a bullshit color for now based on materialID
+            int bsColor = faceMaterialID + spaceID;
             face.data.type = FaceType.SolidColor;
-            face.data.solidColor.v[0] = (faceMaterialID & 1) ? 0.25 : 0.125;
-            face.data.solidColor.v[1] = (faceMaterialID & 2) ? 0.25 : 0.125;
-            face.data.solidColor.v[2] = (faceMaterialID & 4) ? 0.25 : 0.125;
+            face.data.solidColor.v[0] = (bsColor & 1) ? 0.25 : 0.125;
+            face.data.solidColor.v[1] = (bsColor & 2) ? 0.25 : 0.125;
+            face.data.solidColor.v[2] = (bsColor & 4) ? 0.25 : 0.125;
           }
           else
           {
             assert(0, "expected either \"mat\" or \"remote\"");
+          }
+
+          enforce(words[4] == "indices", "expected indices");
+          size_t n = to!size_t(words[5]);
+          writefln("face has %d indices", n);
+
+          face.indices.reserve(n);
+          face.UVs.reserve(n);
+          foreach (i; 0..n)
+          {
+            writefln("  processing face vertex %d/%d: %s", i, n, words[6+i*3]);
+            face.indices ~= to!size_t(words[6+i*3]);
+            face.UVs ~= vec2(to!double(words[7+i*3]), to!double(words[8+i*3]));
           }
 
           space.faces ~= face;
@@ -1090,7 +1096,17 @@ class World
       drawFace(space, face, transform, pmatWorld);
     }
     vertexer.draw(shaderProgram, transform, pmatWorld);
-    glErrorCheck();
+
+    if (portalDiagnosticMode)
+    {
+      foreach (faceID, face; space.faces)
+      {
+        if (face.data.type == FaceType.Remote)
+          drawFace(space, face, transform, pmatPortal);
+      }
+      vertexer.draw(portalDiagnosticProgram, transform, pmatPortal);
+      return;
+    }
 
     /* Now we'll draw our entities.
      */
@@ -1126,7 +1142,6 @@ class World
           drawRemote = true;
       }
       vertexer.draw(shaderProgram, transform, pmatPortal);
-      glErrorCheck();
 
       /* We'll draw the remote space now, but only if one of the remote faces to this
        * remote was visible.
@@ -1158,7 +1173,6 @@ class World
           drawRemote = true;
       }
       vertexer.draw(shaderProgram, transform, pmatPortal);
-      glErrorCheck();
     }
   }
 }
@@ -1167,6 +1181,7 @@ MD5Model playerModel;
 MD5Animation playerAnimation;
 Entity playerEntity;
 ShaderProgram shaderProgram;
+ShaderProgram portalDiagnosticProgram;
 
 class Entity
 {
@@ -1434,7 +1449,6 @@ class Camera
 {
   World world;
   int spaceID;
-
   vec3 pos;
   vec3 orient;
   double camYaw;
@@ -1468,6 +1482,10 @@ class Camera
 
       case 'w':
         keyBackward = down;
+        break;
+
+      case 'm':
+        portalDiagnosticMode = ! portalDiagnosticMode;
         break;
 
       default:
@@ -1528,10 +1546,10 @@ class Camera
         if (tris)
         {
           //writefln("intersected face %d", faceIndex);
-          if (face.data.type == FaceType.Remote)
+          if (face.data.type == FaceType.Remote && face.data.remote.remoteID >= 0)
           {
             writefln("trying to crash spaceID=%d remoteID=%d num space remotes=%d",
-              spaceID, face.data.remote.remoteID, world.spaces[spaceID].remotes.length);
+              spaceID, face.data.remote.remoteID, space.remotes.length);
 
             Remote remote = world.spaces[spaceID].remotes[face.data.remote.remoteID];
             if (FaceType.Remote && remote.spaceID >= 0)
@@ -1588,17 +1606,11 @@ class Camera
   {
     ubyte portalDepth = 2;
 
-    /*XXXi f (world.shaderProgram is null)
-    {
-      world.shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
-      world.shaderProgram.use();
-    }*/
     if (shaderProgram is null)
     {
+      portalDiagnosticProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
       shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
-      shaderProgram.use();
     }
-    glErrorCheck();
     if (vertexer is null)
     {
       vertexer = new Vertexer();
@@ -1637,14 +1649,9 @@ class Camera
     //vertexer.add(vec3(0, 1, 0), ColorVec(0, 0, 1));
     //vertexer.draw(shaderProgram, mat4.identity, mat4.orthographic(0, 1, 0, 1, 0, 1));
 
-    glErrorCheck();
     //writeln("drawSpace() entry");
+    glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
-    glErrorCheck();
-
-    //playerEntity.draw(
-      //jmat4.rotation(.75*PI, vec3(1,0,0)).transposed * mat4.translation(0, 0, -20).transposed,
-      //mat4.perspective(800, 600, 90, 0.1, 100).transposed);
-    glErrorCheck();
+    glErrorCheck("after drawSpace()");
   }
 }
