@@ -49,14 +49,16 @@ class Vertexer
     GLuint    colorBufferObject;
     GLuint    uvBufferObject;
 
-    GLuint    positionVertexAttribLocation;
-    GLuint    colorVertexAttribLocation;
-    GLuint    uvVertexAttribLocation;
+    GLint     positionVertexAttribLocation;
+    GLint     colorVertexAttribLocation;
+    GLint     uvVertexAttribLocation;
 
     GLuint    texUniformLocation;
 
     GLuint    modelViewMatrixUniformLocation;
     GLuint    projectionMatrixUniformLocation;
+
+    shaderProgram.use();
 
     modelViewMatrixUniformLocation = shaderProgram.getUniformLocation("viewMatrix");
     projectionMatrixUniformLocation = shaderProgram.getUniformLocation("projMatrix");
@@ -81,15 +83,21 @@ class Vertexer
     glEnableVertexAttribArray(positionVertexAttribLocation);
     glVertexAttribPointer(positionVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
 
-    glBindBuffer(GL_ARRAY_BUFFER, colorBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, colors.length * float.sizeof, colors.ptr, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(colorVertexAttribLocation);
-    glVertexAttribPointer(colorVertexAttribLocation, 3, GL_FLOAT, 0, 0, null);
+    if (colorVertexAttribLocation >= 0)
+    {
+      glBindBuffer(GL_ARRAY_BUFFER, colorBufferObject);
+      glBufferData(GL_ARRAY_BUFFER, colors.length * float.sizeof, colors.ptr, GL_STREAM_DRAW);
+      glEnableVertexAttribArray(colorVertexAttribLocation);
+      glVertexAttribPointer(colorVertexAttribLocation, 3, GL_FLOAT, 0, 0, null);
+    }
 
-    glBindBuffer(GL_ARRAY_BUFFER, uvBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, UVs.length * double.sizeof, UVs.ptr, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(uvVertexAttribLocation);
-    glVertexAttribPointer(uvVertexAttribLocation, 2, GL_DOUBLE, 0, 0, null);
+    if (uvVertexAttribLocation >= 0)
+    {
+      glBindBuffer(GL_ARRAY_BUFFER, uvBufferObject);
+      glBufferData(GL_ARRAY_BUFFER, UVs.length * double.sizeof, UVs.ptr, GL_STREAM_DRAW);
+      glEnableVertexAttribArray(uvVertexAttribLocation);
+      glVertexAttribPointer(uvVertexAttribLocation, 2, GL_DOUBLE, 0, 0, null);
+    }
 
     glActiveTexture(GL_TEXTURE0); 
     glBindTexture(GL_TEXTURE_2D, myTex.v);
