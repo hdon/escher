@@ -16,6 +16,7 @@ import ants.shader;
 import ants.md5 : MD5Model, MD5Animation;
 import ants.texture;
 import ants.vertexer;
+import ants.material;
 debug import std.stdio : writeln, writefln;
 
 /*version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}
@@ -495,26 +496,6 @@ class Space
   string toString()
   {
     return to!string(faces);
-  }
-}
-
-enum TextureApplication
-{
-  Color
-}
-
-class MaterialTexture
-{
-  Texture texture;
-  TextureApplication application;
-}
-
-class Material
-{
-  MaterialTexture[]     texes;
-  void use()
-  {
-    // TODO
   }
 }
 
@@ -1006,12 +987,11 @@ class World
             int faceMaterialID = to!int(words[3]);
             face.data.solidColor.materialID = faceMaterialID;
 
-            // XXX we just give a bullshit color for now based on materialID
-            int bsColor = faceMaterialID + spaceID;
+            // XXX i should probably get rid of this
             face.data.type = FaceType.SolidColor;
-            face.data.solidColor.v[0] = (bsColor & 1) ? 0.25 : 0.125;
-            face.data.solidColor.v[1] = (bsColor & 2) ? 0.25 : 0.125;
-            face.data.solidColor.v[2] = (bsColor & 4) ? 0.25 : 0.125;
+            face.data.solidColor.v[0] = 1.0;
+            face.data.solidColor.v[1] = 1.0;
+            face.data.solidColor.v[2] = 1.0;
           }
           else
           {
@@ -1094,8 +1074,9 @@ class World
         continue;
 
       drawFace(space, face, transform, pmatWorld);
+      // TODO optimize by drawing faces in material order?
+      vertexer.draw(shaderProgram, transform, pmatWorld, materials[face.data.solidColor.materialID]);
     }
-    vertexer.draw(shaderProgram, transform, pmatWorld);
 
     if (portalDiagnosticMode)
     {
@@ -1104,7 +1085,7 @@ class World
         if (face.data.type == FaceType.Remote)
           drawFace(space, face, transform, pmatPortal);
       }
-      vertexer.draw(portalDiagnosticProgram, transform, pmatPortal);
+      vertexer.draw(portalDiagnosticProgram, transform, pmatPortal, null);
       return;
     }
 
@@ -1141,7 +1122,7 @@ class World
         if (drawFace(space, face, transform, pmatPortal))
           drawRemote = true;
       }
-      vertexer.draw(shaderProgram, transform, pmatPortal);
+      vertexer.draw(shaderProgram, transform, pmatPortal, null);
 
       /* We'll draw the remote space now, but only if one of the remote faces to this
        * remote was visible.
@@ -1172,7 +1153,7 @@ class World
         if (drawFace(space, face, transform, pmatPortal))
           drawRemote = true;
       }
-      vertexer.draw(shaderProgram, transform, pmatPortal);
+      vertexer.draw(shaderProgram, transform, pmatPortal, null);
     }
   }
 }

@@ -3,6 +3,7 @@ import ants.shader;
 import gl3n.linalg : Vector, Matrix;
 import derelict.opengl3.gl3;
 import ants.texture;
+import ants.material;
 
 private alias Vector!(double, 3) vec3d;
 private alias Vector!(double, 2) vec2d;
@@ -17,11 +18,8 @@ class Vertexer
   float[]   colors;
   uint      numVerts;
 
-  Texture myTex;
-
   this()
   {
-    myTex = getTexture("test.png");
   }
 
   void add(vec3d pos, vec2d uv, vec3f color)
@@ -37,8 +35,12 @@ class Vertexer
     numVerts++;
   }
 
-  void draw(ShaderProgram shaderProgram, mat4d mvMatd, mat4d pMatd)
+  void draw(ShaderProgram shaderProgram, mat4d mvMatd, mat4d pMatd, Material material)
   {
+    Texture myTex;
+    if (material !is null)
+      myTex = material.texes[0].texture; // XXX
+
     // XXX
     mat4f mvMat = mat4f(mvMatd);
     mat4f pMat = mat4f(pMatd);
@@ -99,12 +101,15 @@ class Vertexer
       glVertexAttribPointer(uvVertexAttribLocation, 2, GL_DOUBLE, 0, 0, null);
     }
 
-    glActiveTexture(GL_TEXTURE0); 
-    glBindTexture(GL_TEXTURE_2D, myTex.v);
-    glUniform1i(texUniformLocation, 0);
-    //glActiveTexture(GL_TEXTURE1); 
-    //glBindTexture(GL_TEXTURE_2D, texture1);
-    //glUniform1i(_textureUniform, 1);
+    if (texUniformLocation >= 0 && myTex !is null)
+    {
+      glActiveTexture(GL_TEXTURE0); 
+      glBindTexture(GL_TEXTURE_2D, myTex.v);
+      glUniform1i(texUniformLocation, 0);
+      //glActiveTexture(GL_TEXTURE1); 
+      //glBindTexture(GL_TEXTURE_2D, texture1);
+      //glUniform1i(_textureUniform, 1);
+    }
 
     glDrawArrays(GL_TRIANGLES, 0, numVerts);
 
