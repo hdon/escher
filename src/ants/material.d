@@ -3,7 +3,8 @@ import ants.texture;
 
 enum TextureApplication
 {
-  Color
+  Color,
+  Normal
 }
 
 class MaterialTexture

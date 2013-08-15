@@ -853,6 +853,10 @@ class World
           {
             materialTexture.application = TextureApplication.Color;
           }
+          else if (words[1] == "NORMAL")
+          {
+            materialTexture.application = TextureApplication.Normal;
+          }
           else
           {
             assert(0, "unknown texture application");
@@ -860,10 +864,13 @@ class World
           materialTexture.texture = getTexture(words[2]);
           materials[materialID].texes ~= materialTexture;
           // XXX
-          if (materials.length == numMaterials)
-            mode = ParserMode.expectNumSpaces;
-          else
-            mode = ParserMode.expectMaterial;
+          if (materials[materialID].texes.length == numTextures)
+          {
+            if (materials.length == numMaterials)
+              mode = ParserMode.expectNumSpaces;
+            else
+              mode = ParserMode.expectMaterial;
+          }
           break;
 
         case ParserMode.expectSpace:

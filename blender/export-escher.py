@@ -148,9 +148,9 @@ def escherExport(materials, objects, scene, filename):
   for imat, mat in enumerate(mats):
     texSlots = list(filter(lambda t:t is not None, mat.texture_slots))
     out.write('material %d "%s" numtex %d\n' % (imat, mat.name, len(texSlots)))
-    for texSlot in texSlots:
+    for iTexSlot, texSlot in enumerate(texSlots):
       texMapType = texSlot2texMapType(texSlot)
-      textureFilePath = mat.texture_slots[0].texture.image.filepath
+      textureFilePath = mat.texture_slots[iTexSlot].texture.image.filepath
       out.write('texture %s %s\n' % (texMapType, basename(textureFilePath)))
 
   out.write('numspaces %d\n' % len(PSOs))
