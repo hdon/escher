@@ -1632,11 +1632,6 @@ class Camera
     mvmat.rotate(camYaw, vec3(0,1,0));
     mvmat.rotate(camPitch, vec3(1,0,0));
 
-    //vertexer.add(vec3(0, 0, 0), ColorVec(1, 0, 0));
-    //vertexer.add(vec3(1, 0, 0), ColorVec(0, 1, 0));
-    //vertexer.add(vec3(0, 1, 0), ColorVec(0, 0, 1));
-    //vertexer.draw(shaderProgram, mat4.identity, mat4.orthographic(0, 1, 0, 1, 0, 1));
-
     //writeln("drawSpace() entry");
     glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
