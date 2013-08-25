@@ -142,7 +142,7 @@ def escherExport(materials, objects, scene, filename):
       PSOs[toUnqualifiedSpaceName(ob.name)] = ob
 
   out = open(filename, 'w')
-  out.write('escher version 4\n')
+  out.write('escher version 5\n')
   out.write('nummaterials %d\n' % len(mats))
 
   for imat, mat in enumerate(mats):
@@ -181,13 +181,21 @@ def escherExport(materials, objects, scene, filename):
         faceClass = 'remote %d' % portalMaterialName2remoteIndex(matName)
       else:
         faceClass = 'mat %d' % mats.str2int(matName)
-      out.write('face %d %s indices %d' % (ipg, faceClass, pg.loop_total))
+      out.write('face %d %s vdata %d' % (ipg, faceClass, pg.loop_total))
       for li in reversed(pg.loop_indices):
         vi = me.loops[li].vertex_index
+        # Write vertex index
         out.write(' %d' % vi)
+        # Write vertex UVs
         for uvlayer in me.uv_layers:
           uv = -uvlayer.data[li].uv
           out.write(' %f %f' % (uv.x, uv.y))
+        # Write normals
+        if pg.use_smooth:
+          normal = me.vertices[vi].normal
+        else:
+          normal = pg.normal
+        out.write(' %f %f %f' % (normal.x, normal.y, normal.z))
       out.write('\n')
   out.close()
 

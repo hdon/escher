@@ -476,6 +476,7 @@ class Face
 {
   size_t[]  indices;
   vec2[]    UVs;
+  vec3[]    normals;
   FaceData  data;
 
   override
@@ -706,13 +707,16 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
   vec4[] verts;
   vec3[] inverts;
   vec2[] UVs;
+  vec3[] normals;
   verts.length = nverts;
   inverts.length = nverts;
   UVs.length = nverts;
+  normals.length = nverts;
   foreach (i, vi; face.indices)
   {
     inverts[i] = space.verts[vi];
     UVs[i] = face.UVs[i];
+    normals[i] = face.normals[i];
     vec3 v3 = space.verts[vi];
     vec4 v4 = vec4(v3.x, v3.y, v3.z, 1);
     v4 = v4 * mvmat;
@@ -753,20 +757,19 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
 
   if (nverts == 4)
   {
-    //vec3[4] UVs = [vec2(0, 0), vec2(1, 0), vec2(0, 1), vec2(1, 1)];
-    vertexer.add(inverts[0], UVs[0], color);
-    vertexer.add(inverts[1], UVs[1], color);
-    vertexer.add(inverts[2], UVs[2], color);
+    vertexer.add(inverts[0], UVs[0], normals[0], color);
+    vertexer.add(inverts[1], UVs[1], normals[1], color);
+    vertexer.add(inverts[2], UVs[2], normals[2], color);
 
-    vertexer.add(inverts[2], UVs[2], color);
-    vertexer.add(inverts[3], UVs[3], color);
-    vertexer.add(inverts[0], UVs[0], color);
+    vertexer.add(inverts[2], UVs[2], normals[2], color);
+    vertexer.add(inverts[3], UVs[3], normals[3], color);
+    vertexer.add(inverts[0], UVs[0], normals[0], color);
   }
   else if (nverts == 3)
   {
-    vertexer.add(inverts[0], UVs[0], color);
-    vertexer.add(inverts[1], UVs[1], color);
-    vertexer.add(inverts[2], UVs[2], color);
+    vertexer.add(inverts[0], UVs[0], normals[0], color);
+    vertexer.add(inverts[1], UVs[1], normals[1], color);
+    vertexer.add(inverts[2], UVs[2], normals[2], color);
   }
   else
   {
@@ -801,7 +804,7 @@ class World
       writefln("processing line #%d: %s", lineNo+1, line);
       if (lineNo == 0)
       {
-        enforce(line == "escher version 4", "first line of map must be: escher version 4");
+        enforce(line == "escher version 5", "first line of map must be: escher version 5");
         continue;
       }
 
@@ -1005,17 +1008,22 @@ class World
             assert(0, "expected either \"mat\" or \"remote\"");
           }
 
-          enforce(words[4] == "indices", "expected indices");
+          enforce(words[4] == "vdata", "expected vdata");
           size_t n = to!size_t(words[5]);
           writefln("face has %d indices", n);
+
+          const size_t dataSize = 6;
 
           face.indices.reserve(n);
           face.UVs.reserve(n);
           foreach (i; 0..n)
           {
-            writefln("  processing face vertex %d/%d: %s", i, n, words[6+i*3]);
-            face.indices ~= to!size_t(words[6+i*3]);
-            face.UVs ~= vec2(to!double(words[7+i*3]), to!double(words[8+i*3]));
+            writefln("  processing face vertex %d/%d: %s", i, n, words[6+i*dataSize]);
+            face.indices ~= to!size_t(words[6+i*dataSize]);
+            face.UVs ~= vec2(to!double(words[7+i*dataSize]), to!double(words[8+i*dataSize]));
+            face.normals ~= vec3(to!double(words[ 9+i*dataSize]),
+                                 to!double(words[10+i*dataSize]),
+                                 to!double(words[11+i*dataSize]));
           }
 
           space.faces ~= face;

@@ -1,17 +1,19 @@
 #version 150
 
 uniform mat4 viewMatrix, projMatrix;
+uniform mat3 normalMatrix;
 
-in vec4 position;
-in vec3 color;
+in vec3 normalV;
+in vec4 positionV;
+in vec3 colorV;
 in vec2 uvV;
 
-out vec3 Color;
+out vec3 colorF;
 out vec2 uvF;
 
 void main()
 {
-  Color = color;
-  gl_Position = projMatrix * viewMatrix * position;
+  colorF = (normalV + vec3(1,1,1)) * 0.5;
+  gl_Position = projMatrix * viewMatrix * positionV;
   uvF = uvV;
 }
