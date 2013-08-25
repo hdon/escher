@@ -60,6 +60,7 @@ alias Vector!(double, 4) vec4;
 alias Matrix!(double, 4, 4) mat4;
 alias Quaternion!(double) quat;
 
+alias Vector!(float, 3) vec3f;
 alias Vector!(float, 3) ColorVec;
 
 struct Tri
@@ -1484,6 +1485,10 @@ class Camera
         portalDiagnosticMode = ! portalDiagnosticMode;
         break;
 
+      case 'l':
+        vertexer.lightPos = vec3f(this.pos.x, this.pos.y, this.pos.z);
+        break;
+
       default:
         break;
     }
@@ -1598,6 +1603,7 @@ class Camera
     world.entities[playerEntity.spaceID] ~= playerEntity;
   }
 
+  int frame = 0;
   void draw()
   {
     ubyte portalDepth = 2;
@@ -1644,5 +1650,7 @@ class Camera
     glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
     glErrorCheck("after drawSpace()");
+
+    frame++;
   }
 }

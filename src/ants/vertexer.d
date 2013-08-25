@@ -10,6 +10,7 @@ private alias Vector!(double, 2) vec2d;
 private alias Vector!(float, 3) vec3f;
 alias Matrix!(double, 4, 4) mat4d;
 alias Matrix!(float, 4, 4) mat4f;
+alias Matrix!(float, 3, 3) mat3f;
 
 class Vertexer
 {
@@ -18,9 +19,11 @@ class Vertexer
   float[]   colors;
   double[]  normals;
   uint      numVerts;
+  vec3f     lightPos;
 
   this()
   {
+    lightPos = vec3f(1,0,0);
   }
 
   void add(vec3d pos, vec2d uv, vec3d normal, vec3f color)
@@ -50,9 +53,11 @@ class Vertexer
     // XXX
     mat4f mvMat = mat4f(mvMatd);
     mat4f pMat = mat4f(pMatd);
-    mat4f normalMat = mat4f(mvMat[0][0], mvMat[0][1], mvMat[0][2],
-                            mvMat[1][0], mvMat[1][1], mvMat[1][2],
-                            mvMat[2][0], mvMat[2][1], mvMat[2][2]);
+    mat3f normalMat = mat3f(mvMat.rotation);
+    //mat3f normalMat = mat3f(mvMat[0][0], mvMat[1][0], mvMat[2][0],
+                            //mvMat[0][1], mvMat[1][1], mvMat[2][1],
+                            //mvMat[0][2], mvMat[1][2], mvMat[2][2]);
+    //writeln("mvmat: ", normalMat);
 
     GLuint    vertexArrayObject;
 
@@ -71,32 +76,50 @@ class Vertexer
     GLuint    modelViewMatrixUniformLocation;
     GLuint    projectionMatrixUniformLocation;
     GLuint    normalMatrixUniformLocation;
-    GLuint    pointLightPosUniformLocation;
+
+    GLuint    lightSourceUniformLocation_pos;
+    GLuint    lightSourceUniformLocation_diffuse;
+    GLuint    lightSourceUniformLocation_specular;
 
     shaderProgram.use();
 
+    /* Get matrix uniform locations */
     modelViewMatrixUniformLocation = shaderProgram.getUniformLocation("viewMatrix");
     projectionMatrixUniformLocation = shaderProgram.getUniformLocation("projMatrix");
     normalMatrixUniformLocation = shaderProgram.getUniformLocation("normalMatrix");
-    texUniformLocation = shaderProgram.getUniformLocation("tex");
-    pointLightPosUniformLocation = shaderProgram.getUniformLocation("pointLightPos");
 
+    /* Get texture uniform locations */
+    texUniformLocation = shaderProgram.getUniformLocation("tex");
+
+    /* Get light source uniform locations */
+    lightSourceUniformLocation_pos = shaderProgram.getUniformLocation("lightSource.pos");
+    lightSourceUniformLocation_diffuse = shaderProgram.getUniformLocation("lightSource.diffuse");
+    lightSourceUniformLocation_specular = shaderProgram.getUniformLocation("lightSource.specular");
+
+    /* Send matrix uniform values */
     glUniformMatrix4fv(modelViewMatrixUniformLocation, 1, GL_TRUE, mvMat.value_ptr);
     glUniformMatrix4fv(projectionMatrixUniformLocation, 1, GL_TRUE, pMat.value_ptr);
     glUniformMatrix3fv(normalMatrixUniformLocation, 1, GL_TRUE, normalMat.value_ptr);
-    glUniform3f(pointLightPosUniformLocation, 0, 0, 0);
 
+    /* Send light uniform values */
+    glUniform3f(lightSourceUniformLocation_pos, lightPos.x, lightPos.y, lightPos.z);
+    glUniform4f(lightSourceUniformLocation_diffuse, 1, 1, 1, 1);
+    glUniform4f(lightSourceUniformLocation_specular, 1, 1, 1, 1);
+
+    /* Get vertex attribute locations */
     positionVertexAttribLocation = shaderProgram.getAttribLocation("positionV");
     colorVertexAttribLocation = shaderProgram.getAttribLocation("colorV");
     uvVertexAttribLocation = shaderProgram.getAttribLocation("uvV");
     normalVertexAttribLocation = shaderProgram.getAttribLocation("normalV");
 
+    /* Generate arrays/buffers to send vertex data */
     glGenVertexArrays(1, &vertexArrayObject);
     glGenBuffers(1, &positionBufferObject);
     glGenBuffers(1, &colorBufferObject);
     glGenBuffers(1, &uvBufferObject);
     glGenBuffers(1, &normalBufferObject);
 
+    /* Send vertex data */
     glBindVertexArray(vertexArrayObject);
 
     glBindBuffer(GL_ARRAY_BUFFER, positionBufferObject);

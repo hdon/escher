@@ -195,7 +195,7 @@ def escherExport(materials, objects, scene, filename):
           normal = me.vertices[vi].normal
         else:
           normal = pg.normal
-        out.write(' %f %f %f' % (normal.x, normal.y, normal.z))
+        out.write(' %f %f %f' % (normal.x, normal.z, normal.y))
       out.write('\n')
   out.close()
 
