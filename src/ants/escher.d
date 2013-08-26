@@ -57,6 +57,7 @@ void glErrorCheck(string source)
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
 alias Vector!(double, 4) vec4;
+alias Matrix!(double, 3, 3) mat3;
 alias Matrix!(double, 4, 4) mat4;
 alias Quaternion!(double) quat;
 
@@ -1451,18 +1452,18 @@ class Camera
   double camYaw;
   double camPitch;
 
-  float vel;
   float turnRate;
 
   bool keyForward;
   bool keyBackward;
+  bool keyLeft;
+  bool keyRight;
 
   this(World world, int spaceID, vec3 pos)
   {
     this.world = world;
     this.spaceID = spaceID;
     this.pos = pos;
-    this.vel = 0f;
     this.orient = vec3(0,0,0);
     this.turnRate = 0f;
     this.camYaw = 0.0;
@@ -1481,12 +1482,21 @@ class Camera
         keyBackward = down;
         break;
 
+      case 'a':
+        keyLeft = down;
+        break;
+      
+      case 'd':
+        keyRight = down;
+        break;
+
       case 'm':
         portalDiagnosticMode = ! portalDiagnosticMode;
         break;
 
       case 'l':
-        vertexer.lightPos = vec3f(this.pos.x, this.pos.y, this.pos.z);
+        if (down)
+          vertexer.lightPos = vec3f(this.pos.x, this.pos.y, this.pos.z);
         break;
 
       default:
@@ -1507,18 +1517,30 @@ class Camera
       camYaw -= PI*2f;
 
     // Set velocity lol
-    if (keyForward == keyBackward)
-      vel = 0;
-    else if (keyForward)
-      vel = 3;
-    else if (keyBackward)
-      vel = -3;
-    //writefln("movement keys: %s %s vel: %s", keyForward, keyBackward, vel);
+    vec3 vel = vec3(0,0,0);
+    if (keyForward != keyBackward)
+    {
+      if (keyForward)
+        vel.z = 1;
+      else
+        vel.z = -1;
+    }
+    if (keyLeft != keyRight)
+    {
+      if (keyRight)
+        vel.x = 1;
+      else
+        vel.x = -1;
+    }
 
     // Nudge position and orientation
     float deltaf = delta/1000f;
     orient = vec3(sin(camYaw), 0, cos(camYaw));
-    vec3 movement = orient * (vel * deltaf);
+    mat3 orientMat = mat3(
+      cos(camYaw), 0, sin(camYaw),
+      0, 0, 0,
+      -sin(camYaw), 0, cos(camYaw));
+    vec3 movement = orientMat * vel * 3 * deltaf;
     pos += movement;
 
     //writefln("vel: %s turn: %s", vel, turnRate);
