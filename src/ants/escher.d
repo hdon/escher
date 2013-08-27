@@ -1540,7 +1540,7 @@ class Camera
       cos(camYaw), 0, sin(camYaw),
       0, 0, 0,
       -sin(camYaw), 0, cos(camYaw));
-    vec3 movement = orientMat * vel * 3 * deltaf;
+    vec3 movement = orientMat * vel.normalized * 3 * deltaf;
     pos += movement;
 
     //writefln("vel: %s turn: %s", vel, turnRate);
