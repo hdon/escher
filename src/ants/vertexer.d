@@ -46,9 +46,27 @@ class Vertexer
 
   void draw(ShaderProgram shaderProgram, mat4d mvMatd, mat4d pMatd, Material material)
   {
-    Texture myTex;
+    Texture colorMap;
+    Texture normalMap;
+
     if (material !is null)
-      myTex = material.texes[0].texture; // XXX
+    {
+      foreach (matTex; material.texes)
+      {
+        switch (matTex.application)
+        {
+          case TextureApplication.Color:
+            colorMap = matTex.texture;
+            break;
+          case TextureApplication.Normal:
+            normalMap = matTex.texture;
+            break;
+          default:
+            assert(0, "invalid texture application");
+            break;
+        }
+      }
+    }
 
     // XXX
     mat4f mvMat = mat4f(mvMatd);
@@ -71,7 +89,8 @@ class Vertexer
     GLint     uvVertexAttribLocation;
     GLint     normalVertexAttribLocation;
 
-    GLuint    texUniformLocation;
+    GLuint    colorMapUniformLocation;
+    GLuint    normalMapUniformLocation;
 
     GLuint    modelViewMatrixUniformLocation;
     GLuint    projectionMatrixUniformLocation;
@@ -89,7 +108,8 @@ class Vertexer
     normalMatrixUniformLocation = shaderProgram.getUniformLocation("normalMatrix");
 
     /* Get texture uniform locations */
-    texUniformLocation = shaderProgram.getUniformLocation("tex");
+    colorMapUniformLocation = shaderProgram.getUniformLocation("colorMap");
+    normalMapUniformLocation = shaderProgram.getUniformLocation("normalMap");
 
     /* Get light source uniform locations */
     lightSourceUniformLocation_pos = shaderProgram.getUniformLocation("lightSource.pos");
@@ -103,8 +123,8 @@ class Vertexer
 
     /* Send light uniform values */
     glUniform3f(lightSourceUniformLocation_pos, lightPos.x, lightPos.y, lightPos.z);
-    glUniform4f(lightSourceUniformLocation_diffuse, 1, 1, 1, 1);
-    glUniform4f(lightSourceUniformLocation_specular, 1, 1, 1, 1);
+    glUniform4f(lightSourceUniformLocation_diffuse, 1, 0, 0, 1);
+    glUniform4f(lightSourceUniformLocation_specular, 0, 1, 1, 1);
 
     /* Get vertex attribute locations */
     positionVertexAttribLocation = shaderProgram.getAttribLocation("positionV");
@@ -151,14 +171,19 @@ class Vertexer
       glVertexAttribPointer(normalVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
     }
 
-    if (texUniformLocation >= 0 && myTex !is null)
+    int texCounter = 0;
+
+    if (colorMapUniformLocation >= 0 && colorMap !is null)
     {
-      glActiveTexture(GL_TEXTURE0); 
-      glBindTexture(GL_TEXTURE_2D, myTex.v);
-      glUniform1i(texUniformLocation, 0);
-      //glActiveTexture(GL_TEXTURE1); 
-      //glBindTexture(GL_TEXTURE_2D, texture1);
-      //glUniform1i(_textureUniform, 1);
+      glActiveTexture(GL_TEXTURE0 + texCounter);
+      glBindTexture(GL_TEXTURE_2D, colorMap.v);
+      glUniform1i(colorMapUniformLocation, texCounter++);
+    }
+    if (normalMapUniformLocation >= 0 && normalMap !is null)
+    {
+      glActiveTexture(GL_TEXTURE0 + texCounter);
+      glBindTexture(GL_TEXTURE_2D, normalMap.v);
+      glUniform1i(normalMapUniformLocation, texCounter++);
     }
 
     glDrawArrays(GL_TRIANGLES, 0, numVerts);
