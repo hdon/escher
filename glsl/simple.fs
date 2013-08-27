@@ -8,13 +8,15 @@ struct LightSource
   vec4 specular;
 };
 
-uniform sampler2D tex;
+uniform sampler2D colorMap;
+uniform sampler2D normalMap;
 uniform LightSource lightSource;
 
 in vec3 colorF;
 in vec2 uvF;
 in vec3 eyeVecF;
 in vec3 lightDirF;
+in vec3 halfVecF;
 in vec3 normalF;
 in vec3 positionF;
 
@@ -41,12 +43,14 @@ void main()
     Kq[i] = quadratic light attenuation
   */
 
-  vec3 normal = normalize(normalF);
+  vec3 normal = normalize(normalF);// + texture(normalMap, uvF).rgb);
+  vec3 halfVec = normalize(halfVecF);
   vec3 lightDir = normalize(lightDirF);
   float lightDistance = distance(lightSource.pos, positionF);
-  float lightLinearAttenuation = 1.0 / lightDistance;
+  float lightAttenuated = 1.0 / lightDistance;
   vec4 diffuse = dot(lightDir, normal) * lightSource.diffuse;
-  vec4 light = 0.1 + lightLinearAttenuation * diffuse;
+  vec4 specular = pow(dot(halfVec, normal), 10.0) * lightSource.specular;
+  vec4 light = 0.1 + lightAttenuated * (diffuse + specular);
 
-  gl_FragColor = light * texture(tex, uvF);
+  gl_FragColor = light * texture(colorMap, uvF);
 }
