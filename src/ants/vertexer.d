@@ -44,7 +44,7 @@ class Vertexer
 
   vec3f pointLightPos;
 
-  void draw(ShaderProgram shaderProgram, mat4d mvMatd, mat4d pMatd, Material material)
+  void draw(ShaderProgram shaderProgram, mat4d mvMatd, mat4d pMatd, Material material, GLenum mode=GL_TRIANGLES)
   {
     Texture colorMap;
     Texture normalMap;
@@ -123,8 +123,8 @@ class Vertexer
 
     /* Send light uniform values */
     glUniform3f(lightSourceUniformLocation_pos, lightPos.x, lightPos.y, lightPos.z);
-    glUniform4f(lightSourceUniformLocation_diffuse, 1, 0, 0, 1);
-    glUniform4f(lightSourceUniformLocation_specular, 0, 1, 1, 1);
+    glUniform4f(lightSourceUniformLocation_diffuse, 1, 1, 1, 1);
+    glUniform4f(lightSourceUniformLocation_specular, 1, 1, 1, 1);
 
     /* Get vertex attribute locations */
     positionVertexAttribLocation = shaderProgram.getAttribLocation("positionV");
@@ -186,7 +186,7 @@ class Vertexer
       glUniform1i(normalMapUniformLocation, texCounter++);
     }
 
-    glDrawArrays(GL_TRIANGLES, 0, numVerts);
+    glDrawArrays(mode, 0, numVerts);
 
     glDeleteVertexArrays(1, &vertexArrayObject);
     glDeleteBuffers(1, &positionBufferObject);

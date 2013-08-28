@@ -1069,6 +1069,9 @@ class World
   mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 100);
   //XXX ShaderProgram shaderProgram;
 
+  bool drawMapVertices;
+  bool drawMapNormals;
+
   void drawSpace(int spaceID, mat4 transform, ubyte portalDepth, int dmode)
   {
     Space space = spaces[spaceID];
@@ -1095,6 +1098,14 @@ class World
       vertexer.draw(shaderProgram, transform, pmatWorld, materials[face.data.solidColor.materialID]);
     }
 
+    /* Now we'll draw our entities.
+     */
+    foreach (entity; entities[spaceID])
+    {
+      entity.draw(transform, pmatWorld);
+    }
+
+
     if (portalDiagnosticMode)
     {
       foreach (faceID, face; space.faces)
@@ -1103,74 +1114,109 @@ class World
           drawFace(space, face, transform, pmatPortal);
       }
       vertexer.draw(portalDiagnosticProgram, transform, pmatPortal, null);
-      return;
     }
-
-    /* Now we'll draw our entities.
-     */
-    foreach (entity; entities[spaceID])
+    else
     {
-      entity.draw(transform, pmatWorld);
-    }
+      /* Now we'll draw remote spaces. This requires identifying visible faces which are
+       * connected to each remote space, and drawing them onto the stencil buffer. Then
+       * we can render the remote face through this stencil. When rendering of the remote
+       * space is done, we'll "undraw" the stencil we drew. We still respect the previous
+       * stencil rules when we make this draw.
+       */
+      if (portalDepth > 0)
+      foreach (remoteID, remote; space.remotes)
+      {
+        version (stencil) {
+          glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+          glDepthMask(GL_FALSE);
+          glStencilMask(0xFF);
+          glStencilFunc(GL_EQUAL, portalDepth, 0xFF);
+          glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
+        }
 
-    /* Now we'll draw remote spaces. This requires identifying visible faces which are
-     * connected to each remote space, and drawing them onto the stencil buffer. Then
-     * we can render the remote face through this stencil. When rendering of the remote
-     * space is done, we'll "undraw" the stencil we drew. We still respect the previous
-     * stencil rules when we make this draw.
-     */
-    if (portalDepth > 0)
-    foreach (remoteID, remote; space.remotes)
-    {
+        bool drawRemote = false;
+        // Draw some triangles
+        foreach (faceID, face; space.faces)
+        {
+          if (face.data.type != FaceType.Remote || face.data.remote.remoteID != remoteID)
+            continue;
+          if (drawFace(space, face, transform, pmatPortal))
+            drawRemote = true;
+        }
+        vertexer.draw(shaderProgram, transform, pmatPortal, null);
+
+        /* We'll draw the remote space now, but only if one of the remote faces to this
+         * remote was visible.
+         */
+        if (!drawRemote)
+          continue;
+
+        drawSpace(
+            remote.spaceID,
+            transform * spaces[spaceID].remotes[remoteID].transform,
+            cast(ubyte)(portalDepth-1),
+            dmode);
+
+        /* Now we must undraw the stencils we drew for this remote
+         */
+        version (stencil) {
+          glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+          glDepthMask(GL_FALSE);
+          glStencilMask(0xFF);
+          glStencilFunc(GL_LEQUAL, portalDepth-1, 0xFF);
+          glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+        }
+        // Draw some triangles
+        foreach (faceID, face; space.faces)
+        {
+          if (face.data.type != FaceType.Remote && face.data.remote.remoteID != remoteID)
+            continue;
+          if (drawFace(space, face, transform, pmatPortal))
+            drawRemote = true;
+        }
+        vertexer.draw(shaderProgram, transform, pmatPortal, null);
+      }
+
       version (stencil) {
-        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-        glDepthMask(GL_FALSE);
-        glStencilMask(0xFF);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDepthMask(GL_TRUE);
+        glStencilMask(0);
         glStencilFunc(GL_EQUAL, portalDepth, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_DECR);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
       }
+    }
 
-      bool drawRemote = false;
-      // Draw some triangles
+    /* Draw diagnosic shit */
+    if (drawMapVertices)
+    {
+      glDisable(GL_DEPTH_TEST);
+      ColorVec color = ColorVec(0, 1, 0);
       foreach (faceID, face; space.faces)
       {
-        if (face.data.type != FaceType.Remote || face.data.remote.remoteID != remoteID)
-          continue;
-        if (drawFace(space, face, transform, pmatPortal))
-          drawRemote = true;
+        foreach (i, vi; face.indices)
+        {
+          vertexer.add(space.verts[vi], vec2(0,0), face.normals[i], color);
+        }
+
+        vertexer.draw(portalDiagnosticProgram, transform, pmatPortal, materials[0], GL_LINE_LOOP);
       }
-      vertexer.draw(shaderProgram, transform, pmatPortal, null);
-
-      /* We'll draw the remote space now, but only if one of the remote faces to this
-       * remote was visible.
-       */
-      if (!drawRemote)
-        continue;
-
-      drawSpace(
-          remote.spaceID,
-          transform * spaces[spaceID].remotes[remoteID].transform,
-          cast(ubyte)(portalDepth-1),
-          dmode);
-
-      /* Now we must undraw the stencils we drew for this remote
-       */
-      version (stencil) {
-        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-        glDepthMask(GL_FALSE);
-        glStencilMask(0xFF);
-        glStencilFunc(GL_LEQUAL, portalDepth-1, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
-      }
-      // Draw some triangles
+      glEnable(GL_DEPTH_TEST);
+    }
+    if (drawMapNormals)
+    {
+      glDisable(GL_DEPTH_TEST);
+      ColorVec color = ColorVec(0, 1, 1);
       foreach (faceID, face; space.faces)
       {
-        if (face.data.type != FaceType.Remote && face.data.remote.remoteID != remoteID)
-          continue;
-        if (drawFace(space, face, transform, pmatPortal))
-          drawRemote = true;
+        foreach (i, vi; face.indices)
+        {
+          vertexer.add(space.verts[vi], vec2(0,0), vec3(0,0,0), color);
+          vertexer.add(space.verts[vi] + face.normals[i], vec2(0,0), vec3(0,0,0), color);
+        }
+
+        vertexer.draw(portalDiagnosticProgram, transform, pmatPortal, materials[0], GL_LINES);
       }
-      vertexer.draw(shaderProgram, transform, pmatPortal, null);
+      glEnable(GL_DEPTH_TEST);
     }
   }
 }
@@ -1458,6 +1504,8 @@ class Camera
   bool keyBackward;
   bool keyLeft;
   bool keyRight;
+  bool keyUp;
+  bool keyDown;
 
   this(World world, int spaceID, vec3 pos)
   {
@@ -1490,8 +1538,27 @@ class Camera
         keyRight = down;
         break;
 
+      case ' ':
+        keyUp = down;
+        break;
+
+      case 'c':
+        keyDown = down;
+        break;
+
       case 'm':
-        portalDiagnosticMode = ! portalDiagnosticMode;
+        if (down)
+          portalDiagnosticMode = ! portalDiagnosticMode;
+        break;
+
+      case 'v':
+        if (down)
+          world.drawMapVertices = ! world.drawMapVertices;
+        break;
+
+      case 'n':
+        if (down)
+          world.drawMapNormals = ! world.drawMapNormals;
         break;
 
       case 'l':
@@ -1532,16 +1599,26 @@ class Camera
       else
         vel.x = -1;
     }
+    if (keyUp != keyDown)
+    {
+      if (keyUp)
+        vel.y = 1;
+      else
+        vel.y = -1;
+    }
 
     // Nudge position and orientation
     float deltaf = delta/1000f;
     orient = vec3(sin(camYaw), 0, cos(camYaw));
     mat3 orientMat = mat3(
       cos(camYaw), 0, sin(camYaw),
-      0, 0, 0,
+      0, 1, 0,
       -sin(camYaw), 0, cos(camYaw));
     vec3 movement = orientMat * vel.normalized * 3 * deltaf;
     pos += movement;
+
+    if (portalDiagnosticMode)
+      return;
 
     //writefln("vel: %s turn: %s", vel, turnRate);
     /* Intersect space faces */
