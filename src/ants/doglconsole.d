@@ -220,7 +220,7 @@ class DoglConsole
     {
       if (inbufCursor != 0)
       {
-        print(format("good command: %s\n", inbuf[0..inbufCursor].idup));
+        handleCommand(this, inbuf[0..inbufCursor].idup);
         for (ulong i=0; i<inbufCursor; i++)
           inbuf[i] = '\0';
         inbufCursor = 0;
