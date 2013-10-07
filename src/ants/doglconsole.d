@@ -3,6 +3,7 @@ import derelict.opengl3.gl3;
 import derelict.sdl2.sdl;
 import ants.texture;
 import ants.shader;
+import ants.ascii : holdShift, capsLocked;
 
 import gl3n.linalg : Vector;
 private alias Vector!(float, 2) vec2;
@@ -24,8 +25,9 @@ class DoglConsole
   ShaderProgram shaderProgram;
   void delegate(DoglConsole console, string cmd) handleCommand;
 
-  uint w, h, front;
+  uint w, h, front, inbufCursor;
   char[] buf;
+  char[] inbuf;
   vec2[] vertexPositions;
   vec2[] vertexUVs;
 
@@ -50,7 +52,11 @@ class DoglConsole
     this.h = h;
 
     buf.length = 0;
-    buf.length = w*h;
+    buf.length = w*(h-1);
+
+    inbuf.length = 0;
+    inbuf.length = w;
+    inbufCursor = 0;
 
     vertexUVs.length = 0;
     vertexUVs.length = w*h*6;
@@ -111,12 +117,16 @@ class DoglConsole
     uint Y=frontY;
     for (uint y=0; y<h; y++)
     {
-      if (Y >= h)
+      if (Y >= (h-1))
         Y = 0;
 
       for (uint x=0; x<w; x++)
       {
-        char c = buf[Y*w+x];
+        char c;
+        if (y == h-1)
+          c = inbuf[x];
+        else
+          c = buf[Y*w+x];
         char cx = c%16;
         char cy = c/16;
         float x0 = r *  cx;
@@ -212,10 +222,20 @@ class DoglConsole
       return false;
     }
 
-    if (key >= 'a' && key <= 'z')
+    if (key >= ' ' && key <= '~')
     {
-      print(format("You pressed %c\n", cast(char)key));
+      //print(format("You pressed %c\n", cast(char)key));
+      if (event.key.keysym.mod & KMOD_SHIFT)
+        key = holdShift(cast(char)key);
+      else if (event.key.keysym.mod & KMOD_CAPS)
+        key = capsLocked(cast(char)key);
+      inputInsertChar(cast(char)key);
     }
     return false;
+  }
+
+  void inputInsertChar(char c)
+  {
+    inbuf[inbufCursor++] = c;
   }
 }
