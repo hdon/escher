@@ -216,6 +216,25 @@ class DoglConsole
       return true;
     }
 
+    if (key == SDLK_RETURN)
+    {
+      if (inbufCursor != 0)
+      {
+        print(format("good command: %s\n", inbuf[0..inbufCursor].idup));
+        for (ulong i=0; i<inbufCursor; i++)
+          inbuf[i] = '\0';
+        inbufCursor = 0;
+      }
+      return false;
+    }
+
+    if (key == SDLK_BACKSPACE)
+    {
+      if (inbufCursor != 0)
+        inbuf[--inbufCursor] = '\0';
+      return false;
+    }
+
     if (key == '`')
     {
       visible = false;
