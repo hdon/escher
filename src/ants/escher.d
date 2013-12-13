@@ -192,10 +192,10 @@ version (never)
 
 private struct Segment
 {
-  uint a, b;
+  size_t a, b;
   bool visible;
 
-  this(uint a, uint b)
+  this(size_t a, size_t b)
   {
     this.a = a;
     this.b = b;
@@ -297,9 +297,9 @@ private struct Polygon4
      * in the "columbus" run of the loop. we want to check this before
      * the meat of the loop so we can .. maybe
      */
-    uint i = 0;
-    uint j = edges.length;
-    uint k = edges.length;
+    size_t i = 0;
+    size_t j = edges.length;
+    size_t k = edges.length;
     while (1)
     {
       //writefln("[REPAIR] examining edge %d/%d", i, edges.length);
