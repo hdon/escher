@@ -52,6 +52,8 @@ class Display
 
     SDL_Window* displayWindow;
     SDL_Renderer* displayRenderer;
+    SDL_GLContext displayContext;
+
     void init()
     {
       SDL_RendererInfo displayRendererInfo;
@@ -73,13 +75,13 @@ class Display
         /*TODO: Handle this. We have no render surface and not accelerated. */
       }
 
-      SDL_GLContext glcontext = SDL_GL_CreateContext(displayWindow);
-      SDL_GL_MakeCurrent(displayWindow, glcontext);
+      displayContext = SDL_GL_CreateContext(displayWindow);
+      SDL_GL_MakeCurrent(displayWindow, displayContext);
 
       DerelictGL3.reload();
 
-      glcontext = SDL_GL_CreateContext(displayWindow);
-      SDL_GL_MakeCurrent(displayWindow, glcontext);
+      displayContext = SDL_GL_CreateContext(displayWindow);
+      SDL_GL_MakeCurrent(displayWindow, displayContext);
 
       const char *glVersion = glGetString(GL_VERSION);
       writeln("OpenGL version: ", to!string(glVersion));
@@ -140,6 +142,8 @@ class Display
   {
     uint t = SDL_GetTicks();
     uint delta = t - lastFrame;
+
+    SDL_GL_MakeCurrent(displayWindow, displayContext);
     setupGL();
 
     //anim.draw();
@@ -150,6 +154,7 @@ class Display
     console.draw();
 
     SDL_RenderPresent(displayRenderer);
+    SDL_GL_SwapWindow(displayWindow);
 
     lastFrame = t;
   }
