@@ -172,8 +172,6 @@ class Display
           isRunning = false;
           break;
         case SDL_KEYDOWN:
-          writefln("key down: %d '%c'", cast(int)event.key.keysym.sym,
-                                        cast(char)event.key.keysym.sym);
           if (event.key.keysym.sym == 'p' || event.key.keysym.sym == 'o')
           {
             if (event.type == SDL_KEYDOWN)
