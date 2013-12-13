@@ -49,8 +49,8 @@ void main()
   float lightDistance = distance(lightSource.pos, positionF);
   float lightAttenuated = 1.0 / lightDistance;
   vec4 diffuse = dot(lightDir, normal) * lightSource.diffuse;
-  vec4 specular = pow(dot(halfVec, normal), 10.0) * lightSource.specular;
-  vec4 light = 0.1 + lightAttenuated * (diffuse + specular);
+  vec4 specular = max(pow(dot(halfVec, normal), 10.0), 0) * lightSource.specular;
+  vec4 light = .1 + lightAttenuated * (diffuse + specular);
 
   gl_FragColor = light * texture(colorMap, uvF);
 }

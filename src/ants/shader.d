@@ -5,6 +5,7 @@ import std.exception : enforce;
 import std.stdio : writeln, writefln;
 import std.string : format, toStringz;
 import std.traits : isPointer, PointerTarget;
+import std.conv : to;
 
 private void glErrorCheck()
 {
@@ -16,8 +17,21 @@ private void glErrorCheck()
   }
 }
 
+private string glslPath;
+private string getPath() {
+  if (glslPath.length == 0) {
+    const(char)*a = glGetString(GL_SHADING_LANGUAGE_VERSION);
+    const(char)*b = a;
+    while (*b != ' ' && *b != '\0')
+      b++;
+    glslPath = "glsl/" ~ to!string(a[0..b-a]) ~ "/";
+  }
+  return glslPath;
+}
+
 GLuint loadShader(GLenum type, string filename)
 {
+  getPath();
   GLenum err;
   GLuint shaderObject;
   GLint iresult;
@@ -30,7 +44,7 @@ GLuint loadShader(GLenum type, string filename)
   enforce(shaderObject != 0, "glCreateShader() failed");
 
   // Read shader source into memory
-  source = cast(char[])file.read("glsl/" ~ filename);
+  source = cast(char[])file.read(getPath() ~ filename);
 
   // Send shader source to the GL
   sourcePtr = source.ptr;
@@ -72,12 +86,12 @@ class Shader(GLenum type)
   {
     this.filename = filename;
     shaderObject = loadShader(type, filename);
-    writeln("Shader() ", shaderObject);
+    //writeln("Shader() ", shaderObject);
   }
 
   ~this()
   {
-    writeln("glDeleteShader() ", shaderObject);
+    //writeln("glDeleteShader() ", shaderObject);
     glDeleteShader(shaderObject);
   }
 }
@@ -145,7 +159,6 @@ class ShaderProgram
 
   ~this()
   {
-    writeln("glDeleteProgram()");
     glDeleteProgram(programObject);
   }
 
@@ -154,7 +167,7 @@ class ShaderProgram
     return glGetUniformLocation(programObject, name.toStringz());
   }
 
-  GLuint getAttribLocation(string name)
+  GLint getAttribLocation(string name)
   {
     return glGetAttribLocation(programObject, name.toStringz());
   }

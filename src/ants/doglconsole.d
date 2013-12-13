@@ -77,7 +77,7 @@ class DoglConsole
       {
         x0 = x1;
         x1 = rW*(x+1);
-        ulong n = (y*w+x)*6;
+        uint n = (y*w+x)*6;
 
         vertexPositions[n+0] = vec2(x0, y0);
         vertexPositions[n+1] = vec2(x1, y0);
@@ -134,7 +134,7 @@ class DoglConsole
         float y0 = r *  cy;
         float y1 = r * (cy+1);
 
-        ulong n = (y*w+x)*6;
+        uint n = (y*w+x)*6;
         vertexUVs[n+0] = vec2(x0, y0);
         vertexUVs[n+1] = vec2(x1, y0);
         vertexUVs[n+2] = vec2(x0, y1);
@@ -221,7 +221,7 @@ class DoglConsole
       if (inbufCursor != 0)
       {
         handleCommand(this, inbuf[0..inbufCursor].idup);
-        for (ulong i=0; i<inbufCursor; i++)
+        for (auto i=0; i<inbufCursor; i++)
           inbuf[i] = '\0';
         inbufCursor = 0;
       }

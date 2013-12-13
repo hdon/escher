@@ -2,14 +2,16 @@ module display;
 
 import ants.md5 : MD5Model, MD5Animation;
 import ants.escher : World, Camera, Entity, playerEntity, playerModel, playerAnimation;
+import ants.doglconsole;
 import std.stdio : writeln, writefln;
-import std.string : toStringz, strlen;
+import std.string : toStringz, strlen, format;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import derelict.opengl3.gl3;
 import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.math : PI;
 import std.exception : enforce;
+import std.conv : to;
 import file = std.file;
 
 alias Vector!(double, 2) vec2;
@@ -32,6 +34,7 @@ class Display
     MD5Animation anim;
     World world;
     Camera camera;
+    DoglConsole console;
 
     GLuint glprogram;
 
@@ -70,14 +73,23 @@ class Display
         /*TODO: Handle this. We have no render surface and not accelerated. */
       }
 
-      SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-      SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-      //SDL_WM_SetCaption(toStringz("D is the best"), null);
+      SDL_GLContext glcontext = SDL_GL_CreateContext(displayWindow);
+      SDL_GL_MakeCurrent(displayWindow, glcontext);
 
       DerelictGL3.reload();
-      const char *glVersionCP = glGetString(GL_VERSION);
-      const char[] glVersion = glVersionCP[0..strlen(glVersionCP)];
-      writeln("glGetString(GL_VERSION) = ", glVersion);
+
+      glcontext = SDL_GL_CreateContext(displayWindow);
+      SDL_GL_MakeCurrent(displayWindow, glcontext);
+
+      const char *glVersion = glGetString(GL_VERSION);
+      writeln("OpenGL version: ", to!string(glVersion));
+
+      const char *glslVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
+      writeln("Shader version: ", to!string(glslVersion));
+
+      SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 0);
+      SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+      //SDL_WM_SetCaption(toStringz("D is the best"), null);
 
       world = new World(mapfilename);
       camera = new Camera(world, 0, vec3(0,0,0));
@@ -86,7 +98,16 @@ class Display
       playerEntity = new Entity();
 
       setupGL();
+
+      console = new DoglConsole(width/16, height/16);
+      console.handleCommand = &command;
     }
+  }
+
+  void command(DoglConsole console, string cmd)
+  {
+    writefln("display.d got command from console: %s\n", cmd);
+    console.print(format("display.d got command from console: %s\n", cmd));
   }
 
   this(string filename)
@@ -126,6 +147,8 @@ class Display
     camera.update(delta);
     camera.draw();
 
+    console.draw();
+
     SDL_RenderPresent(displayRenderer);
 
     lastFrame = t;
@@ -137,12 +160,15 @@ class Display
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
+      if (console.handleSDLEvent(&event))
       switch (event.type)
       {
         case SDL_QUIT:
           isRunning = false;
           break;
         case SDL_KEYDOWN:
+          writefln("key down: %d '%c'", cast(int)event.key.keysym.sym,
+                                        cast(char)event.key.keysym.sym);
           if (event.key.keysym.sym == 'p' || event.key.keysym.sym == 'o')
           {
             if (event.type == SDL_KEYDOWN)
