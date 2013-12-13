@@ -68,7 +68,6 @@ mixin template ResourceCacheMixin(T, KT=string)
 
     ~this()
     {
-      debug writefln("[debug] dmise.util.rescache.ResourceMixin dtor: k/v = %x/%v", k, v);
       forget(this.k);
     }
   }
