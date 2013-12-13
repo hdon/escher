@@ -30,8 +30,6 @@ else{ pragma(msg, "rendering WITHOUT lighting"); }
 
 bool portalDiagnosticMode;
 
-Vertexer vertexer;
-
 void explode()
 {
   static bool explosion;
@@ -194,10 +192,10 @@ version (never)
 
 private struct Segment
 {
-  uint a, b;
+  ulong a, b;
   bool visible;
 
-  this(uint a, uint b)
+  this(ulong a, ulong b)
   {
     this.a = a;
     this.b = b;
@@ -299,9 +297,9 @@ private struct Polygon4
      * in the "columbus" run of the loop. we want to check this before
      * the meat of the loop so we can .. maybe
      */
-    uint i = 0;
-    uint j = edges.length;
-    uint k = edges.length;
+    ulong i = 0;
+    ulong j = edges.length;
+    ulong k = edges.length;
     while (1)
     {
       //writefln("[REPAIR] examining edge %d/%d", i, edges.length);
@@ -803,7 +801,7 @@ class World
     {
       auto words = split(line);
 
-      version (debugEscherFiles) writefln("processing line #%d: %s", lineNo+1, line);
+      writefln("processing line #%d: %s", lineNo+1, line);
       if (lineNo == 0)
       {
         enforce(line == "escher version 5", "first line of map must be: escher version 5");
@@ -1012,7 +1010,7 @@ class World
 
           enforce(words[4] == "vdata", "expected vdata");
           size_t n = to!size_t(words[5]);
-          version (debugEscherFiles) writefln("face has %d indices", n);
+          writefln("face has %d indices", n);
 
           const size_t dataSize = 6;
 
@@ -1020,7 +1018,7 @@ class World
           face.UVs.reserve(n);
           foreach (i; 0..n)
           {
-            version (debugEscherFiles) writefln("  processing face vertex %d/%d: %s", i, n, words[6+i*dataSize]);
+            writefln("  processing face vertex %d/%d: %s", i, n, words[6+i*dataSize]);
             face.indices ~= to!size_t(words[6+i*dataSize]);
             face.UVs ~= vec2(to!double(words[7+i*dataSize]), to!double(words[8+i*dataSize]));
             face.normals ~= vec3(to!double(words[ 9+i*dataSize]),
@@ -1042,7 +1040,7 @@ class World
     // Initialize entities
     entities.length = spaces.length;
 
-    version (debugEscherFiles)
+    debug
     {
       writeln("ESCHER WORLD LOADED");
       writeln(spaces);

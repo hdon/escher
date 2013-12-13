@@ -373,6 +373,23 @@ class EscherDeepCopy(bpy.types.Operator):
     graphWalk(o, selectObject)
     return {'FINISHED'}
 
+class EscherDeselectPortalFaces(bpy.types.Operator):
+  '''Deselects portal faces'''
+  bl_idname = 'escher.deselect_portals'
+  bl_label = 'Deslect Portal Faces'
+
+  @classmethod
+  def poll(cls, cx):
+    return cx.mode == 'EDIT_MESH' and cx.object.type == 'MESH'
+
+  def execute(self, cx):
+    me = cx.object.data
+    em = getEditMesh(cx)
+    for f in em.faces:
+      if isPortalMaterialName(me.materials[f.material_index].name):
+        f.select = False
+    return {'FINISHED'}
+
 def showGraph(ob):
   hideGraph(ob, False)
 
@@ -396,6 +413,7 @@ class NPanel(bpy.types.Panel):
     layout.operator('escher.new_space')
     layout.operator('escher.focus_space')
     layout.operator('escher.deep_copy')
+    layout.operator('escher.deselect_portals')
 
 def register():
   #bpy.types.Object.escher_space_name = bpy.props.EnumProperty(items=escher_space_names)

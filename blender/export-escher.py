@@ -82,7 +82,7 @@ def objectIsRemote(o):
   return o.type == 'EMPTY' and o.name.startswith('EscherRemote')
 
 def vec3toStr(v):
-  return '%s %s %s' % (repr(v.x), repr(v.z), repr(v.y))
+  return '%s %s %s' % (repr(-v.x), repr(v.z), repr(v.y))
 
 def euler2str(v):
   return '%s %s %s' % (repr(v.x), repr(v.z), repr(v.y))
@@ -173,7 +173,7 @@ def escherExport(materials, objects, scene, filename):
     # Write "vert" commands
     for vi, v in enumerate(me.vertices):
       out.write('vert %d %f %f %f\n' %
-        (vi, v.co.x, v.co.z, v.co.y))
+        (vi, -v.co.x, v.co.z, v.co.y))
     # Write "face" commands
     for ipg, pg, in enumerate(me.polygons):
       matName = PSO.material_slots[pg.material_index].material.name
@@ -182,7 +182,7 @@ def escherExport(materials, objects, scene, filename):
       else:
         faceClass = 'mat %d' % mats.str2int(matName)
       out.write('face %d %s vdata %d' % (ipg, faceClass, pg.loop_total))
-      for li in reversed(pg.loop_indices):
+      for li in pg.loop_indices:
         vi = me.loops[li].vertex_index
         # Write vertex index
         out.write(' %d' % vi)
@@ -195,7 +195,7 @@ def escherExport(materials, objects, scene, filename):
           normal = me.vertices[vi].normal
         else:
           normal = pg.normal
-        out.write(' %f %f %f' % (normal.x, normal.z, normal.y))
+        out.write(' %f %f %f' % (-normal.x, normal.z, normal.y))
       out.write('\n')
   out.close()
 
@@ -204,8 +204,8 @@ class ExportEscher(bpy.types.Operator, ExportHelper):
   bl_label        = "Escher Map Exporter";
   bl_options      = {'PRESET'};
 
-  filename_ext    = ".esc4";
-  filter_glob = StringProperty(default="*.esc4", options={'HIDDEN'})
+  filename_ext    = ".esc5";
+  filter_glob = StringProperty(default="*.esc5", options={'HIDDEN'})
 
   filepath = bpy.props.StringProperty(
       name="File Path", 
@@ -213,7 +213,7 @@ class ExportEscher(bpy.types.Operator, ExportHelper):
       maxlen=1024, default="")
 
   def execute(self, context):
-    print('exporting esc4 to filename "%s"' % self.properties.filepath)
+    print('exporting esc5 to filename "%s"' % self.properties.filepath)
     escherExport(bpy.data.materials, bpy.data.objects, bpy.context.scene, self.properties.filepath)
     return {'FINISHED'};
 
