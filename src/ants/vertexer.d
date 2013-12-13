@@ -201,3 +201,5 @@ class Vertexer
     numVerts = 0;
   }
 }
+
+Vertexer vertexer;

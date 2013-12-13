@@ -2,8 +2,9 @@ module display;
 
 import ants.md5 : MD5Model, MD5Animation;
 import ants.escher : World, Camera, Entity, playerEntity, playerModel, playerAnimation;
+import ants.doglconsole;
 import std.stdio : writeln, writefln;
-import std.string : toStringz, strlen;
+import std.string : toStringz, strlen, format;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import derelict.opengl3.gl3;
@@ -32,6 +33,7 @@ class Display
     MD5Animation anim;
     World world;
     Camera camera;
+    DoglConsole console;
 
     GLuint glprogram;
 
@@ -86,6 +88,9 @@ class Display
       playerEntity = new Entity();
 
       setupGL();
+
+      console = new DoglConsole(width/16, height/16);
+      console.handleCommand = &command;
     }
   }
 
@@ -115,6 +120,11 @@ class Display
 
   uint lastFrame;
 
+  void command(DoglConsole console, string cmd)
+  {
+    console.print(format("display.d got command from console: %s\n", cmd));
+  }
+
   void drawGLFrame()
   {
     uint t = SDL_GetTicks();
@@ -125,6 +135,8 @@ class Display
     //world.draw();
     camera.update(delta);
     camera.draw();
+
+    console.draw();
 
     SDL_RenderPresent(displayRenderer);
 
@@ -137,6 +149,8 @@ class Display
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
+      //if (OGLCONSOLE_SDLEvent(&event))
+      if (console.handleSDLEvent(&event))
       switch (event.type)
       {
         case SDL_QUIT:
@@ -153,6 +167,12 @@ class Display
               camera.pos = vec3(0,0,0);
               writefln("[warp] %d to %d", oldSpaceID, camera.spaceID);
             }
+            break;
+          }
+          if (event.key.keysym.sym == 'i')
+          {
+            console.print("HELLO WORLD ");
+            writeln("printing...");
             break;
           }
 

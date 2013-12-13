@@ -7,6 +7,7 @@ import std.exception : enforce;
 import derelict.opengl3.gl3;
 import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
 import gl3n.interpolate : lerp;
+import ants.vertexer;
 import std.math : sqrt;
 
 debug

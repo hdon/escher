@@ -30,8 +30,6 @@ else{ pragma(msg, "rendering WITHOUT lighting"); }
 
 bool portalDiagnosticMode;
 
-Vertexer vertexer;
-
 void explode()
 {
   static bool explosion;

@@ -154,7 +154,7 @@ class ShaderProgram
     return glGetUniformLocation(programObject, name.toStringz());
   }
 
-  GLuint getAttribLocation(string name)
+  GLint getAttribLocation(string name)
   {
     return glGetAttribLocation(programObject, name.toStringz());
   }

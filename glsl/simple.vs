@@ -30,9 +30,9 @@ void main()
 {
   vec3 vertexEyeSpace = vec3(viewMatrix * positionV).xyz;
   gl_Position = projMatrix * vec4(vertexEyeSpace, 1);
-  eyeVecF = -viewMatrix[3].xyz;
-  lightDirF = (viewMatrix * vec4(lightSource.pos,1)).xyz - vertexEyeSpace;
-  halfVecF = (eyeVecF + lightDirF) / length(eyeVecF + lightDirF);
+  eyeVecF = -vertexEyeSpace;
+  lightDirF = normalize((viewMatrix * vec4(lightSource.pos,1)).xyz - vertexEyeSpace);
+  halfVecF = normalize((normalize(eyeVecF) + lightDirF));
 
   normalF = normalMatrix * normalV;
   colorF = colorV;
