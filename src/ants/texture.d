@@ -38,21 +38,17 @@ alias Resource Texture;
 GLuint loadTexture(string filename) {
     filename = "res/images/" ~ filename;
 
-    debug writefln("[texture] loading \"%s\"", filename);
-
     SDL_Surface *surface;
 
     scope(exit) { if (surface) SDL_FreeSurface(surface); surface = null; }
 
     /* Use SDL_Image lib to load the image into an SDL_Surface */
-    debug writefln("[texture] IMG_Load()");
     surface = IMG_Load(toStringz(filename));
 
-    debug writefln("[texture] surface = %x", surface);
     if (!surface)
       return 0;
 
-    debug writefln("[texture] image dimensions: %dx%d", surface.w, surface.h);
+    debug writefln("[texture] %dx%d \"%s\"", surface.w, surface.h, filename);
 
     /* Convert SDL_Surface to OpenGL texture */
     GLuint texture;
