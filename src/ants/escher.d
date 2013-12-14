@@ -1493,7 +1493,6 @@ class Camera
   World world;
   int spaceID;
   vec3 pos;
-  vec3 orient;
   double camYaw;
   double camPitch;
 
@@ -1511,7 +1510,6 @@ class Camera
     this.world = world;
     this.spaceID = spaceID;
     this.pos = pos;
-    this.orient = vec3(0,0,0);
     this.turnRate = 0f;
     this.camYaw = 0.0;
     this.camPitch = 0.0;
@@ -1608,7 +1606,7 @@ class Camera
 
     // Nudge position and orientation
     float deltaf = delta/1000f;
-    orient = vec3(sin(camYaw), 0, cos(camYaw));
+    vec3 orient = vec3(sin(camYaw), 0, cos(camYaw));
     mat3 orientMat = mat3(
       cos(camYaw), 0, sin(camYaw),
       0, 1, 0,
