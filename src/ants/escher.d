@@ -52,12 +52,12 @@ void glErrorCheck(string source)
 // this might help deal with the issue of portal rendering when the portal face
 // intersects the near viewing plane
 
-alias Vector!(double, 2) vec2;
-alias Vector!(double, 3) vec3;
-alias Vector!(double, 4) vec4;
-alias Matrix!(double, 3, 3) mat3;
-alias Matrix!(double, 4, 4) mat4;
-alias Quaternion!(double) quat;
+alias Vector!(float, 2) vec2;
+alias Vector!(float, 3) vec3;
+alias Vector!(float, 4) vec4;
+alias Matrix!(float, 3, 3) mat3;
+alias Matrix!(float, 4, 4) mat4;
+alias Quaternion!(float) quat;
 
 alias Vector!(float, 3) vec3f;
 alias Vector!(float, 3) ColorVec;
@@ -80,7 +80,7 @@ struct ClipVert4
 struct ClipPlane4
 {
   vec4 normal;
-  double c;
+  float c;
 }
 
 version (never)
@@ -128,7 +128,7 @@ version (never)
       {
         if (v.visible)
         {
-          double distance = dot(clipPlane.normal, v.v,) - clipPlane.c;
+          float distance = dot(clipPlane.normal, v.v,) - clipPlane.c;
           if (distance >= epsilon)
           {
             positive++;
@@ -163,8 +163,8 @@ version (never)
         {
           vec4 v0 = verts[e.a];
           vec4 v1 = verts[e.b];
-          double d0 = v0.distance;
-          double d1 = v1.distance;
+          float d0 = v0.distance;
+          float d1 = v1.distance;
           
           if (d0 <= 0 && d1 <= 0)
           {
@@ -176,7 +176,7 @@ version (never)
             continue;
           }
 
-          double t = d0/(d0-d1);
+          float t = d0/(d0-d1);
           vec4 intersect = (1-t) * v0.v + t * v1.v;
           auto index = verts.length;
           verts ~= intersect;
@@ -361,7 +361,7 @@ private struct Polygon4
   /* Calculate and return the signed area of this polygon.
    * Assumes a closed ("repaired") polygon.
    */
-  double signedArea()
+  float signedArea()
   {
     enforce(edges.length >= 3, "polygons with less than 3 sides is no polygons");
 
@@ -372,7 +372,7 @@ private struct Polygon4
       verts ~= vec2(p.x/p.w, p.y/p.w);
     }
 
-    double area = 0.0;
+    float area = 0.0;
     foreach (edge; edges)
     {
       vec2 a = verts[edge.a];
@@ -583,7 +583,7 @@ int clipSegment(ref vec4 a, ref vec4 b, int plane)
 
   //writeln("CLIPPING SEGMENT", a, b);
 
-  double t;
+  float t;
 
   ac = clipClassifyVertex(a);
   bc = clipClassifyVertex(b);
@@ -732,7 +732,7 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
     return false;
   //writefln("polygon passed clipping");
 
-  double signedArea = polygon.signedArea();
+  float signedArea = polygon.signedArea();
   //writefln("signed area: %f", signedArea);
   if (signedArea < 0.0)
     return false;
@@ -919,22 +919,22 @@ class World
             enforce(words[4] == "translation", "expected translation");
             vec3 translation;
 
-            double[3] rotationEuler;
+            float[3] rotationEuler;
 
             // TODO scaling
 
             translation = vec3(
-              to!double(words[5]),
-              to!double(words[6]),
-              to!double(words[7]));
+              to!float(words[5]),
+              to!float(words[6]),
+              to!float(words[7]));
 
             if (words.length > 8)
             {
               enforce(words[8] == "orientation", "expected orientation");
 
-              rotationEuler[0] = to!double(words[9]);
-              rotationEuler[1] = to!double(words[10]);
-              rotationEuler[2] = to!double(words[11]);
+              rotationEuler[0] = to!float(words[9]);
+              rotationEuler[1] = to!float(words[10]);
+              rotationEuler[2] = to!float(words[11]);
             }
 
             mat4 transform = mat4.identity;
@@ -1023,10 +1023,10 @@ class World
             version (debugEscherFiles)
               writefln("  processing face vertex %d/%d: %s", i, n, words[6+i*dataSize]);
             face.indices ~= to!size_t(words[6+i*dataSize]);
-            face.UVs ~= vec2(to!double(words[7+i*dataSize]), to!double(words[8+i*dataSize]));
-            face.normals ~= vec3(to!double(words[ 9+i*dataSize]),
-                                 to!double(words[10+i*dataSize]),
-                                 to!double(words[11+i*dataSize]));
+            face.UVs ~= vec2(to!float(words[7+i*dataSize]), to!float(words[8+i*dataSize]));
+            face.normals ~= vec3(to!float(words[ 9+i*dataSize]),
+                                 to!float(words[10+i*dataSize]),
+                                 to!float(words[11+i*dataSize]));
           }
 
           space.faces ~= face;
@@ -1232,7 +1232,7 @@ class Entity
 {
   int spaceID;
   vec3 pos;
-  double angle;
+  float angle;
   this()
   {
     this.spaceID = 0;
@@ -1420,10 +1420,10 @@ bool linePlaneIntersect(vec3 lineStart, vec3 lineEnd, vec3 planeOrigin, vec3 axi
 }
 bool rayTriangleIntersect(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert2, ref vec3 rval)
 {
-  const double EPSILON = 0.000001;
+  const float EPSILON = 0.000001;
 
   vec3 edge1, edge2, tvec, pvec, qvec, res;
-  double det,inv_det;
+  float det,inv_det;
 
   /* find vectors for two edges sharing vert0 */
   edge1 = vert1 - vert0;
@@ -1480,7 +1480,7 @@ bool rayTriangleIntersect(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert
   return 1;
 }
 
-bool passThruTest(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert2, double d)
+bool passThruTest(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert2, float d)
 {
   vec3 triix;
   if (!rayTriangleIntersect(orig, dir, vert0, vert1, vert2, triix))
@@ -1496,8 +1496,8 @@ class Camera
   int spaceID;
   vec3 pos;
   vec3 orient;
-  double camYaw;
-  double camPitch;
+  float camYaw;
+  float camPitch;
 
   float turnRate;
 
@@ -1750,6 +1750,8 @@ class Camera
     glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
     glErrorCheck("after drawSpace()");
+    //playerAnimation.draw(mvmat, world.pmatWorld);
+    //glErrorCheck("after drawing model animation");
 
     frame++;
   }

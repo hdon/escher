@@ -14,11 +14,11 @@ import std.exception : enforce;
 import std.conv : to;
 import file = std.file;
 
-alias Vector!(double, 2) vec2;
-alias Vector!(double, 3) vec3;
-alias Vector!(double, 4) vec4;
-alias Matrix!(double, 4, 4) mat4;
-alias Quaternion!(double) quat;
+alias Vector!(float, 2) vec2;
+alias Vector!(float, 3) vec3;
+alias Vector!(float, 4) vec4;
+alias Matrix!(float, 4, 4) mat4;
+alias Quaternion!(float) quat;
 
 class Display
 {
@@ -30,8 +30,6 @@ class Display
     float fov;
     float znear;
     float zfar;
-    MD5Model model;
-    MD5Animation anim;
     World world;
     Camera camera;
     DoglConsole console;
@@ -146,12 +144,9 @@ class Display
     SDL_GL_MakeCurrent(displayWindow, displayContext);
     setupGL();
 
-    //anim.draw();
     //world.draw();
     camera.update(delta);
-    //camera.draw();
-
-    playerAnimation.draw();
+    camera.draw();
 
     console.draw();
 
@@ -223,8 +218,8 @@ class Display
     SDL_WarpMouseInWindow(displayWindow, cast(ushort)(width/2),cast(ushort)(height/2));
     SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
 
-    double deltaYaw = (x-w/2)*-0.002;
-    double deltaPitch = (y-h/2)*-0.002;
+    float deltaYaw = (x-w/2)*-0.002;
+    float deltaPitch = (y-h/2)*-0.002;
     //writefln("[MOUSE LOOK] %x %x %f %f", x, y, deltaYaw, deltaPitch);
 
     camera.camYaw += deltaYaw;

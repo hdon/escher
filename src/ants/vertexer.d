@@ -5,19 +5,19 @@ import derelict.opengl3.gl3;
 import ants.texture;
 import ants.material;
 
-private alias Vector!(double, 3) vec3d;
-private alias Vector!(double, 2) vec2d;
+private alias Vector!(float, 3) vec3d;
+private alias Vector!(float, 2) vec2d;
 private alias Vector!(float, 3) vec3f;
-alias Matrix!(double, 4, 4) mat4d;
+alias Matrix!(float, 4, 4) mat4d;
 alias Matrix!(float, 4, 4) mat4f;
 alias Matrix!(float, 3, 3) mat3f;
 
 class Vertexer
 {
-  double[]  positions;
-  double[]  UVs;
+  float[]  positions;
+  float[]  UVs;
   float[]   colors;
-  double[]  normals;
+  float[]  normals;
   uint      numVerts;
   vec3f     lightPos;
 
@@ -143,9 +143,9 @@ class Vertexer
     glBindVertexArray(vertexArrayObject);
 
     glBindBuffer(GL_ARRAY_BUFFER, positionBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, positions.length * double.sizeof, positions.ptr, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, positions.length * float.sizeof, positions.ptr, GL_STREAM_DRAW);
     glEnableVertexAttribArray(positionVertexAttribLocation);
-    glVertexAttribPointer(positionVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
+    glVertexAttribPointer(positionVertexAttribLocation, 3, GL_FLOAT, 0, 0, null);
 
     if (colorVertexAttribLocation >= 0)
     {
@@ -158,17 +158,17 @@ class Vertexer
     if (uvVertexAttribLocation >= 0)
     {
       glBindBuffer(GL_ARRAY_BUFFER, uvBufferObject);
-      glBufferData(GL_ARRAY_BUFFER, UVs.length * double.sizeof, UVs.ptr, GL_STREAM_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, UVs.length * float.sizeof, UVs.ptr, GL_STREAM_DRAW);
       glEnableVertexAttribArray(uvVertexAttribLocation);
-      glVertexAttribPointer(uvVertexAttribLocation, 2, GL_DOUBLE, 0, 0, null);
+      glVertexAttribPointer(uvVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
     }
 
     if (normalVertexAttribLocation >= 0)
     {
       glBindBuffer(GL_ARRAY_BUFFER, normalBufferObject);
-      glBufferData(GL_ARRAY_BUFFER, normals.length * double.sizeof, normals.ptr, GL_STREAM_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, normals.length * float.sizeof, normals.ptr, GL_STREAM_DRAW);
       glEnableVertexAttribArray(normalVertexAttribLocation);
-      glVertexAttribPointer(normalVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
+      glVertexAttribPointer(normalVertexAttribLocation, 3, GL_FLOAT, 0, 0, null);
     }
 
     int texCounter = 0;

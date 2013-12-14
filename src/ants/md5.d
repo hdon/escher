@@ -8,6 +8,8 @@ import derelict.opengl3.gl3;
 import gl3n.linalg : vec2, vec3, vec4, mat4, quat;
 import gl3n.interpolate : lerp;
 import ants.vertexer;
+import ants.material;
+import ants.shader;
 import std.math : sqrt;
 
 debug
@@ -30,6 +32,10 @@ private void glBegin(GLenum a)
 private void glEnd()
 {
 }
+
+private Vertexer vertexer;
+private Material material;
+private ShaderProgram shaderProgram;
 
 private struct Ray
 {
@@ -150,11 +156,8 @@ class MD5Model
   float spin;
   void draw()
   {
-    glBegin(GL_TRIANGLES);
-    glColor3f (1, 0, 0); glVertex3f(-1, -1, -2);
-    glColor3f (0, 1, 0); glVertex3f( 1, -1, -2);
-    glColor3f (0, 0, 1); glVertex3f( 0,  1, -2);
-    glColor3f(1, 1, 1);
+    /* THIS DOESN'T EVEN MATTER */
+    assert(0, "NOT DONE");
     foreach (mesh; meshes)
     {
       foreach (tri; mesh.tris)
@@ -169,7 +172,11 @@ class MD5Model
 
           vec3 p = joint.ray.pos + weight.pos;
 
-          glVertex3f(p.x, p.y, p.z);
+          vertexer.add(p,
+            vec2(0, 0),     /* UVs */ 
+            vec3(1, 0, 0),  /* normal */
+            vec3(.7, .7, .7) /* color */
+            );
         }
       }
     }
@@ -573,36 +580,31 @@ class MD5Animation
   }
 
   // TODO WHAT I'M DOING RIGHT NOW IS UPDATING THIS FUNCTION
-  void renderSkeleton()
+  void renderSkeleton(mat4 mvmat, mat4 pmat)
   {
-    glPointSize(5);
-    glColor3f(1, 0, 0);
-    
     // bones in current frame
     auto bones = frameBones[frameNumber*numJoints .. (frameNumber+1)*numJoints];
 
     // Draw joint positions
-    glBegin(GL_POINTS);
     foreach (bone; bones)
     {
       glVertex3f(bone.pos.x, bone.pos.y, bone.pos.z);
+      vertexer.add(bone.pos, vec2(0,0), vec3(1,0,0), vec3(1,0,0));
     }
-    glEnd();
+    vertexer.draw(shaderProgram, mvmat, pmat, material, GL_POINTS);
 
     // Draw bones
-    glColor3f(0, 1, 0);
-    glBegin(GL_LINES);
     foreach(boneIndex, bone; bones)
     {
       auto parentIndex = model.joints[boneIndex].parentIndex;
       if (parentIndex != -1)
       {
-        glVertex3f(bone.pos.x, bone.pos.y, bone.pos.z);
+        vertexer.add(bone.pos, vec2(0,0), vec3(1,0,0), vec3(0,1,0));
         Ray parentBone = bones[parentIndex];
-        glVertex3f(parentBone.pos.x, parentBone.pos.y, parentBone.pos.z);
+        vertexer.add(parentBone.pos, vec2(0,0), vec3(1,0,0), vec3(0,1,0));
       }
     }
-    glEnd();
+    vertexer.draw(shaderProgram, mvmat, pmat, material, GL_LINES);
 
     if (++frameDelay >= 1)
     {
@@ -645,11 +647,22 @@ class MD5Animation
     glEnd();
   }
 
-  void draw()
+  void draw(mat4 mvmat, mat4 pmat)
   {
+    if (vertexer is null)
+    {
+      vertexer = new Vertexer();
+      material = new Material();
+      shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
+    }
     // bs
-    renderSkeleton();
-    renderVerts();
+    //renderSkeleton(mvmat, pmat);
+    //renderVerts();
+
+    vertexer.add(vec3(-100, -100, -100), vec2(0,0), vec3(0,0,0), vec3(0,0,0));
+    vertexer.add(vec3( 100, -100, -100), vec2(0,0), vec3(0,0,0), vec3(0,0,0));
+    vertexer.add(vec3( 100,  100, -100), vec2(0,0), vec3(0,0,0), vec3(0,0,0));
+    vertexer.draw(shaderProgram, mvmat, pmat, material, GL_TRIANGLES);
   }
 
 }
