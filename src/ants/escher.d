@@ -1750,6 +1750,8 @@ class Camera
     glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
     glErrorCheck("after drawSpace()");
+    playerAnimation.draw(mvmat, world.pmatWorld);
+    glErrorCheck("after playerAnimation.draw()");
 
     frame++;
   }

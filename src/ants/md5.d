@@ -42,6 +42,7 @@ private void glEnd()
 private Vertexer vertexer;
 private Material material;
 private ShaderProgram shaderProgram;
+private ShaderProgram shaderProgram1;
 
 private struct Ray
 {
@@ -88,7 +89,7 @@ private struct Joint
 
 struct Vert
 {
-  float u, v;
+  vec2 uv;
   uint weightIndex;
   uint numWeights;
 }
@@ -292,8 +293,8 @@ class MD5Model
             enforce(words[5] == ")", "vert syntax error 1");
 
             Vert vert = Vert(
-              to!float(words[3]),
-              to!float(words[4]),
+              vec2(to!double(words[3]),
+                   to!double(words[4])),
               to!uint(words[6]),
               to!uint(words[7]));
 
@@ -622,10 +623,8 @@ class MD5Animation
     spin += 0.5;
   }
 
-  void renderVerts()
+  void render(mat4 mvmat, mat4 pmat)
   {
-    glBegin(GL_LINES);
-    glColor3f(0.2, 0.2, 1);
     foreach (mesh; model.meshes)
     {
       foreach (tri; mesh.tris)
@@ -644,13 +643,41 @@ class MD5Animation
           }
         }
 
-        glVertex3f(outVerts[0].x, outVerts[0].y, outVerts[0].z);
-        glVertex3f(outVerts[1].x, outVerts[1].y, outVerts[1].z);
-        glVertex3f(outVerts[2].x, outVerts[2].y, outVerts[2].z);
-        glVertex3f(outVerts[0].x, outVerts[0].y, outVerts[0].z);
+        vertexer.add(outVerts[0], vec2(0,0), vec3(0,0,0), vec3f(1,1,1));
+        vertexer.add(outVerts[1], vec2(1,1), vec3(1,1,1), vec3f(1,1,1));
+        vertexer.add(outVerts[2], vec2(2,2), vec3(2,2,2), vec3f(1,1,1));
       }
     }
-    glEnd();
+    vertexer.draw(shaderProgram1, mvmat, pmat, material, GL_TRIANGLES);
+  }
+
+  void renderVerts(mat4 mvmat, mat4 pmat)
+  {
+    foreach (mesh; model.meshes)
+    {
+      foreach (tri; mesh.tris)
+      {
+        vec3[3] outVerts;
+        foreach (outVertI, vi; tri.vi)
+        {
+          outVerts[outVertI] = vec3(0, 0, 0);
+
+          Vert vert = mesh.verts[vi];
+          Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
+          foreach (weight; weights)
+          {
+            auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
+            outVerts[outVertI] += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
+          }
+        }
+
+        vertexer.add(outVerts[0], vec2(0,0), vec3(0,0,0), vec3f(.2,.2,1));
+        vertexer.add(outVerts[1], vec2(1,1), vec3(1,1,1), vec3f(.2,.2,1));
+        vertexer.add(outVerts[2], vec2(2,2), vec3(2,2,2), vec3f(.2,.2,1));
+        vertexer.add(outVerts[0], vec2(0,0), vec3(0,0,0), vec3f(.2,.2,1));
+      }
+    }
+    vertexer.draw(shaderProgram, mvmat, pmat, material, GL_LINES);
   }
 
   void draw(mat4 mvmat, mat4 pmat)
@@ -660,15 +687,17 @@ class MD5Animation
       vertexer = new Vertexer();
       material = new Material();
       shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
+      shaderProgram1 = new ShaderProgram("simple.vs", "simple.fs");
     }
-    // bs
-    //renderSkeleton(mvmat, pmat);
-    //renderVerts();
 
-    vertexer.add(vec3(-100, -100, -100), vec2(0,0), vec3(0,0,0), vec3f(0,0,0));
-    vertexer.add(vec3( 100, -100, -100), vec2(0,0), vec3(0,0,0), vec3f(0,0,0));
-    vertexer.add(vec3( 100,  100, -100), vec2(0,0), vec3(0,0,0), vec3f(0,0,0));
+    vertexer.add(vec3(-1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+    vertexer.add(vec3( 1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+    vertexer.add(vec3( 1,  1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
     vertexer.draw(shaderProgram, mvmat, pmat, material, GL_TRIANGLES);
+
+    render(mvmat, pmat);
+    renderSkeleton(mvmat, pmat);
+    renderVerts(mvmat, pmat);
   }
 
 }
