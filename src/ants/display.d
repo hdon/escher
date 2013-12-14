@@ -30,8 +30,6 @@ class Display
     float fov;
     float znear;
     float zfar;
-    MD5Model model;
-    MD5Animation anim;
     World world;
     Camera camera;
     DoglConsole console;
@@ -95,8 +93,8 @@ class Display
 
       world = new World(mapfilename);
       camera = new Camera(world, 0, vec3(0,0,0));
-      playerModel = new MD5Model("monkey.md5mesh");
-      playerAnimation = new MD5Animation(playerModel, "monkey.md5anim");
+      playerModel = new MD5Model("res/md5/arms-anim0.md5mesh");
+      playerAnimation = new MD5Animation(playerModel, "res/md5/arms-anim0.md5anim");
       playerEntity = new Entity();
 
       setupGL();
@@ -146,8 +144,6 @@ class Display
     SDL_GL_MakeCurrent(displayWindow, displayContext);
     setupGL();
 
-    //anim.draw();
-    //world.draw();
     camera.update(delta);
     camera.draw();
 
@@ -172,8 +168,6 @@ class Display
           isRunning = false;
           break;
         case SDL_KEYDOWN:
-          writefln("key down: %d '%c'", cast(int)event.key.keysym.sym,
-                                        cast(char)event.key.keysym.sym);
           if (event.key.keysym.sym == 'p' || event.key.keysym.sym == 'o')
           {
             if (event.type == SDL_KEYDOWN)
