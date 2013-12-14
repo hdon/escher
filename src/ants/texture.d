@@ -46,7 +46,7 @@ GLuint loadTexture(string filename) {
     surface = IMG_Load(toStringz(filename));
 
     if (!surface) {
-      writefln("[texture] IMG_Load(\"%s\") failed");
+      writefln("[texture] IMG_Load(\"%s\") failed", filename);
       return 0;
     }
 
