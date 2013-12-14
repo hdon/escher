@@ -45,8 +45,10 @@ GLuint loadTexture(string filename) {
     /* Use SDL_Image lib to load the image into an SDL_Surface */
     surface = IMG_Load(toStringz(filename));
 
-    if (!surface)
+    if (!surface) {
+      writefln("[texture] IMG_Load(\"%s\") failed");
       return 0;
+    }
 
     debug writefln("[texture] %dx%d \"%s\"", surface.w, surface.h, filename);
 

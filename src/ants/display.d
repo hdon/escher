@@ -93,8 +93,9 @@ class Display
 
       world = new World(mapfilename);
       camera = new Camera(world, 0, vec3(0,0,0));
-      playerModel = new MD5Model("monkey.md5mesh");
-      playerAnimation = new MD5Animation(playerModel, "monkey.md5anim");
+      string x = "/home/donny/Downloads/MD5ModelLoader/MD5ModelLoader/data/Boblamp/boblampclean.md5";
+      playerModel = new MD5Model(x ~ "mesh");
+      playerAnimation = new MD5Animation(playerModel, x ~ "anim");
       playerEntity = new Entity();
 
       setupGL();

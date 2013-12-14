@@ -4,13 +4,16 @@ import std.string;
 import std.conv;
 import std.algorithm : map, appender;
 import std.exception : enforce;
+import std.path : dirName;
 import derelict.opengl3.gl3;
-import gl3n.linalg : Matrix, Vector, Quaternion;
+import gl3n.linalg : Matrix, Vector, Quaternion, cross;
 import gl3n.interpolate : lerp;
 import ants.vertexer;
 import ants.material;
 import ants.shader;
+import ants.texture;
 import std.math : sqrt;
+import std.stdio : writeln, writefln;
 
 private alias Vector!(double, 3) vec3;
 private alias Vector!(double, 2) vec2;
@@ -18,29 +21,8 @@ private alias Vector!(float, 3) vec3f;
 alias Matrix!(double, 4, 4) mat4;
 alias Quaternion!(double) quat;
 
-debug
-{
-  import std.stdio : writeln, writefln;
-}
-
-private void glVertex3f(float a, float b, float c)
-{
-}
-
-private void glColor3f(float a, float b, float c)
-{
-}
-
-private void glBegin(GLenum a)
-{
-}
-
-private void glEnd()
-{
-}
-
 private Vertexer vertexer;
-private Material material;
+private Material emptyMaterial;
 private ShaderProgram shaderProgram;
 private ShaderProgram shaderProgram1;
 
@@ -123,7 +105,7 @@ struct Weight
 struct Mesh
 {
   size_t numVerts;
-  string shader;
+  Material material;
   Vert[] verts;
   size_t numTris;
   Tri[] tris;
@@ -196,6 +178,7 @@ class MD5Model
     int mode = ParserMode.open;
     size_t nJoints;
     size_t nMeshes;
+    string dir = dirName(filename) ~ "/";
 
     foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
     {
@@ -279,7 +262,14 @@ class MD5Model
           }
           else if (words[0] == "shader")
           {
-            meshes[$-1].shader = words[1];
+            string textureFilename = dir ~ words[1][1..$-1];
+            //writefln("[md5] shader \"%s\"", textureFilename);
+            auto materialTexture = new MaterialTexture();
+            materialTexture.application = TextureApplication.Color;
+            materialTexture.texture = getTexture(textureFilename);
+            auto material = new Material();
+            material.texes ~= materialTexture;
+            meshes[$-1].material = material;
           }
           else if (words[0] == "numverts")
           {
@@ -339,7 +329,6 @@ class MD5Model
           assert(0, "internal error");
       }
     }
-
     debug
     {
       //writeln(joints);
@@ -358,6 +347,13 @@ private struct LoadingBone
   int   parentIndex;
   uint  componentBits;
   int   firstComponentIndex;
+}
+
+struct SurVert
+{
+  vec3 pos;
+  vec3 norm;
+  vec2 uv;
 }
 
 class MD5Animation
@@ -595,10 +591,9 @@ class MD5Animation
     // Draw joint positions
     foreach (bone; bones)
     {
-      glVertex3f(bone.pos.x, bone.pos.y, bone.pos.z);
       vertexer.add(bone.pos, vec2(0,0), vec3(1,0,0), vec3f(1,0,0));
     }
-    vertexer.draw(shaderProgram, mvmat, pmat, material, GL_POINTS);
+    vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_POINTS);
 
     // Draw bones
     foreach(boneIndex, bone; bones)
@@ -611,7 +606,7 @@ class MD5Animation
         vertexer.add(parentBone.pos, vec2(0,0), vec3(1,0,0), vec3f(0,1,0));
       }
     }
-    vertexer.draw(shaderProgram, mvmat, pmat, material, GL_LINES);
+    vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_LINES);
 
     if (++frameDelay >= 1)
     {
@@ -625,30 +620,69 @@ class MD5Animation
 
   void render(mat4 mvmat, mat4 pmat)
   {
+    vec3[] vertsPos;
+    vec3[] vertsNormals;
+    SurVert[] vertsOut;
+
     foreach (mesh; model.meshes)
     {
+      vertsOut.length = 0;
+      vertsNormals.length = mesh.verts.length;
+
+      /* Calculate mesh vertex positions from animation weight positions */
+      foreach (vi; 0..mesh.verts.length)
+      {
+        Vert vert = mesh.verts[vi];
+        Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
+        vec3 pos = vec3(0,0,0);
+        foreach (weight; weights)
+        {
+          auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
+          pos += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
+        }
+        vertsPos ~= pos;
+        vertsNormals[vi] = vec3(0,0,0);
+      }
+
+      /* Calculate and accumulate triangle normals */
+      foreach (ti, tri; mesh.tris)
+      {
+        auto vi0 = tri.vi[0],
+             vi1 = tri.vi[1],
+             vi2 = tri.vi[2];
+
+        auto v0 = vertsPos[vi0],
+             v1 = vertsPos[vi1],
+             v2 = vertsPos[vi2];
+
+        /* Calculate triangle's normal */
+        auto normal = cross(v2-v0, v1-v0);
+
+        vertsNormals[vi0] += normal;
+        vertsNormals[vi1] += normal;
+        vertsNormals[vi2] += normal;
+      }
+
+      /* Normalize vertex normals */
+      foreach (vi; 0..mesh.verts.length)
+        vertsNormals[vi] = vertsNormals[vi].normalized;
+
+      /* Send all vertex data to vertexer */
       foreach (tri; mesh.tris)
       {
-        vec3[3] outVerts;
-        foreach (outVertI, vi; tri.vi)
+        foreach (vi; tri.vi)
         {
-          outVerts[outVertI] = vec3(0, 0, 0);
-
-          Vert vert = mesh.verts[vi];
-          Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
-          foreach (weight; weights)
-          {
-            auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
-            outVerts[outVertI] += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
-          }
+          vertexer.add(
+            vertsPos[vi],
+            mesh.verts[vi].uv, 
+            vertsNormals[vi],
+            vec3f(1,1,1));
         }
-
-        vertexer.add(outVerts[0], vec2(0,0), vec3(0,0,0), vec3f(1,1,1));
-        vertexer.add(outVerts[1], vec2(1,1), vec3(1,1,1), vec3f(1,1,1));
-        vertexer.add(outVerts[2], vec2(2,2), vec3(2,2,2), vec3f(1,1,1));
       }
+
+      /* Draw vertexer contents */
+      vertexer.draw(shaderProgram1, mvmat, pmat, mesh.material, GL_TRIANGLES);
     }
-    vertexer.draw(shaderProgram1, mvmat, pmat, material, GL_TRIANGLES);
   }
 
   void renderVerts(mat4 mvmat, mat4 pmat)
@@ -676,8 +710,8 @@ class MD5Animation
         vertexer.add(outVerts[2], vec2(2,2), vec3(2,2,2), vec3f(.2,.2,1));
         vertexer.add(outVerts[0], vec2(0,0), vec3(0,0,0), vec3f(.2,.2,1));
       }
+      vertexer.draw(shaderProgram, mvmat, pmat, mesh.material, GL_LINES);
     }
-    vertexer.draw(shaderProgram, mvmat, pmat, material, GL_LINES);
   }
 
   void draw(mat4 mvmat, mat4 pmat)
@@ -685,7 +719,7 @@ class MD5Animation
     if (vertexer is null)
     {
       vertexer = new Vertexer();
-      material = new Material();
+      emptyMaterial = new Material();
       shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
       shaderProgram1 = new ShaderProgram("simple.vs", "simple.fs");
     }
@@ -693,7 +727,7 @@ class MD5Animation
     vertexer.add(vec3(-1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
     vertexer.add(vec3( 1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
     vertexer.add(vec3( 1,  1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    vertexer.draw(shaderProgram, mvmat, pmat, material, GL_TRIANGLES);
+    vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_TRIANGLES);
 
     render(mvmat, pmat);
     renderSkeleton(mvmat, pmat);
