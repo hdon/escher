@@ -1222,8 +1222,6 @@ class World
   }
 }
 
-MD5Model playerModel;
-MD5Animation playerAnimation;
 Entity playerEntity;
 ShaderProgram shaderProgram;
 ShaderProgram portalDiagnosticProgram;
@@ -1750,8 +1748,6 @@ class Camera
     glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
     glErrorCheck("after drawSpace()");
-    playerAnimation.draw(mvmat, world.pmatWorld);
-    glErrorCheck("after playerAnimation.draw()");
 
     frame++;
   }

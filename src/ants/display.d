@@ -1,7 +1,7 @@
 module display;
 
 import ants.md5 : MD5Model, MD5Animation;
-import ants.escher : World, Camera, Entity, playerEntity, playerModel, playerAnimation;
+import ants.escher : World, Camera, Entity, playerEntity;
 import ants.doglconsole;
 import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen, format;
@@ -93,9 +93,6 @@ class Display
 
       world = new World(mapfilename);
       camera = new Camera(world, 0, vec3(0,0,0));
-      string x = "/home/donny/Downloads/MD5ModelLoader/MD5ModelLoader/data/Boblamp/boblampclean.md5";
-      playerModel = new MD5Model(x ~ "mesh");
-      playerAnimation = new MD5Animation(playerModel, x ~ "anim");
       playerEntity = new Entity();
 
       setupGL();
