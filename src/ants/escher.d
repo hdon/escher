@@ -1542,6 +1542,7 @@ class Camera
     this.camYaw = 0.0;
     this.camPitch = 0.0;
     this.vel = vec3(0,0,0);
+    this.grounded = true; // TODO for debugging no falling until jump
   }
 
   void key(int keysym, bool down)
