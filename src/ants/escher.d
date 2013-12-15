@@ -1661,6 +1661,63 @@ class Camera
     {
       //writeln("movement.length = ", movement.length, " but also = ", (pos-oldpos).length);
       Space space = world.spaces[spaceID];
+
+      /* Collide with solid Space Faces */
+      foreach (faceIndex, face; space.faces)
+      {
+        if (face.data.type == FaceType.SolidColor)
+        {
+          /* XXX This "passThruTest" code is cut-and-paste garbage from the previous generation
+           *     of Escher collision code.
+           */
+          if (!(face.indices.length == 3 && passThruTest(oldpos, movement.normalized, space.verts[face.indices[0]], space.verts[face.indices[1]], space.verts[face.indices[2]], movement.length))) 
+            continue;
+
+          writefln("@@ Colliding with a wall");
+          /* Since we are running into a wall, we want to project our presumed destination
+           * point onto the plane of the wall we are running into.
+           *
+           * To do this, we first solve for 'd' in the planar equation ax+by+cz+d=0
+           * for a new plane that is parallel to the plane we are projecting onto.
+           *
+           * Parallel planes have the same planar normal, and the planar normal's
+           * components are equal to the coefficients 'a' 'b' and 'c' in the planar
+           * equation. The only difference is 'd'.
+           *
+           * To calculate a new plane parallel to the first, we solve for 'd' when
+           * using the known planar normal and assumed point on the new plane.
+           *
+           * The difference in d from the plane we wish to project onto and the new
+           * plane containing our point is the coefficient f for the translation
+           * v' = v * nf
+           */
+
+          /* Calculate normal of plane p0 */
+          vec3 p0p0 = space.verts[face.indices[0]],
+               p0p1 = space.verts[face.indices[1]],
+               p0p2 = space.verts[face.indices[2]];
+          vec3 n = cross(
+              (p0p2 - p0p0).normalized,
+              (p0p1 - p0p2).normalized).normalized;
+          writeln("@@   wall normal: ", n);
+
+          /* Solve planar equation for 'd' of plane p0 */
+          float p0d = -(p0p0.x * n.x + p0p0.y * n.y + p0p0.z * n.z);
+          writeln("@@   wall plane 0 d = ", p0d);
+
+          /* Solve planar equation for 'd' of plane p1 */
+          float p1d = -(n.x * pos.x + n.y * pos.y + n.z * pos.z);
+          writeln("@@   wall plane 1 d = ", p1d);
+
+          /* Compute new position projected onto the plane p0 */
+          pos = pos + (p1d-p0d) * 1.01 * n;
+          writeln("@@   wall nudge: ", n * (p1d-p0d));
+        }
+      }
+
+      /* Recalculate movement for benefit of portal collision */
+      movement = pos - oldpos;
+
       foreach (faceIndex, face; space.faces)
       {
         int tris = 0;
@@ -1728,49 +1785,6 @@ class Camera
               //writefln("entered space %d", spaceID);
               break;
             }
-          }
-
-          else if (face.data.type == FaceType.SolidColor)
-          {
-            writefln("@@ Colliding with a wall");
-            /* Since we are running into a wall, we want to project our presumed destination
-             * point onto the plane of the wall we are running into.
-             *
-             * To do this, we first solve for 'd' in the planar equation ax+by+cz+d=0
-             * for a new plane that is parallel to the plane we are projecting onto.
-             *
-             * Parallel planes have the same planar normal, and the planar normal's
-             * components are equal to the coefficients 'a' 'b' and 'c' in the planar
-             * equation. The only difference is 'd'.
-             *
-             * To calculate a new plane parallel to the first, we solve for 'd' when
-             * using the known planar normal and assumed point on the new plane.
-             *
-             * The difference in d from the plane we wish to project onto and the new
-             * plane containing our point is the coefficient f for the translation
-             * v' = v * nf
-             */
-
-            /* Calculate normal of plane p0 */
-            vec3 p0p0 = space.verts[face.indices[0]],
-                 p0p1 = space.verts[face.indices[1]],
-                 p0p2 = space.verts[face.indices[2]];
-            vec3 n = cross(
-              (p0p2 - p0p0).normalized,
-              (p0p1 - p0p2).normalized).normalized;
-            writeln("@@   wall normal: ", n);
-
-            /* Solve planar equation for 'd' of plane p0 */
-            float p0d = -(p0p0.x * n.x + p0p0.y * n.y + p0p0.z * n.z);
-            writeln("@@   wall plane 0 d = ", p0d);
-
-            /* Solve planar equation for 'd' of plane p1 */
-            float p1d = -(n.x * pos.x + n.y * pos.y + n.z * pos.z);
-            writeln("@@   wall plane 1 d = ", p1d);
-
-            /* Compute new position projected onto the plane p0 */
-            this.pos = this.pos + (p1d-p0d) * 1.01 * n;
-            writeln("@@   wall nudge: ", n * (p1d-p0d));
           }
         }
       }
