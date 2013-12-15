@@ -1736,9 +1736,27 @@ class Camera
                 {
                   writeln("@@ segment-sphere hit!");
 
+                  /* TODO The pseudo-plane technique accelerates your movement around a bend.
+                   *      This is undesirable and should be addressed!
+                   */
+
                   /* Calculate the pseudo-plane normal by subtracting 'p' from 'pos.' */
                   vec3 pseudon = pos - p;
 
+                  writeln("@@ pseudo normal: ", n);
+
+                  /* Solve planar equation for 'd' of plane containing map face */
+                  float p0d = -dot(p, n);
+
+                  writeln("@@   wall plane 0 d = ", p0d);
+
+                  /* Solve planar equation for 'd' of plane p1 */
+                  float p1d = -dot(n, hitSphereEndPos);
+                  writeln("@@   wall plane 1 d = ", p1d);
+
+                  /* Compute new position projected onto the plane containing map face */
+                  pos = pos + (p1d-p0d) * 1.01 * n;
+                  writeln("@@   wall nudge: ", n * (p1d-p0d));
 
                   /* TODO remove this copy of this code and keep the other? */
                   /* Check for floor or ceiling */
