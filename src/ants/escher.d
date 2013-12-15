@@ -1619,7 +1619,7 @@ class Camera
     }
 
     // Set velocity lol
-    vec3 vel;// = this.vel;
+    vec3 vel = vec3(0,0,0);//this.vel;
     if (keyForward != keyBackward)
     {
       if (keyForward)
@@ -1677,6 +1677,10 @@ class Camera
         {
           tris += 10;
         }
+        if (face.indices.length == 3 && passThruTest(oldpos, movement.normalized, space.verts[face.indices[0]], space.verts[face.indices[1]], space.verts[face.indices[2]], movement.length))
+        {
+          tris += 1;
+        }
 
         if (tris)
         {
@@ -1701,9 +1705,6 @@ class Camera
               pos.x = pos.x / pos.w;
               pos.y = pos.y / pos.w;
               pos.z = pos.z / pos.w;
-              this.pos.x = pos.x;
-              this.pos.y = pos.y;
-              this.pos.z = pos.z;
 
               vec4 lookPos = vec4(orient.x, orient.y, orient.z, 0f) + preTransformPos4;
               //writeln("old  vec: ", oldpos);
@@ -1726,9 +1727,9 @@ class Camera
             }
           }
 
-          version (walls) {
-          if (face.data.type == FaceType.SolidColor)
+          else if (face.data.type == FaceType.SolidColor)
           {
+            writefln("@@ Colliding with a wall");
             /* Since we are running into a wall, we want to project our presumed destination
              * point onto the plane of the wall we are running into.
              *
@@ -1763,9 +1764,12 @@ class Camera
 
             /* Compute new position projected onto the plane p0 */
             pos = pos + n * (p1d-p0d);
-          } }
+          }
         }
       }
+      this.pos.x = pos.x;
+      this.pos.y = pos.y;
+      this.pos.z = pos.z;
     }
 
     // XXX
