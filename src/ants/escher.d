@@ -1665,8 +1665,6 @@ class Camera
     /* Intersect space faces */
     if (oldpos != pos)
     {
-      bool hitStickyEdge;
-
       //writeln("movement.length = ", movement.length, " but also = ", (pos-oldpos).length);
       Space space = world.spaces[spaceID];
 
@@ -1698,13 +1696,15 @@ class Camera
                hitSphereStartPos = oldpos + hitSphereDelta,
                hitSphereEndPos = pos + hitSphereDelta;
 
-          /* XXX This "passThruTest" code is cut-and-paste garbage from the previous generation
-           *     of Escher collision code.
-           */
-          if (!(face.indices.length == 3
-          &&    passThruTest(hitSphereStartPos, movement.normalized, fv[0], fv[1], fv[2], movement.length))) 
+          /* Has the hitpoint passed through this triangle in this space face? */
+          bool hit =
+            face.indices.length == 3 &&
+            passThruTest(hitSphereStartPos, movement.normalized, fv[0], fv[1], fv[2], movement.length);
+
+          if (!hit)
           {
             //writefln("@@ attempting segment-sphere intersection___________");
+
             /* We have determined that the motion of the "hitpoint" on the hitsphere has not
              * intersected the wall. We'll now test for the sphere intersecting with the edge.
              * TODO investigate better ways?
@@ -1734,10 +1734,13 @@ class Camera
                 vec3 dp = p - p3;
                 if (dp.magnitude_squared < hitSphereRadius * hitSphereRadius)
                 {
-                  writeln("@@ segment-sphere hit! planar normal: ", n);
-                  /* XXX total dick move */
-                  hitStickyEdge = true;
-                  pos = oldpos;
+                  writeln("@@ segment-sphere hit!");
+
+                  /* Calculate the pseudo-plane normal by subtracting 'p' from 'pos.' */
+                  vec3 pseudon = pos - p;
+
+
+                  /* TODO remove this copy of this code and keep the other? */
                   /* Check for floor or ceiling */
                   if (n.x   < EPSILON && n.x   > -EPSILON &&
                       n.z   < EPSILON && n.z   > -EPSILON &&
@@ -1746,102 +1749,66 @@ class Camera
                     grounded = true;
                     vel.vector[1] = 0;
                   }
-                  return;
-                }
-              }
-
-              version (ifYoureStupid)
-              {
-                /* References:
-                 * http://www.ambrsoft.com/Equations/Circle/CR01-circleLineIntersection.PNG
-                 * http://portal.ku.edu.tr/~cbasdogan/Courses/Robotics/projects/IntersectionLineSphere.pdf
-                 * Point (x1,y1,z1) will be fv[si0] (point 1 on line)
-                 * Point (x2,y2,z2) will be fv[si1] (point 2 on line)
-                 * Point (x3,y3,z3) will be pos     (sphere center)
-                 */
-
-                // p2-p1
-                vec3 p2_p1 = fv[si1] - fv[si0];
-
-                // a = (x2-x1)^2 + (y2-y1)^2 + (z2-z1)^2
-                //   = |p2-p1|^2
-                float a = p2_p1.magnitude_squared;
-
-                // p1-p3
-                vec3 p1_p3 = fv[si0] - pos;
-
-                // b = 2[ (x2-x1)(x1-x3) + (y2-y1)(y1-y3) + (z2-z1)(z1-z3) ]
-                float b = 2*
-                  (p2_p1.x * p1_p3.x +
-                   p2_p1.y * p1_p3.y +
-                   p2_p1.z * p1_p3.z);
-
-                // c = x3^2 + y3^2 + z3^2 + x1^2 + y1^2 + z1^2 - 2(x3*x1 + y3*y1 + z3*z1) - r^2
-                float c =
-                  pos.magnitude_squared +
-                  fv[si0].magnitude_squared +
-                  2 * ( pos.x * fv[si0].x + pos.y * fv[si0].y + pos.z * fv[si0].z )
-                  - hitSphereRadius * hitSphereRadius;
-
-                // Condition for intersection: b^2 - 4ac > 0
-                auto abc = b*b - 4*a*c;
-                if (abc > 0)
-                {
-                  writefln("@@ we have line segment vs. sphere intersection! %s %f", pos, abc);
+                  break;
                 }
               }
             }
-            continue;
           }
 
-          writefln("@@ Colliding with a wall");
-          /* Since we are running into a wall, we want to project our presumed destination
-           * point onto the plane of the wall we are running into.
-           *
-           * To do this, we first solve for 'd' in the planar equation ax+by+cz+d=0
-           * for a new plane that is parallel to the plane we are projecting onto.
-           *
-           * Parallel planes have the same planar normal, and the planar normal's
-           * components are equal to the coefficients 'a' 'b' and 'c' in the planar
-           * equation. The only difference is 'd'.
-           *
-           * To calculate a new plane parallel to the first, we solve for 'd' when
-           * using the known planar normal and assumed point on the new plane.
-           *
-           * The difference in d from the plane we wish to project onto and the new
-           * plane containing our point is the coefficient f for the translation
-           * v' = v * nf
-           *
-           * TODO This approach currently does not work if you approach a wall's edge
-           *      such that the "hit point" on the hitsphere is already beyond the plane
-           *      of the triangle that should impede you.
-           */
-
-          writeln("@@   wall normal: ", n);
-
-          /* Solve planar equation for 'd' of plane containing map face */
-          float p0d = -dot(fv[0], n);
-          writeln("@@   wall plane 0 d = ", p0d);
-
-          /* Solve planar equation for 'd' of plane p1 */
-          float p1d = -dot(n, hitSphereEndPos);
-          writeln("@@   wall plane 1 d = ", p1d);
-
-          /* Compute new position projected onto the plane containing map face */
-          pos = pos + (p1d-p0d) * 1.01 * n;
-          writeln("@@   wall nudge: ", n * (p1d-p0d));
-
-          /* Check for floor or ceiling */
-          if (n.x   < EPSILON && n.x   > -EPSILON &&
-              n.z   < EPSILON && n.z   > -EPSILON &&
-              1+n.y < EPSILON && 1+n.y > -EPSILON)
-          {
-            writeln("@@   wall=ceiling");
-            grounded = true;
-            vel.vector[1] = 0;
-          }
           else
-            writeln("@@   wall!ceiling");
+          {
+            /* The hitpoint on the hitsphere has traveled through the wall. */
+
+            writefln("@@ Colliding with a wall");
+            /* Either the hitpoint on the hitsphere has traveled through the wall or we have
+             * created a pseudo-plane through which the hitpoint has traveled.
+             *
+             * Since we are running into a wall, we want to project our presumed destination
+             * point onto the plane of the wall we are running into.
+             *
+             * To do this, we first solve for 'd' in the planar equation ax+by+cz+d=0
+             * for a new plane that is parallel to the plane we are projecting onto, and in
+             * which the hitpoint is located.
+             *
+             * Parallel planes have the same planar normal, and the planar normal's
+             * components are equal to the coefficients 'a' 'b' and 'c' in the planar
+             * equation. The only difference is 'd'.
+             *
+             * To calculate a new plane parallel to the first, we solve for 'd' when
+             * using the known planar normal and assumed point on the new plane.
+             *
+             * The difference in d from the plane we wish to project onto and the new
+             * plane containing our point is the coefficient f for the translation
+             * v' = v * n * f
+             */
+
+            writeln("@@   wall normal: ", n);
+
+            /* Solve planar equation for 'd' of plane containing map face */
+            float p0d = -dot(fv[0], n);
+
+            writeln("@@   wall plane 0 d = ", p0d);
+
+            /* Solve planar equation for 'd' of plane p1 */
+            float p1d = -dot(n, hitSphereEndPos);
+            writeln("@@   wall plane 1 d = ", p1d);
+
+            /* Compute new position projected onto the plane containing map face */
+            pos = pos + (p1d-p0d) * 1.01 * n;
+            writeln("@@   wall nudge: ", n * (p1d-p0d));
+
+            /* Check for floor or ceiling */
+            if (n.x   < EPSILON && n.x   > -EPSILON &&
+                n.z   < EPSILON && n.z   > -EPSILON &&
+                1+n.y < EPSILON && 1+n.y > -EPSILON)
+            {
+              writeln("@@   wall=ceiling");
+              grounded = true;
+              vel.vector[1] = 0;
+            }
+            else
+              writeln("@@   wall!ceiling");
+          }
         }
 
         /* Recalculate movement vector */
