@@ -1596,6 +1596,8 @@ class Camera
     }
   }
 
+  bool grounded;
+  //vec3 vel;
   void update(ulong delta)
   {
     //writeln("position:", pos);
@@ -1608,8 +1610,16 @@ class Camera
     while (camYaw >= PI*2f)
       camYaw -= PI*2f;
 
+    // Gravity
+    version (gravity) {
+    if (!grounded)
+    {
+      vel.y -= 0.05;
+    }
+    }
+
     // Set velocity lol
-    vec3 vel = vec3(0,0,0);
+    vec3 vel;// = this.vel;
     if (keyForward != keyBackward)
     {
       if (keyForward)
@@ -1715,6 +1725,45 @@ class Camera
               break;
             }
           }
+
+          version (walls) {
+          if (face.data.type == FaceType.SolidColor)
+          {
+            /* Since we are running into a wall, we want to project our presumed destination
+             * point onto the plane of the wall we are running into.
+             *
+             * To do this, we first solve for 'd' in the planar equation ax+by+cz+d=0
+             * for a new plane that is parallel to the plane we are projecting onto.
+             *
+             * Parallel planes have the same planar normal, and the planar normal's
+             * components are equal to the coefficients 'a' 'b' and 'c' in the planar
+             * equation. The only difference is 'd'.
+             *
+             * To calculate a new plane parallel to the first, we solve for 'd' when
+             * using the known planar normal and assumed point on the new plane.
+             *
+             * The difference in d from the plane we wish to project onto and the new
+             * plane containing our point is the coefficient f for the translation
+             * v' = v * nf
+             */
+
+            /* Calculate normal of plane p0 */
+            vec3 p0p0 = space.verts[face.indices[0]],
+                 p0p1 = space.verts[face.indices[1]],
+                 p0p2 = space.verts[face.indices[2]];
+            vec3 n = cross(
+              (p0p2 - p0p0).normalized,
+              (p0p1 - p0p2).normalized);
+
+            /* Solve planar equation for 'd' of plane p0 */
+            float p0d = -(p0p0.x * n.x + p0p0.y * n.y + p0p0.z * n.z);
+
+            /* Solve planar equation for 'd' of plane p1 */
+            float p1d = -(n.x * pos.x + n.y * pos.y + n.z * pos.z);
+
+            /* Compute new position projected onto the plane p0 */
+            pos = pos + n * (p1d-p0d);
+          } }
         }
       }
     }
