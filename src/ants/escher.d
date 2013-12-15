@@ -1533,8 +1533,6 @@ class Camera
   bool keyUp;
   bool keyDown;
 
-  mat4 orient;
-
   this(World world, int spaceID, vec3 pos)
   {
     this.world = world;
@@ -1543,7 +1541,6 @@ class Camera
     this.turnRate = 0f;
     this.camYaw = 0.0;
     this.camPitch = 0.0;
-    orient = mat4.identity;
   }
 
   void key(int keysym, bool down)
@@ -1769,13 +1766,10 @@ class Camera
     glEnable(GL_DEPTH_TEST);
     version (stencil) glEnable(GL_STENCIL_TEST);
 
-    writeln("** orient: ", orient);
     mat4 mvmat = mat4.identity
       * mat4.rotation(camPitch, vec3(1,0,0))
       * mat4.rotation(camYaw, vec3(0,1,0))
-      * mat4.translation(-pos.x, -pos.y, -pos.z)
-      * orient;
-    writeln("** mvmat:  ", mvmat);
+      * mat4.translation(-pos.x, -pos.y, -pos.z);
 
     //writeln("drawSpace() entry");
     glErrorCheck("before drawSpace()");
