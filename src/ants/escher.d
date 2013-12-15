@@ -1659,6 +1659,8 @@ class Camera
     /* Intersect space faces */
     if (oldpos != pos)
     {
+      bool hitStickyEdge;
+
       //writeln("movement.length = ", movement.length, " but also = ", (pos-oldpos).length);
       Space space = world.spaces[spaceID];
 
@@ -1667,11 +1669,135 @@ class Camera
       {
         if (face.data.type == FaceType.SolidColor)
         {
+          /* Grab the three points making up the map face */
+          vec3[3] fv;
+          fv[0] = space.verts[face.indices[0]];
+          fv[1] = space.verts[face.indices[1]];
+          fv[2] = space.verts[face.indices[2]];
+
+          /* Calculate normal of plane containing map face*/
+          vec3 n = cross(
+              (fv[2] - fv[0]).normalized,
+              (fv[1] - fv[2]).normalized).normalized;
+
+          /* For the purposes of using the following shitty "passThruTest" code, I'm going to
+           * use a hitsphere and the point on it nearest the plane of the wall triangle
+           * instead of the center of the hitsphere.
+           *
+           * The relevant point on the hitsphere is calculated using the planar normal times
+           * the negation of the hitsphere radius.
+           */
+          const float hitSphereRadius = 0.25;
+          vec3 hitSphereDelta = hitSphereRadius * n,
+               hitSphereStartPos = oldpos + hitSphereDelta,
+               hitSphereEndPos = pos + hitSphereDelta;
+
           /* XXX This "passThruTest" code is cut-and-paste garbage from the previous generation
            *     of Escher collision code.
            */
-          if (!(face.indices.length == 3 && passThruTest(oldpos, movement.normalized, space.verts[face.indices[0]], space.verts[face.indices[1]], space.verts[face.indices[2]], movement.length))) 
+          if (!(face.indices.length == 3
+          &&    passThruTest(hitSphereStartPos, movement.normalized, fv[0], fv[1], fv[2], movement.length))) 
+          {
+            //writefln("@@ attempting segment-sphere intersection___________");
+            /* We have determined that the motion of the "hitpoint" on the hitsphere has not
+             * intersected the wall. We'll now test for the sphere intersecting with the edge.
+             * TODO investigate better ways?
+             */
+
+            foreach (si0; 0..3)
+            {
+              //(x 3 - x 1)(x 2 - x 1) + (y 3 - y 1)(y 2 - y 1) + (z 3 - z 1)(z 2 - z 1)
+              //------------------------------------------------------------------------
+              //(x 2 - x 1)(x 2 - x 1) + (y 2 - y 1)(y 2 - y 1) + (z 2 - z 1)(z 2 - z 1)
+
+              auto si1 = (si0==2)?0:si0+1;
+
+              vec3 p1 = fv[si0];
+              vec3 p2 = fv[si1];
+              vec3 p3 = pos;
+
+              float x1 = p1.x;
+              float y1 = p1.y;
+              float z1 = p1.z;
+
+              float x2 = p2.x;
+              float y2 = p2.y;
+              float z2 = p2.z;
+
+              float x3 = p3.x;
+              float y3 = p3.y;
+              float z3 = p3.z;
+
+              float u =
+              ((x3 - x1)*(x2 - x1) + (y3 - y1)*(y2 - y1) + (z3 - z1)*(z2 - z1))
+              /
+              ((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1) + (z2 - z1)*(z2 - z1));
+
+              version (thisThingWouldWork2345354)
+              {
+                vec3 p2_p1 = p2-p1;
+                float u = dot(p3-p1, p2_p1) / p2_p1.magnitude_squared;
+              }
+
+              //writefln("@@ attempting segment-sphere intersection: %f", u);
+              if (u >= 0 && u <= 1)
+              {
+                //writeln("@@ WINRAR WINRAR WINRAR WINRAR WINRAR WIN: ^^^^^^^");
+                /* Find the exact position of the point */
+                vec3 p = lerp(p1, p2, u);
+                vec3 dp = p - p3;
+                if (dp.magnitude_squared < hitSphereRadius * hitSphereRadius)
+                {
+                  writeln("@@ segment-sphere hit!");
+                  /* XXX total dick move */
+                  hitStickyEdge = true;
+                  pos = oldpos;
+                  return;
+                }
+              }
+
+              version (ifYoureStupid)
+              {
+              /* Reference:
+               * http://www.ambrsoft.com/Equations/Circle/CR01-circleLineIntersection.PNG
+               * Point (x1,y1,z1) will be fv[si0] (point 1 on line)
+               * Point (x2,y2,z2) will be fv[si1] (point 2 on line)
+               * Point (x3,y3,z3) will be pos     (sphere center)
+               */
+
+              // p2-p1
+              vec3 p2_p1 = fv[si1] - fv[si0];
+
+              // a = (x2-x1)^2 + (y2-y1)^2 + (z2-z1)^2
+              //   = |p2-p1|^2
+              float a = p2_p1.magnitude_squared;
+
+              // p1-p3
+              vec3 p1_p3 = fv[si0] - pos;
+
+              // b = 2[ (x2-x1)(x1-x3) + (y2-y1)(y1-y3) + (z2-z1)(z1-z3) ]
+              float b = 2*
+                (p2_p1.x * p1_p3.x +
+                 p2_p1.y * p1_p3.y +
+                 p2_p1.z * p1_p3.z);
+
+              // c = x3^2 + y3^2 + z3^2 + x1^2 + y1^2 + z1^2 - 2(x3*x1 + y3*y1 + z3*z1) - r^2
+              float c =
+                pos.magnitude_squared +
+                fv[si0].magnitude_squared +
+                2 * ( pos.x * fv[si0].x + pos.y * fv[si0].y + pos.z * fv[si0].z )
+                - hitSphereRadius * hitSphereRadius;
+
+              // Condition for intersection: b^2 - 4ac > 0
+              auto abc = b*b - 4*a*c;
+              if (abc > 0)
+              {
+                writefln("@@ we have line segment vs. sphere intersection! %s %f", pos, abc);
+              }
+              }
+            }
             continue;
+          }
 
           writefln("@@ Colliding with a wall");
           /* Since we are running into a wall, we want to project our presumed destination
@@ -1690,33 +1816,30 @@ class Camera
            * The difference in d from the plane we wish to project onto and the new
            * plane containing our point is the coefficient f for the translation
            * v' = v * nf
+           *
+           * TODO This approach currently does not work if you approach a wall's edge
+           *      such that the "hit point" on the hitsphere is already beyond the plane
+           *      of the triangle that should impede you.
            */
 
-          /* Calculate normal of plane p0 */
-          vec3 p0p0 = space.verts[face.indices[0]],
-               p0p1 = space.verts[face.indices[1]],
-               p0p2 = space.verts[face.indices[2]];
-          vec3 n = cross(
-              (p0p2 - p0p0).normalized,
-              (p0p1 - p0p2).normalized).normalized;
           writeln("@@   wall normal: ", n);
 
-          /* Solve planar equation for 'd' of plane p0 */
-          float p0d = -(p0p0.x * n.x + p0p0.y * n.y + p0p0.z * n.z);
+          /* Solve planar equation for 'd' of plane containing map face */
+          float p0d = -(fv[0].x * n.x + fv[0].y * n.y + fv[0].z * n.z);
           writeln("@@   wall plane 0 d = ", p0d);
 
           /* Solve planar equation for 'd' of plane p1 */
-          float p1d = -(n.x * pos.x + n.y * pos.y + n.z * pos.z);
+          float p1d = -(n.x * hitSphereEndPos.x + n.y * hitSphereEndPos.y + n.z * hitSphereEndPos.z);
           writeln("@@   wall plane 1 d = ", p1d);
 
-          /* Compute new position projected onto the plane p0 */
+          /* Compute new position projected onto the plane containing map face */
           pos = pos + (p1d-p0d) * 1.01 * n;
           writeln("@@   wall nudge: ", n * (p1d-p0d));
         }
-      }
 
-      /* Recalculate movement for benefit of portal collision */
-      movement = pos - oldpos;
+        /* Recalculate movement vector */
+        movement = pos - oldpos;
+      }
 
       foreach (faceIndex, face; space.faces)
       {
