@@ -1820,11 +1820,11 @@ class Camera
           writeln("@@   wall normal: ", n);
 
           /* Solve planar equation for 'd' of plane containing map face */
-          float p0d = -(fv[0].x * n.x + fv[0].y * n.y + fv[0].z * n.z);
+          float p0d = -dot(fv[0], n);
           writeln("@@   wall plane 0 d = ", p0d);
 
           /* Solve planar equation for 'd' of plane p1 */
-          float p1d = -(n.x * hitSphereEndPos.x + n.y * hitSphereEndPos.y + n.z * hitSphereEndPos.z);
+          float p1d = -dot(n, hitSphereEndPos);
           writeln("@@   wall plane 1 d = ", p1d);
 
           /* Compute new position projected onto the plane containing map face */
