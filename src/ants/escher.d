@@ -1705,6 +1705,9 @@ class Camera
               pos.x = pos.x / pos.w;
               pos.y = pos.y / pos.w;
               pos.z = pos.z / pos.w;
+              this.pos.x = pos.x;
+              this.pos.y = pos.y;
+              this.pos.z = pos.z;
 
               vec4 lookPos = vec4(orient.x, orient.y, orient.z, 0f) + preTransformPos4;
               //writeln("old  vec: ", oldpos);
@@ -1754,22 +1757,23 @@ class Camera
                  p0p2 = space.verts[face.indices[2]];
             vec3 n = cross(
               (p0p2 - p0p0).normalized,
-              (p0p1 - p0p2).normalized);
+              (p0p1 - p0p2).normalized).normalized;
+            writeln("@@   wall normal: ", n);
 
             /* Solve planar equation for 'd' of plane p0 */
             float p0d = -(p0p0.x * n.x + p0p0.y * n.y + p0p0.z * n.z);
+            writeln("@@   wall plane 0 d = ", p0d);
 
             /* Solve planar equation for 'd' of plane p1 */
             float p1d = -(n.x * pos.x + n.y * pos.y + n.z * pos.z);
+            writeln("@@   wall plane 1 d = ", p1d);
 
             /* Compute new position projected onto the plane p0 */
-            pos = pos + n * (p1d-p0d);
+            this.pos = this.pos + (p1d-p0d) * 1.01 * n;
+            writeln("@@   wall nudge: ", n * (p1d-p0d));
           }
         }
       }
-      this.pos.x = pos.x;
-      this.pos.y = pos.y;
-      this.pos.z = pos.z;
     }
 
     // XXX
