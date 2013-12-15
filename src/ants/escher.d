@@ -1716,26 +1716,11 @@ class Camera
               vec3 p2 = fv[si1];
               vec3 p3 = pos;
 
-              float x1 = p1.x;
-              float y1 = p1.y;
-              float z1 = p1.z;
-
-              float x2 = p2.x;
-              float y2 = p2.y;
-              float z2 = p2.z;
-
-              float x3 = p3.x;
-              float y3 = p3.y;
-              float z3 = p3.z;
-
-              float u =
-              ((x3 - x1)*(x2 - x1) + (y3 - y1)*(y2 - y1) + (z3 - z1)*(z2 - z1))
-              /
-              ((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1) + (z2 - z1)*(z2 - z1));
+              vec3 p2_p1 = p2-p1;
+              float u = dot(p3-p1, p2_p1) / p2_p1.magnitude_squared;
 
               version (thisThingWouldWork2345354)
               {
-                vec3 p2_p1 = p2-p1;
                 float u = dot(p3-p1, p2_p1) / p2_p1.magnitude_squared;
               }
 
