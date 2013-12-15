@@ -1488,6 +1488,34 @@ bool passThruTest(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert2, doubl
   return triix.t > 0f && triix.t < d;
 }
 
+mat4 orientMat4(mat3 m)
+{
+  return mat4(
+    m.matrix[0][0], m.matrix[0][1], m.matrix[0][2], 0,
+    m.matrix[1][0], m.matrix[1][1], m.matrix[1][2], 0,
+    m.matrix[2][0], m.matrix[2][1], m.matrix[2][2], 0,
+    0, 0, 0, 1
+  );
+}
+
+mat3 mat3orientation(mat4 m)
+{
+  return mat3(
+    m.matrix[0][0], m.matrix[0][1], m.matrix[0][2],
+    m.matrix[1][0], m.matrix[1][1], m.matrix[1][2],
+    m.matrix[2][0], m.matrix[2][1], m.matrix[2][2]
+  );
+}
+
+vec3 vec3translation(mat4 m)
+{
+  return vec3(
+    m.matrix[0][3],
+    m.matrix[1][3],
+    m.matrix[2][3]
+  );
+}
+
 class Camera
 {
   World world;
