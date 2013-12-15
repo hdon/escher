@@ -1654,7 +1654,7 @@ class Camera
       cos(camYaw), 0, sin(camYaw),
       0, 1, 0,
       -sin(camYaw), 0, cos(camYaw));
-    writeln("VELOCITY####### ", grounded, ' ', vel);
+    //writeln("VELOCITY####### ", grounded, ' ', vel);
     vec3 movement = orientMat * (walkVel.normalized * 3 + vel) * deltaf;
     pos += movement;
 
