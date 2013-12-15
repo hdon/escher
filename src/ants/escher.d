@@ -1541,6 +1541,7 @@ class Camera
     this.turnRate = 0f;
     this.camYaw = 0.0;
     this.camPitch = 0.0;
+    this.vel = vec3(0,0,0);
   }
 
   void key(int keysym, bool down)
@@ -1597,9 +1598,12 @@ class Camera
   }
 
   bool grounded;
-  //vec3 vel;
+  vec3 vel;
   void update(ulong delta)
   {
+    const double EPSILON = 0.000001;
+    float deltaf = delta/1000f;
+
     //writeln("position:", pos);
     // Remember old position for intersection tests
     vec3 oldpos = pos;
@@ -1611,45 +1615,47 @@ class Camera
       camYaw -= PI*2f;
 
     // Gravity
-    version (gravity) {
     if (!grounded)
     {
-      vel.y -= 0.05;
-    }
+      vel.vector[1] -= 2.5 * deltaf;
     }
 
-    // Set velocity lol
-    vec3 vel = vec3(0,0,0);//this.vel;
+    // walkVel represents the player's influence over character movement using the
+    // arrow keys
+    vec3 walkVel = vec3(0,0,0);
     if (keyForward != keyBackward)
     {
       if (keyForward)
-        vel.z = 1;
+        walkVel.z = 1;
       else
-        vel.z = -1;
+        walkVel.z = -1;
     }
     if (keyLeft != keyRight)
     {
       if (keyRight)
-        vel.x = 1;
+        walkVel.x = 1;
       else
-        vel.x = -1;
+        walkVel.x = -1;
     }
     if (keyUp != keyDown)
     {
-      if (keyUp)
-        vel.y = 1;
-      else
-        vel.y = -1;
+      if (keyUp) {
+        if (grounded) {
+          vel = vec3(0, 1.6, 0);
+          grounded = false;
+        }
+      } else
+        walkVel.y = -1;
     }
 
     // Nudge position and orientation
-    float deltaf = delta/1000f;
     vec3 orient = vec3(sin(camYaw), 0, cos(camYaw));
     mat3 orientMat = mat3(
       cos(camYaw), 0, sin(camYaw),
       0, 1, 0,
       -sin(camYaw), 0, cos(camYaw));
-    vec3 movement = orientMat * vel.normalized * 3 * deltaf;
+    writeln("VELOCITY####### ", grounded, ' ', vel);
+    vec3 movement = orientMat * (walkVel.normalized * 3 + vel) * deltaf;
     pos += movement;
 
     if (portalDiagnosticMode)
@@ -1728,10 +1734,18 @@ class Camera
                 vec3 dp = p - p3;
                 if (dp.magnitude_squared < hitSphereRadius * hitSphereRadius)
                 {
-                  writeln("@@ segment-sphere hit!");
+                  writeln("@@ segment-sphere hit! planar normal: ", n);
                   /* XXX total dick move */
                   hitStickyEdge = true;
                   pos = oldpos;
+                  /* Check for floor or ceiling */
+                  if (n.x   < EPSILON && n.x   > -EPSILON &&
+                      n.z   < EPSILON && n.z   > -EPSILON &&
+                      1+n.y < EPSILON && 1+n.y > -EPSILON)
+                  {
+                    grounded = true;
+                    vel.vector[1] = 0;
+                  }
                   return;
                 }
               }
@@ -1816,6 +1830,18 @@ class Camera
           /* Compute new position projected onto the plane containing map face */
           pos = pos + (p1d-p0d) * 1.01 * n;
           writeln("@@   wall nudge: ", n * (p1d-p0d));
+
+          /* Check for floor or ceiling */
+          if (n.x   < EPSILON && n.x   > -EPSILON &&
+              n.z   < EPSILON && n.z   > -EPSILON &&
+              1+n.y < EPSILON && 1+n.y > -EPSILON)
+          {
+            writeln("@@   wall=ceiling");
+            grounded = true;
+            vel.vector[1] = 0;
+          }
+          else
+            writeln("@@   wall!ceiling");
         }
 
         /* Recalculate movement vector */
@@ -1824,6 +1850,19 @@ class Camera
 
       foreach (faceIndex, face; space.faces)
       {
+        /* Copied and pasted from above, lol XXX */
+
+        /* Grab the three points making up the map face */
+        vec3[3] fv;
+        fv[0] = space.verts[face.indices[0]];
+        fv[1] = space.verts[face.indices[1]];
+        fv[2] = space.verts[face.indices[2]];
+
+        /* Calculate normal of plane containing map face*/
+        vec3 n = cross(
+            (fv[2] - fv[0]).normalized,
+            (fv[1] - fv[2]).normalized).normalized;
+
         int tris = 0;
         /* TODO support arbitrary polygon faces */
         /* TODO XXX i have inverted pos and oldpos here because it fixes some polarity problem
