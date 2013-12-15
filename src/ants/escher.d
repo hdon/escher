@@ -1706,10 +1706,10 @@ class Camera
 
             foreach (si0; 0..3)
             {
-              //(x 3 - x 1)(x 2 - x 1) + (y 3 - y 1)(y 2 - y 1) + (z 3 - z 1)(z 2 - z 1)
-              //------------------------------------------------------------------------
-              //(x 2 - x 1)(x 2 - x 1) + (y 2 - y 1)(y 2 - y 1) + (z 2 - z 1)(z 2 - z 1)
-
+              /* Reference:
+               * http://portal.ku.edu.tr/~cbasdogan/Courses/Robotics/projects/IntersectionLineSphere.pdf
+               * (Last section titled "Line Segment")
+               */
               auto si1 = (si0==2)?0:si0+1;
 
               vec3 p1 = fv[si0];
@@ -1718,11 +1718,6 @@ class Camera
 
               vec3 p2_p1 = p2-p1;
               float u = dot(p3-p1, p2_p1) / p2_p1.magnitude_squared;
-
-              version (thisThingWouldWork2345354)
-              {
-                float u = dot(p3-p1, p2_p1) / p2_p1.magnitude_squared;
-              }
 
               //writefln("@@ attempting segment-sphere intersection: %f", u);
               if (u >= 0 && u <= 1)
@@ -1743,42 +1738,43 @@ class Camera
 
               version (ifYoureStupid)
               {
-              /* Reference:
-               * http://www.ambrsoft.com/Equations/Circle/CR01-circleLineIntersection.PNG
-               * Point (x1,y1,z1) will be fv[si0] (point 1 on line)
-               * Point (x2,y2,z2) will be fv[si1] (point 2 on line)
-               * Point (x3,y3,z3) will be pos     (sphere center)
-               */
+                /* References:
+                 * http://www.ambrsoft.com/Equations/Circle/CR01-circleLineIntersection.PNG
+                 * http://portal.ku.edu.tr/~cbasdogan/Courses/Robotics/projects/IntersectionLineSphere.pdf
+                 * Point (x1,y1,z1) will be fv[si0] (point 1 on line)
+                 * Point (x2,y2,z2) will be fv[si1] (point 2 on line)
+                 * Point (x3,y3,z3) will be pos     (sphere center)
+                 */
 
-              // p2-p1
-              vec3 p2_p1 = fv[si1] - fv[si0];
+                // p2-p1
+                vec3 p2_p1 = fv[si1] - fv[si0];
 
-              // a = (x2-x1)^2 + (y2-y1)^2 + (z2-z1)^2
-              //   = |p2-p1|^2
-              float a = p2_p1.magnitude_squared;
+                // a = (x2-x1)^2 + (y2-y1)^2 + (z2-z1)^2
+                //   = |p2-p1|^2
+                float a = p2_p1.magnitude_squared;
 
-              // p1-p3
-              vec3 p1_p3 = fv[si0] - pos;
+                // p1-p3
+                vec3 p1_p3 = fv[si0] - pos;
 
-              // b = 2[ (x2-x1)(x1-x3) + (y2-y1)(y1-y3) + (z2-z1)(z1-z3) ]
-              float b = 2*
-                (p2_p1.x * p1_p3.x +
-                 p2_p1.y * p1_p3.y +
-                 p2_p1.z * p1_p3.z);
+                // b = 2[ (x2-x1)(x1-x3) + (y2-y1)(y1-y3) + (z2-z1)(z1-z3) ]
+                float b = 2*
+                  (p2_p1.x * p1_p3.x +
+                   p2_p1.y * p1_p3.y +
+                   p2_p1.z * p1_p3.z);
 
-              // c = x3^2 + y3^2 + z3^2 + x1^2 + y1^2 + z1^2 - 2(x3*x1 + y3*y1 + z3*z1) - r^2
-              float c =
-                pos.magnitude_squared +
-                fv[si0].magnitude_squared +
-                2 * ( pos.x * fv[si0].x + pos.y * fv[si0].y + pos.z * fv[si0].z )
-                - hitSphereRadius * hitSphereRadius;
+                // c = x3^2 + y3^2 + z3^2 + x1^2 + y1^2 + z1^2 - 2(x3*x1 + y3*y1 + z3*z1) - r^2
+                float c =
+                  pos.magnitude_squared +
+                  fv[si0].magnitude_squared +
+                  2 * ( pos.x * fv[si0].x + pos.y * fv[si0].y + pos.z * fv[si0].z )
+                  - hitSphereRadius * hitSphereRadius;
 
-              // Condition for intersection: b^2 - 4ac > 0
-              auto abc = b*b - 4*a*c;
-              if (abc > 0)
-              {
-                writefln("@@ we have line segment vs. sphere intersection! %s %f", pos, abc);
-              }
+                // Condition for intersection: b^2 - 4ac > 0
+                auto abc = b*b - 4*a*c;
+                if (abc > 0)
+                {
+                  writefln("@@ we have line segment vs. sphere intersection! %s %f", pos, abc);
+                }
               }
             }
             continue;
