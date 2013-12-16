@@ -1516,6 +1516,9 @@ vec3 vec3translation(mat4 m)
   );
 }
 
+MD5Model playerModel;
+MD5Animation playerAnimation;
+
 class Camera
 {
   World world;
@@ -1936,6 +1939,8 @@ class Camera
     {
       portalDiagnosticProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
       shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
+      playerModel = new MD5Model("/home/donny/ld28/md5262/arms-run.md5mesh");
+      playerAnimation = new MD5Animation(playerModel, "/home/donny/ld28/md5262/arms-run.md5anim");
     }
     if (vertexer is null)
     {
@@ -1976,6 +1981,13 @@ class Camera
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
     glErrorCheck("after drawSpace()");
 
+    mat4 playerMat = mat4.identity
+      .rotate(PI*0.5, vec3(1,0,0))
+      .rotate(PI, vec3(0,1,0))
+      .translate(-3, 2, -0.5)
+      .scale(1.0/24, 1.0/24, 1.0/24)
+      ;
+    playerAnimation.draw(playerMat, world.pmatWorld);
     frame++;
   }
 }

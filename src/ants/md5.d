@@ -607,13 +607,6 @@ class MD5Animation
       }
     }
     vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_LINES);
-
-    if (++frameDelay >= 1)
-    {
-      frameDelay = 0;
-      if (++frameNumber >= numFrames)
-        frameNumber = 0;
-    }
     //writefln("frame # %d/%d", frameNumber, numFrames);
     spin += 0.5;
   }
@@ -730,8 +723,15 @@ class MD5Animation
     vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_TRIANGLES);
 
     render(mvmat, pmat);
-    renderSkeleton(mvmat, pmat);
-    renderVerts(mvmat, pmat);
+
+    if (++frameDelay >= 1)
+    {
+      frameDelay = 0;
+      if (++frameNumber >= numFrames)
+        frameNumber = 0;
+    }
+    //renderSkeleton(mvmat, pmat);
+    //renderVerts(mvmat, pmat);
   }
 
 }
