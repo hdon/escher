@@ -1931,8 +1931,9 @@ class Camera
   }
 
   int frame = 0;
-  void draw()
+  void draw(uint t)
   {
+    vertexer.setFrameTime(t/1000.0);
     ubyte portalDepth = 2;
 
     if (shaderProgram is null)
@@ -1941,6 +1942,7 @@ class Camera
       shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
       playerModel = new MD5Model("/home/donny/ld28/md5262/arms-run.md5mesh");
       playerAnimation = new MD5Animation(playerModel, "/home/donny/ld28/md5262/arms-run.md5anim");
+      vertexer.setResolution(800, 600);
     }
     if (vertexer is null)
     {
@@ -1984,10 +1986,12 @@ class Camera
     mat4 playerMat = mat4.identity
       .rotate(PI*0.5, vec3(1,0,0))
       .rotate(PI, vec3(0,1,0))
-      .translate(-3, 2, -0.5)
+      .translate(-3, 1, 2)
       .scale(1.0/24, 1.0/24, 1.0/24)
       ;
-    playerAnimation.draw(playerMat, world.pmatWorld);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    mat4 pmatPlayer = mat4.perspective(800, 600, 90, 0.000001, 10);
+    playerAnimation.draw(playerMat, pmatPlayer);
     frame++;
   }
 }

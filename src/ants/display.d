@@ -145,7 +145,7 @@ class Display
     //anim.draw();
     //world.draw();
     camera.update(delta);
-    camera.draw();
+    camera.draw(t);
 
     console.draw();
 

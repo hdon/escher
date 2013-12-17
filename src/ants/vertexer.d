@@ -8,6 +8,7 @@ import ants.material;
 private alias Vector!(double, 3) vec3d;
 private alias Vector!(double, 2) vec2d;
 private alias Vector!(float, 3) vec3f;
+private alias Vector!(float, 2) vec2f;
 alias Matrix!(double, 4, 4) mat4d;
 alias Matrix!(float, 4, 4) mat4f;
 alias Matrix!(float, 3, 3) mat3f;
@@ -20,6 +21,20 @@ class Vertexer
   double[]  normals;
   uint      numVerts;
   vec3f     lightPos;
+
+  static
+  {
+    float   frameTime;
+    vec2f   resolution;
+    void setFrameTime(float t)
+    {
+      frameTime = t;
+    }
+    void setResolution(float x, float y)
+    {
+      resolution = vec2f(x, y);
+    }
+  }
 
   this()
   {
@@ -100,6 +115,9 @@ class Vertexer
     GLuint    lightSourceUniformLocation_diffuse;
     GLuint    lightSourceUniformLocation_specular;
 
+    GLuint    timeUniformLocation;
+    GLuint    resolutionUniformLocation;
+
     shaderProgram.use();
 
     /* Get matrix uniform locations */
@@ -125,6 +143,16 @@ class Vertexer
     glUniform3f(lightSourceUniformLocation_pos, lightPos.x, lightPos.y, lightPos.z);
     glUniform4f(lightSourceUniformLocation_diffuse, 1, 1, 1, 1);
     glUniform4f(lightSourceUniformLocation_specular, 1, 1, 1, 1);
+
+    /* Miscellanious uniform values */
+    timeUniformLocation = shaderProgram.getUniformLocation("time");
+    resolutionUniformLocation = shaderProgram.getUniformLocation("resolution");
+
+    if (timeUniformLocation >= 0)
+      glUniform1f(timeUniformLocation, frameTime);
+
+    if (resolutionUniformLocation >= 0)
+      glUniform2f(resolutionUniformLocation, resolution.x, resolution.y);
 
     /* Get vertex attribute locations */
     positionVertexAttribLocation = shaderProgram.getAttribLocation("positionV");
