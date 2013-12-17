@@ -1,52 +1,91 @@
 import display;
 import std.stdio;
-import std.string : splitLines, split;
+import std.string : splitLines, split, toStringz, format;
 import file = std.file;
+version (Windows) import core.sys.windows.windows : MessageBoxA;
 
-int main(string[] args)
+void message(string message)
 {
-  string mapfilename;
-  if (args.length == 2)
+  version (Windows)
   {
-    mapfilename = args[1];
+    MessageBoxA(null, message.toStringz(), "Escher Game Engine".toStringz(), 0x00000000L);
   }
   else
   {
-    foreach (lineNo, line; splitLines(to!string(cast(char[])file.read("init.txt"))))
-    {
-      if (lineNo == 0)
-      {
-        if (line != "escher engine init script version 1")
-        {
-          writeln("Could not find Escher engine initialization script!");
-          return 1;
-        }
-        continue;
-      }
+    writeln(message);
+  }
+}
 
-      auto words = split(line);
-      if (words.length == 0)
-        continue;
-      switch (words[0])
-      {
-        case "map":
-          mapfilename = words[1];
-          break;
-        default:
-          writefln("error: init.txt: unknown command \"%s\"", words[0]);
-          return 1;
-      }
-    }
+int main(string[] args)
+{
+  version (Windows)
+  {
+    stdout.open("stdout.txt", "w");
+    stderr.open("stderr.txt", "w");
   }
 
-  bool isRunning = true;
-  Display display = new Display(mapfilename);
-  scope(exit) display.cleanup();
-
-  while (isRunning)
+  try
   {
-    isRunning = display.event();
-    display.drawGLFrame();
+    string mapfilename;
+    if (args.length == 2)
+    {
+      mapfilename = args[1];
+    }
+    else
+    {
+      string initText;
+      try
+      {
+        initText = to!string(cast(char[])file.read("init.txt"));
+      }
+      catch (file.FileException e)
+      {
+        message(e.msg);
+        return 1;
+      }
+
+      foreach (lineNo, line; splitLines(initText))
+      {
+        if (lineNo == 0)
+        {
+          if (line != "escher engine init script version 1")
+          {
+            message("Could not find Escher engine initialization script!");
+            return 1;
+          }
+          continue;
+        }
+
+        auto words = split(line);
+        if (words.length == 0)
+          continue;
+        switch (words[0])
+        {
+          case "map":
+            mapfilename = words[1];
+            break;
+          default:
+            message(format("error: init.txt: unknown command \"%s\"", words[0]));
+            return 1;
+        }
+      }
+    }
+
+    bool isRunning = true;
+    Display display = new Display(mapfilename);
+    scope(exit) display.cleanup();
+
+    while (isRunning)
+    {
+      isRunning = display.event();
+      display.drawGLFrame();
+    }
+  }
+  catch (Throwable e)
+  {
+    message(`Sorry, we've crashed!
+The details can be found in crash.txt`);
+    return 1;
   }
 
   return 0;
