@@ -1939,9 +1939,9 @@ class Camera
     if (shaderProgram is null)
     {
       portalDiagnosticProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
-      shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
-      playerModel = new MD5Model("/home/donny/ld28/md5262/arms-run.md5mesh");
-      playerAnimation = new MD5Animation(playerModel, "/home/donny/ld28/md5262/arms-run.md5anim");
+      shaderProgram = new ShaderProgram("simple.vs", "plasma2.fs");
+      playerModel = new MD5Model("res/md5/arms-run.md5mesh");
+      playerAnimation = new MD5Animation(playerModel, "res/md5/arms-run.md5anim");
       vertexer.setResolution(800, 600);
     }
     if (vertexer is null)

@@ -714,7 +714,7 @@ class MD5Animation
       vertexer = new Vertexer();
       emptyMaterial = new Material();
       shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
-      shaderProgram1 = new ShaderProgram("simple.vs", "simple.fs");
+      shaderProgram1 = new ShaderProgram("simple.vs", "plasma0.fs");
     }
 
     vertexer.add(vec3(-1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
