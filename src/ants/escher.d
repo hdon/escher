@@ -1052,7 +1052,6 @@ class World
 
   ~this()
   {
-    writeln("~World() - DESTRUCTED");
   }
 
   // TODO TODO TODO TODO TODO TODO 
