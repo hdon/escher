@@ -1,4 +1,4 @@
-#version 150
+#version 130
 /* Simple fragment shader */
 
 struct LightSource
@@ -50,7 +50,7 @@ void main()
   float lightAttenuated = 1.0 / lightDistance;
   vec4 diffuse = dot(lightDir, normal) * lightSource.diffuse;
   vec4 specular = max(pow(dot(halfVec, normal), 10.0), 0) * lightSource.specular;
-  vec4 light = .1 + lightAttenuated * (diffuse + specular);
+  vec4 light = .5 + lightAttenuated * (diffuse + specular);
 
   gl_FragColor = light * texture(colorMap, uvF);
 }
