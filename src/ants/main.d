@@ -83,6 +83,8 @@ int main(string[] args)
   }
   catch (Throwable e)
   {
+    stdout.write(to!string(e));
+    stdout.writeln("\ncrashed!");
     message(`Sorry, we've crashed!
 The details can be found in crash.txt`);
     return 1;
