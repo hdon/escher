@@ -1668,6 +1668,8 @@ class Camera
     /* Intersect space faces */
     if (oldpos != pos)
     {
+      bool landed;
+
       //writeln("movement.length = ", movement.length, " but also = ", (pos-oldpos).length);
       Space space = world.spaces[spaceID];
 
@@ -1744,11 +1746,11 @@ class Camera
                    */
 
                   /* Calculate the pseudo-plane normal by subtracting 'p' from 'pos.' */
-                  vec3 pseudon = pos - p;
+                  vec3 pseudon = (pos - p).normalized;
 
                   writeln("@@ pseudo normal: ", n);
 
-                  /* Solve planar equation for 'd' of plane containing map face */
+                  /* Solve planar equation for 'd' of plane containing the edge we hit */
                   float p0d = -dot(p, n);
 
                   writeln("@@   wall plane 0 d = ", p0d);
@@ -1761,15 +1763,9 @@ class Camera
                   pos = pos + (p1d-p0d) * 1.01 * n;
                   writeln("@@   wall nudge: ", n * (p1d-p0d));
 
-                  /* TODO remove this copy of this code and keep the other? */
                   /* Check for floor or ceiling */
-                  if (n.x   < EPSILON && n.x   > -EPSILON &&
-                      n.z   < EPSILON && n.z   > -EPSILON &&
-                      1+n.y < EPSILON && 1+n.y > -EPSILON)
-                  {
-                    grounded = true;
-                    vel.vector[1] = 0;
-                  }
+                  //if (dot(vec3(0,1,0), n.normalized) < 0.5)
+                    //landed = true;
                   break;
                 }
               }
@@ -1818,15 +1814,11 @@ class Camera
             pos = pos + (p1d-p0d) * 1.01 * n;
             writeln("@@   wall nudge: ", n * (p1d-p0d));
 
-            /* Check for floor or ceiling */
-            if (n.x   < EPSILON && n.x   > -EPSILON &&
-                n.z   < EPSILON && n.z   > -EPSILON &&
-                1+n.y < EPSILON && 1+n.y > -EPSILON)
-            {
-              writeln("@@   wall=ceiling");
-              grounded = true;
-              vel.vector[1] = 0;
-            }
+            /* Check for floor */
+            auto f = dot(vec3(0,-1,0), n.normalized);
+            writeln("@@ f: ", f);
+            if (f > 0.5)
+              landed = true;
             else
               writeln("@@   wall!ceiling");
           }
@@ -1919,6 +1911,13 @@ class Camera
           }
         }
       }
+
+      if (landed)
+      {
+        writeln("@@ landed");
+        grounded = true;
+        vel.vector[1] = 0;
+      }
     }
 
     // XXX
@@ -1938,7 +1937,7 @@ class Camera
     if (shaderProgram is null)
     {
       portalDiagnosticProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
-      shaderProgram = new ShaderProgram("simple.vs", "plasma2.fs");
+      shaderProgram = new ShaderProgram("simple.vs", "simple.fs");
       playerModel = new MD5Model("res/md5/arms-run.md5mesh");
       playerAnimation = new MD5Animation(playerModel, "res/md5/arms-run.md5anim");
       vertexer.setResolution(800, 600);
