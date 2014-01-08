@@ -104,8 +104,19 @@ class Display
 
   void command(DoglConsole console, string cmd)
   {
-    writefln("display.d got command from console: %s\n", cmd);
-    console.print(format("display.d got command from console: %s\n", cmd));
+    switch (cmd)
+    {
+      case "fly":
+        camera.fly = ! camera.fly;
+        console.print(format("fly %sabled", camera.fly ? "en" : "dis"));
+        break;
+      case "noclip":
+        camera.noclip = ! camera.noclip;
+        console.print(format("noclip %sabled", camera.noclip ? "en" : "dis"));
+        break;
+      default:
+        console.print(format("unknown command: %s\n", cmd));
+    }
   }
 
   this(string filename)

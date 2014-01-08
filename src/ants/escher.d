@@ -1600,6 +1600,8 @@ class Camera
     }
   }
 
+  bool noclip;
+  bool fly;
   bool grounded;
   vec3 vel;
   void update(ulong delta)
@@ -1617,10 +1619,17 @@ class Camera
     while (camYaw >= PI*2f)
       camYaw -= PI*2f;
 
-    // Gravity
-    if (!grounded)
+    if (fly)
     {
-      vel.vector[1] -= 2.5 * deltaf;
+      grounded = true;
+    }
+    else
+    {
+      // Gravity
+      if (!grounded)
+      {
+        vel.vector[1] -= 2.5 * deltaf;
+      }
     }
 
     // walkVel represents the player's influence over character movement using the
@@ -1643,13 +1652,25 @@ class Camera
     if (keyUp != keyDown)
     {
       if (keyUp) {
-        if (grounded) {
+        if (fly) {
+          vel.y = 1;
+        }
+        else if (grounded) {
           vel = vec3(0, 1.6, 0);
           grounded = false;
         }
       } else
         walkVel.y = -1;
+
+      if (keyDown) {
+        if (fly) {
+          vel.y = -1;
+        }
+      }
     }
+    else if (fly)
+      vel.y = 0;
+
 
     // Nudge position and orientation
     vec3 orient = vec3(sin(camYaw), 0, cos(camYaw));
@@ -1666,7 +1687,7 @@ class Camera
 
     //writefln("vel: %s turn: %s", vel, turnRate);
     /* Intersect space faces */
-    if (oldpos != pos)
+    if (oldpos != pos && !noclip)
     {
       bool landed;
 
@@ -1696,6 +1717,11 @@ class Camera
            * The relevant point on the hitsphere is calculated using the planar normal times
            * the negation of the hitsphere radius.
            */
+          /*const float hitSphereRadius = 0.25;
+          const float hitSphereScaleY = 1.0;
+          vec3 hitSphereDelta = n * vec3(hitSphereRadius, hitSphereScaleY+hitSphereRadius, hitSphereRadius),
+               hitSphereStartPos = oldpos + hitSphereDelta,
+               hitSphereEndPos = pos + hitSphereDelta;*/
           const float hitSphereRadius = 0.25;
           vec3 hitSphereDelta = hitSphereRadius * n,
                hitSphereStartPos = oldpos + hitSphereDelta,
