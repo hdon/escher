@@ -55,6 +55,7 @@ void glErrorCheck(string source)
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
 alias Vector!(double, 4) vec4;
+alias Matrix!(double, 2, 2) mat2;
 alias Matrix!(double, 3, 3) mat3;
 alias Matrix!(double, 4, 4) mat4;
 alias Quaternion!(double) quat;
@@ -1606,10 +1607,13 @@ class Camera
   vec3 vel;
   void update(ulong delta)
   {
+    vec3 accel;
     const double EPSILON = 0.000001;
-    float deltaf = delta/1000f;
+    const double speed = .1;
+    const double startSpeed = 0.08;
+    const double jumpVel = 0.25;
+    float deltaf = delta/1000f; // TODO double?
 
-    //writeln("position:", pos);
     // Remember old position for intersection tests
     vec3 oldpos = pos;
 
@@ -1619,73 +1623,69 @@ class Camera
     while (camYaw >= PI*2f)
       camYaw -= PI*2f;
 
+    /* Calculate a rotation matrix for WASD keys */
+    mat2 wasdMat = mat2(
+      cos(camYaw),  sin(camYaw),
+      -sin(camYaw), cos(camYaw));
+    mat2 wasdMatInv = mat2(
+      cos(-camYaw),  sin(-camYaw),
+      -sin(-camYaw), cos(-camYaw));
+
+    /* Calculate WASD vector representing the movement implied by WASD keys */
+    vec2 wasdVec  = vec2(
+      keyRight   == keyLeft     ? 0 :
+      keyRight   ? 1 : -1,
+      keyForward == keyBackward ? 0 :
+      keyForward ? 1 : -1) * speed;
+
     if (fly)
     {
-      grounded = true;
+      wasdVec = wasdMat * wasdVec;
+      vel = vec3(
+        wasdVec.x,
+        keyUp == keyDown ? 0 : keyUp ? 1 : -1,
+        wasdVec.y);
     }
     else
     {
-      // Gravity
-      if (!grounded)
-      {
-        vel.vector[1] -= 2.5 * deltaf;
-      }
+      /* We'll mix previous WASD velocity with new WASD velocity based on a "friction"
+       * coefficient. First calculate that coefficient. */
+      double frictionCoef = (grounded ? 12.99 : 5.0) * deltaf;
+      double frictionCoefY = frictionCoef * 0.2;
+
+      /* Calculate previous velocity in camYaw space */
+      vec2 oldWasdVec = wasdMatInv * vec2(vel.xz);
+
+      /* Mix WASD velocity with previous velocity, giving more influence to
+       * forward/backward movement than left/right movement.
+       */
+      vec2 totalWasdVec = vec2(
+        oldWasdVec.x * (1.0-frictionCoefY) + wasdVec.x * frictionCoefY,
+        oldWasdVec.y * (1.0-frictionCoef ) + wasdVec.y * frictionCoef );
+
+      /* Rotate by camYaw matrix to gain our final velocity vector */
+      vec2 vel2 = wasdMat * totalWasdVec;
+
+      vel.x = vel2.x;
+      vel.z = vel2.y;
+
+      /* Apply gravity */
+      if (!grounded) vel.y = vel.y - 0.45 * deltaf;
+      else if (keyUp) { grounded=false; vel.y = jumpVel; }
+      else vel.y = 0;
     }
 
-    // walkVel represents the player's influence over character movement using the
-    // arrow keys
-    vec3 walkVel = vec3(0,0,0);
-    if (keyForward != keyBackward)
-    {
-      if (keyForward)
-        walkVel.z = 1;
-      else
-        walkVel.z = -1;
-    }
-    if (keyLeft != keyRight)
-    {
-      if (keyRight)
-        walkVel.x = 1;
-      else
-        walkVel.x = -1;
-    }
-    if (keyUp != keyDown)
-    {
-      if (keyUp) {
-        if (fly) {
-          vel.y = 1;
-        }
-        else if (grounded) {
-          vel = vec3(0, 1.6, 0);
-          grounded = false;
-        }
-      } else
-        walkVel.y = -1;
+    pos += vel;
 
-      if (keyDown) {
-        if (fly) {
-          vel.y = -1;
-        }
-      }
-    }
-    else if (fly)
-      vel.y = 0;
-
-
-    // Nudge position and orientation
-    vec3 orient = vec3(sin(camYaw), 0, cos(camYaw));
-    mat3 orientMat = mat3(
-      cos(camYaw), 0, sin(camYaw),
-      0, 1, 0,
-      -sin(camYaw), 0, cos(camYaw));
-    //writeln("VELOCITY####### ", grounded, ' ', vel);
-    vec3 movement = orientMat * (walkVel.normalized * 3 + vel) * deltaf;
-    pos += movement;
+    if (noclip)
+      return;
 
     if (portalDiagnosticMode)
       return;
 
-    //writefln("vel: %s turn: %s", vel, turnRate);
+    vec3 movement = pos - oldpos;
+    vec3 orient = vec3(sin(camYaw), 0, cos(camYaw));
+
     /* Intersect space faces */
     if (oldpos != pos && !noclip)
     {

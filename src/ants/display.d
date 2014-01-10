@@ -108,11 +108,11 @@ class Display
     {
       case "fly":
         camera.fly = ! camera.fly;
-        console.print(format("fly %sabled", camera.fly ? "en" : "dis"));
+        console.print(format("fly %sabled\n", camera.fly ? "en" : "dis"));
         break;
       case "noclip":
         camera.noclip = ! camera.noclip;
-        console.print(format("noclip %sabled", camera.noclip ? "en" : "dis"));
+        console.print(format("noclip %sabled\n", camera.noclip ? "en" : "dis"));
         break;
       default:
         console.print(format("unknown command: %s\n", cmd));
