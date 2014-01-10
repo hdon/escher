@@ -15,10 +15,10 @@ alias Matrix!(float, 3, 3) mat3f;
 
 class Vertexer
 {
-  double[]  positions;
-  double[]  UVs;
-  float[]   colors;
-  double[]  normals;
+  vec3d []  positions;
+  vec2d []  UVs;
+  vec3f []  colors;
+  vec3d []  normals;
   uint      numVerts;
   vec3f     lightPos;
 
@@ -39,21 +39,26 @@ class Vertexer
   this()
   {
     lightPos = vec3f(1,0,0);
+    positions.length = 2;
+    colors.length    = 2;
+    UVs.length       = 2;
+    normals.length   = 2;
   }
 
   void add(vec3d pos, vec2d uv, vec3d normal, vec3f color)
   {
-    positions ~= pos.x;
-    positions ~= pos.y;
-    positions ~= pos.z;
-    colors ~= color.x;
-    colors ~= color.y;
-    colors ~= color.z;
-    UVs ~= uv.x;
-    UVs ~= uv.y;
-    normals ~= normal.x;
-    normals ~= normal.y;
-    normals ~= normal.z;
+    if (positions.length <= numVerts)
+    {
+      positions.length *= 2;
+      colors.length *= 2;
+      UVs.length *= 2;
+      normals.length *= 2;
+    }
+
+    positions[numVerts] = pos;
+    colors[numVerts] = color;
+    UVs[numVerts] = uv;
+    normals[numVerts] = normal;
     numVerts++;
   }
 
@@ -171,14 +176,14 @@ class Vertexer
     glBindVertexArray(vertexArrayObject);
 
     glBindBuffer(GL_ARRAY_BUFFER, positionBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, positions.length * double.sizeof, positions.ptr, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, numVerts * vec3d.sizeof, positions.ptr, GL_STREAM_DRAW);
     glEnableVertexAttribArray(positionVertexAttribLocation);
     glVertexAttribPointer(positionVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
 
     if (colorVertexAttribLocation >= 0)
     {
       glBindBuffer(GL_ARRAY_BUFFER, colorBufferObject);
-      glBufferData(GL_ARRAY_BUFFER, colors.length * float.sizeof, colors.ptr, GL_STREAM_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, numVerts * vec3f.sizeof, colors.ptr, GL_STREAM_DRAW);
       glEnableVertexAttribArray(colorVertexAttribLocation);
       glVertexAttribPointer(colorVertexAttribLocation, 3, GL_FLOAT, 0, 0, null);
     }
@@ -186,7 +191,7 @@ class Vertexer
     if (uvVertexAttribLocation >= 0)
     {
       glBindBuffer(GL_ARRAY_BUFFER, uvBufferObject);
-      glBufferData(GL_ARRAY_BUFFER, UVs.length * double.sizeof, UVs.ptr, GL_STREAM_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, numVerts * vec2d.sizeof, UVs.ptr, GL_STREAM_DRAW);
       glEnableVertexAttribArray(uvVertexAttribLocation);
       glVertexAttribPointer(uvVertexAttribLocation, 2, GL_DOUBLE, 0, 0, null);
     }
@@ -194,7 +199,7 @@ class Vertexer
     if (normalVertexAttribLocation >= 0)
     {
       glBindBuffer(GL_ARRAY_BUFFER, normalBufferObject);
-      glBufferData(GL_ARRAY_BUFFER, normals.length * double.sizeof, normals.ptr, GL_STREAM_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, numVerts * vec3d.sizeof, normals.ptr, GL_STREAM_DRAW);
       glEnableVertexAttribArray(normalVertexAttribLocation);
       glVertexAttribPointer(normalVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
     }
@@ -222,10 +227,6 @@ class Vertexer
     glDeleteBuffers(1, &uvBufferObject);
     glDeleteBuffers(1, &normalBufferObject);
 
-    positions.length = 0;
-    colors.length = 0;
-    UVs.length = 0;
-    normals.length = 0;
     numVerts = 0;
   }
 }
