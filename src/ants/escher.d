@@ -1952,7 +1952,7 @@ class Camera
       }
 
       stopWatch.stop();
-      writefln("[profile] collision: %s ms", stopWatch.peek.to!("msecs", float)());
+      profileCollision = stopWatch.peek.to!("msecs", float)();
     }
 
     // XXX
@@ -1965,6 +1965,9 @@ class Camera
 
   bool noBody;
   int frame = 0;
+  float profileDrawWorld;
+  float profileDrawArms;
+  float profileCollision;
   void draw(uint t)
   {
     vertexer.setFrameTime(t/1000.0);
@@ -2012,6 +2015,9 @@ class Camera
       * mat4.rotation(camYaw, vec3(0,1,0))
       * mat4.translation(-pos.x, -pos.y, -pos.z);
 
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+
     /* Profile world draw code */
     StopWatch stopWatch;
     stopWatch.start();
@@ -2021,7 +2027,7 @@ class Camera
     glErrorCheck("after drawSpace()");
 
     stopWatch.stop();
-    writefln("[profile] draw.world: %s ms", stopWatch.peek.to!("msecs", float)());
+    profileDrawWorld = stopWatch.peek.to!("msecs", float);
 
     if (noBody)
       return;
@@ -2041,6 +2047,6 @@ class Camera
     frame++;
 
     stopWatch.stop();
-    writefln("[profile] draw.arms: %s ms", stopWatch.peek.to!("msecs", float)());
+    profileDrawArms = stopWatch.peek.to!("msecs", float)();
   }
 }

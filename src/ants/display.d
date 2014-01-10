@@ -102,7 +102,7 @@ class Display
       console = new DoglConsole(width/16, height/16);
       console.handleCommand = &command;
 
-      profileHUD = new HUDText(10, 2, 0, 0, 10f*16f/width, 2f*16f/height);
+      profileHUD = new HUDText(15, 3, 0, 0, 15f*16f/width, 3f*16f/height);
       profileHUD.print("Hello!");
     }
   }
@@ -167,6 +167,11 @@ class Display
     camera.update(delta);
     camera.draw(t);
 
+    profileHUD.print(format("w: %2.4s ms\na: %2.4s ms\nc: %2.4s ms",
+      camera.profileDrawWorld,
+      camera.profileDrawArms,
+      camera.profileCollision,
+      ));
     profileHUD.draw();
     console.draw();
 

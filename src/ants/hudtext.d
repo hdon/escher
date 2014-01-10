@@ -92,7 +92,7 @@ class HUDText
       else
         buf[cursor++] = c;
       if (cursor >= buf.length)
-        cursor = 0;
+        return;
     }
   }
 
@@ -171,6 +171,10 @@ class HUDText
     glUniform1i(fontTexUniformLocation, 0);
 
     /* Draw */
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
     glDrawArrays(GL_TRIANGLES, 0, w*h*3*2);
 
     /* Release GL resources */
