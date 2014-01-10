@@ -114,6 +114,10 @@ class Display
         camera.noclip = ! camera.noclip;
         console.print(format("noclip %sabled\n", camera.noclip ? "en" : "dis"));
         break;
+      case "nobody":
+        camera.noBody = ! camera.noBody;
+        console.print(format("nobody %sabled\n", camera.noBody ? "en" : "dis"));
+        break;
       default:
         console.print(format("unknown command: %s\n", cmd));
     }

@@ -17,6 +17,8 @@ import ants.md5 : MD5Model, MD5Animation;
 import ants.texture;
 import ants.vertexer;
 import ants.material;
+import std.datetime : StopWatch;
+import core.time : TickDuration;
 debug import std.stdio : writeln, writefln;
 
 /*version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}
@@ -1689,6 +1691,10 @@ class Camera
     /* Intersect space faces */
     if (oldpos != pos && !noclip)
     {
+      /* Profile collision code */
+      StopWatch stopWatch;
+      stopWatch.start();
+
       bool landed;
 
       //writeln("movement.length = ", movement.length, " but also = ", (pos-oldpos).length);
@@ -1944,6 +1950,9 @@ class Camera
         grounded = true;
         vel.vector[1] = 0;
       }
+
+      stopWatch.stop();
+      writefln("[profile] collision: %s ms", stopWatch.peek.to!("msecs", float)());
     }
 
     // XXX
@@ -1954,6 +1963,7 @@ class Camera
     world.entities[playerEntity.spaceID] ~= playerEntity;
   }
 
+  bool noBody;
   int frame = 0;
   void draw(uint t)
   {
@@ -2002,10 +2012,22 @@ class Camera
       * mat4.rotation(camYaw, vec3(0,1,0))
       * mat4.translation(-pos.x, -pos.y, -pos.z);
 
-    //writeln("drawSpace() entry");
+    /* Profile world draw code */
+    StopWatch stopWatch;
+    stopWatch.start();
+
     glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
     glErrorCheck("after drawSpace()");
+
+    stopWatch.stop();
+    writefln("[profile] draw.world: %s ms", stopWatch.peek.to!("msecs", float)());
+
+    if (noBody)
+      return;
+
+    stopWatch.reset();
+    stopWatch.start();
 
     mat4 playerMat = mat4.identity
       .rotate(PI*0.5, vec3(1,0,0))
@@ -2017,5 +2039,8 @@ class Camera
     mat4 pmatPlayer = mat4.perspective(800, 600, 90, 0.000001, 10);
     playerAnimation.draw(playerMat, pmatPlayer);
     frame++;
+
+    stopWatch.stop();
+    writefln("[profile] draw.arms: %s ms", stopWatch.peek.to!("msecs", float)());
   }
 }
