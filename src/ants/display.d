@@ -13,6 +13,7 @@ import std.math : PI;
 import std.exception : enforce;
 import std.conv : to;
 import file = std.file;
+import ants.hudtext : HUDText;
 
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
@@ -33,6 +34,7 @@ class Display
     World world;
     Camera camera;
     DoglConsole console;
+    HUDText profileHUD;
 
     GLuint glprogram;
 
@@ -99,6 +101,9 @@ class Display
 
       console = new DoglConsole(width/16, height/16);
       console.handleCommand = &command;
+
+      profileHUD = new HUDText(10, 2, 0, 0, 10f*16f/width, 2f*16f/height);
+      profileHUD.print("Hello!");
     }
   }
 
@@ -162,6 +167,7 @@ class Display
     camera.update(delta);
     camera.draw(t);
 
+    profileHUD.draw();
     console.draw();
 
     SDL_RenderPresent(displayRenderer);

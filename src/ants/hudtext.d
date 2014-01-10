@@ -1,6 +1,5 @@
-module ants.doglconsole;
+module ants.hudtext;
 import derelict.opengl3.gl3;
-import derelict.sdl2.sdl;
 import ants.texture;
 import ants.shader;
 import ants.ascii : holdShift, capsLocked;
@@ -18,45 +17,34 @@ void glErrorCheck(string source)
   }
 }
 
-class DoglConsole
+ShaderProgram shaderProgram;
+
+class HUDText
 {
   bool visible;
   Texture font;
-  ShaderProgram shaderProgram;
-  void delegate(DoglConsole console, string cmd) handleCommand;
-
-  uint w, h, front, inbufCursor;
   char[] buf;
-  char[] inbuf;
+  
+  uint w, h;
   vec2[] vertexPositions;
   vec2[] vertexUVs;
 
-  this(uint w, uint h)
+  this(uint w, uint h, float sx, float sy, float sw, float sh)
   {
-    shaderProgram = new ShaderProgram("doglconsole.vs", "doglconsole.fs");
-    redimension(w, h);
+    redimension(w, h, sx, sy, sw, sh);
 
+    // TODO texture/sample parameters are currently being set in doglconsole, lol
     font = getTexture("font850.png");
-    // TODO this is bullshit and should be done elsewhere but for now it's easy to do here
-    glBindTexture(GL_TEXTURE_2D, font.v);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1);
+
+    visible = true;
   }
 
-  void redimension(uint w, uint h)
+  void redimension(uint w, uint h, float sx, float sy, float sw, float sh)
   {
     this.w = w;
     this.h = h;
 
-    buf.length = 0;
-    buf.length = w*(h-1);
-
-    inbuf.length = 0;
-    inbuf.length = w;
-    inbufCursor = 0;
+    buf.length = w*h;
 
     vertexUVs.length = 0;
     vertexUVs.length = w*h*6;
@@ -64,19 +52,21 @@ class DoglConsole
     vertexPositions.length = 0;
     vertexPositions.length = w*h*6;
 
-    float rH = 1f/h;
-    float rW = 1f/w;
+    float rH = sh/h;
+    float rW = sw/w;
     float y0, y1, x0, x1;
-    y1 = 0f;
+    float sx_sw = sx / sw;
+    float sy_sh = sy / sh;
+    y1 = sy_sh;
     for (uint y=0; y<h; y++)
     {
       y0 = y1;
-      y1 = -rH*(y+1);
-      x1 = 0f;
+      y1 = -rH*(y+1) + sy_sh;
+      x1 = sx_sw;
       for (uint x=0; x<w; x++)
       {
         x0 = x1;
-        x1 = rW*(x+1);
+        x1 = rW*(x+1) + sx_sw;
         uint n = (y*w+x)*6;
 
         vertexPositions[n+0] = vec2(x0, y0);
@@ -92,7 +82,7 @@ class DoglConsole
 
   void print(string text)
   {
-    uint cursor = front;
+    uint cursor = 0;
     foreach (char c; text)
     {
       if (c == '\0')
@@ -104,7 +94,6 @@ class DoglConsole
       if (cursor >= buf.length)
         cursor = 0;
     }
-    front = cursor;
   }
 
   void draw()
@@ -112,21 +101,15 @@ class DoglConsole
     if (!visible)
       return;
 
+    if (shaderProgram is null)
+      shaderProgram = new ShaderProgram("doglconsole.vs", "doglconsole.fs");
+
     float r = 1f/16f;
-    uint frontY = front/w;
-    uint Y=frontY;
     for (uint y=0; y<h; y++)
     {
-      if (Y >= (h-1))
-        Y = 0;
-
       for (uint x=0; x<w; x++)
       {
-        char c;
-        if (y == h-1)
-          c = inbuf[x];
-        else
-          c = buf[Y*w+x];
+        char c = buf[y*w+x];
         char cx = c%16;
         char cy = c/16;
         float x0 = r *  cx;
@@ -143,8 +126,6 @@ class DoglConsole
         vertexUVs[n+4] = vertexUVs[n+1];
         vertexUVs[n+5] = vec2(x1, y1);
       }
-
-      ++Y;
     }
 
     GLuint vertexArrayObject;
@@ -190,73 +171,11 @@ class DoglConsole
     glUniform1i(fontTexUniformLocation, 0);
 
     /* Draw */
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
     glDrawArrays(GL_TRIANGLES, 0, w*h*3*2);
 
     /* Release GL resources */
     glDeleteVertexArrays(1, &vertexArrayObject);
     glDeleteBuffers(1, &positionBufferObject);
     glDeleteBuffers(1, &uvBufferObject);
-  }
-
-  /* Returns true if event requires further processing outside the scope of DoglConsole */
-  bool handleSDLEvent(SDL_Event* event)
-  {
-    if (event.type != SDL_KEYDOWN)
-      return true;
-
-    int key = event.key.keysym.sym;
-    
-    if (!visible)
-    {
-      if (key == '`')
-      {
-        visible = true;
-        return false;
-      }
-      return true;
-    }
-
-    if (key == SDLK_RETURN)
-    {
-      if (inbufCursor != 0)
-      {
-        handleCommand(this, inbuf[0..inbufCursor].idup);
-        for (auto i=0; i<inbufCursor; i++)
-          inbuf[i] = '\0';
-        inbufCursor = 0;
-      }
-      return false;
-    }
-
-    if (key == SDLK_BACKSPACE)
-    {
-      if (inbufCursor != 0)
-        inbuf[--inbufCursor] = '\0';
-      return false;
-    }
-
-    if (key == '`')
-    {
-      visible = false;
-      return false;
-    }
-
-    if (key >= ' ' && key <= '~')
-    {
-      //print(format("You pressed %c\n", cast(char)key));
-      if (event.key.keysym.mod & KMOD_SHIFT)
-        key = holdShift(cast(char)key);
-      else if (event.key.keysym.mod & KMOD_CAPS)
-        key = capsLocked(cast(char)key);
-      inputInsertChar(cast(char)key);
-    }
-    return false;
-  }
-
-  void inputInsertChar(char c)
-  {
-    inbuf[inbufCursor++] = c;
   }
 }
