@@ -1646,7 +1646,7 @@ class Camera
       wasdVec = wasdMat * wasdVec;
       vel = vec3(
         wasdVec.x,
-        keyUp == keyDown ? 0 : keyUp ? .23 : -.23,
+        keyUp == keyDown ? 0 : keyUp ? 23 : -23,
         wasdVec.y);
     }
     else
@@ -1684,9 +1684,8 @@ class Camera
       vel.z = vel2.y;
 
       /* Apply gravity */
-      if (!grounded) vel.y = vel.y - 50.0 * deltaf;
-      else if (keyUp) { grounded=false; vel.y = jumpVel; }
-      else vel.y = 0;
+      if (grounded && keyUp) { grounded=false; vel.y = jumpVel; }
+      else vel.y = vel.y - 50.0 * deltaf;
     }
 
     pos += vel * deltaf;
@@ -2042,7 +2041,10 @@ class Camera
     profileDrawWorld = stopWatch.peek.to!("msecs", float);
 
     if (noBody)
+    {
+      profileDrawArms = 0;
       return;
+    }
 
     stopWatch.reset();
     stopWatch.start();
