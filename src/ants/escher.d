@@ -489,6 +489,16 @@ class Face
   }
 }
 
+bool compareFacesByRenderType(Face a, Face b)
+{
+  return
+    a.data.type != b.data.type ?
+    a.data.type <  b.data.type :
+      a.data.type == FaceType.SolidColor ?
+      a.data.solidColor.materialID < b.data.solidColor.materialID :
+        a.data.remote.remoteID < b.data.remote.remoteID;
+}
+
 class Space
 {
   int       id;
@@ -1043,6 +1053,14 @@ class World
       }
     }
 
+    /* Organizes ordinary visible faces in each space by their material ID */
+    foreach (spacei; spaces)
+      sort!compareFacesByRenderType(spacei.faces);
+
+    //foreach (spacei; spaces)
+      //foreach (face; spacei.faces)
+        //writeln(face);
+
     // Initialize entities
     entities.length = spaces.length;
 
@@ -1091,15 +1109,19 @@ class World
     }
     
     // Draw some triangles
+    int lastMaterialID = -1;
     foreach (faceID, face; space.faces)
     {
+      // TODO faces are sorted, so this could be changed..
       if (face.data.type != FaceType.SolidColor)
         continue;
 
       drawFace(space, face, transform, pmatWorld);
-      // TODO optimize by drawing faces in material order?
-      vertexer.draw(shaderProgram, transform, pmatWorld, materials[face.data.solidColor.materialID]);
+      if (lastMaterialID > 0 && lastMaterialID != face.data.solidColor.materialID)
+        vertexer.draw(shaderProgram, transform, pmatWorld, materials[lastMaterialID]);
+      lastMaterialID = face.data.solidColor.materialID;
     }
+    vertexer.draw(shaderProgram, transform, pmatWorld, materials[lastMaterialID]);
 
     /* Now we'll draw our entities.
      */
