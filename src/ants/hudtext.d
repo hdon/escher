@@ -88,7 +88,8 @@ class HUDText
       if (c == '\0')
         {}
       if (c == '\n')
-        cursor = (cursor / w + 1) * w;
+        while (cursor % w != 0)
+          buf[cursor++] = ' ';
       else
         buf[cursor++] = c;
       if (cursor >= buf.length)

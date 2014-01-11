@@ -5,6 +5,7 @@ import ants.escher : World, Camera, Entity, playerEntity;
 import ants.doglconsole;
 import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen, format;
+import std.datetime : Clock;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import derelict.opengl3.gl3;
@@ -102,7 +103,7 @@ class Display
       console = new DoglConsole(width/16, height/16);
       console.handleCommand = &command;
 
-      profileHUD = new HUDText(15, 3, 0, 0, 15f*16f/width, 3f*16f/height);
+      profileHUD = new HUDText(45, 4, 0, 0, 45f*16f/width, 4f*16f/height);
       profileHUD.print("Hello!");
     }
   }
@@ -152,12 +153,11 @@ class Display
     DerelictSDL2.unload();
   }
 
-  uint lastFrame;
-
+  ulong lastFrame;
   void drawGLFrame()
   {
-    uint t = SDL_GetTicks();
-    uint delta = t - lastFrame;
+    ulong t = Clock.currStdTime();
+    ulong delta = t - lastFrame;
 
     SDL_GL_MakeCurrent(displayWindow, displayContext);
     setupGL();
@@ -167,7 +167,8 @@ class Display
     camera.update(delta);
     camera.draw(t);
 
-    profileHUD.print(format("w: %2.4s ms\na: %2.4s ms\nc: %2.4s ms",
+    profileHUD.print(format("dt: %2.4s ms\nw: %2.4s ms\na: %2.4s ms\nc: %2.4s ms",
+      delta / 10_000.0,
       camera.profileDrawWorld,
       camera.profileDrawArms,
       camera.profileCollision,

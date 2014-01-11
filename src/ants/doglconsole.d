@@ -190,6 +190,7 @@ class DoglConsole
     glUniform1i(fontTexUniformLocation, 0);
 
     /* Draw */
+    glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDrawArrays(GL_TRIANGLES, 0, w*h*3*2);

@@ -1614,7 +1614,8 @@ class Camera
     const double speed = .1;
     const double startSpeed = 0.08;
     const double jumpVel = 0.25;
-    float deltaf = delta/1000f; // TODO double?
+    const double mass = 1.0;
+    float deltaf = delta/10_000_000f;
 
     // Remember old position for intersection tests
     vec3 oldpos = pos;
@@ -1645,7 +1646,7 @@ class Camera
       wasdVec = wasdMat * wasdVec;
       vel = vec3(
         wasdVec.x,
-        keyUp == keyDown ? 0 : keyUp ? 1 : -1,
+        keyUp == keyDown ? 0 : keyUp ? .23 : -.23,
         wasdVec.y);
     }
     else
@@ -1664,6 +1665,17 @@ class Camera
       vec2 totalWasdVec = vec2(
         oldWasdVec.x * (1.0-frictionCoefY) + wasdVec.x * frictionCoefY,
         oldWasdVec.y * (1.0-frictionCoef ) + wasdVec.y * frictionCoef );
+
+      /* Apply slow-down friction */
+      if (grounded)
+      {
+        const double slowdown = 0.001;
+        auto mag = totalWasdVec.magnitude;
+        if (mag < slowdown)
+          totalWasdVec = vec2(0, 0);
+        else
+          totalWasdVec *= 1.0 - slowdown/mag;
+      }
 
       /* Rotate by camYaw matrix to gain our final velocity vector */
       vec2 vel2 = wasdMat * totalWasdVec;
@@ -1968,9 +1980,9 @@ class Camera
   float profileDrawWorld;
   float profileDrawArms;
   float profileCollision;
-  void draw(uint t)
+  void draw(ulong t)
   {
-    vertexer.setFrameTime(t/1000.0);
+    vertexer.setFrameTime(t/10_000_000.0);
     ubyte portalDepth = 2;
 
     if (shaderProgram is null)
