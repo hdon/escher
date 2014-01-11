@@ -1611,9 +1611,9 @@ class Camera
   {
     vec3 accel;
     const double EPSILON = 0.000001;
-    const double speed = .1;
+    const double speed = 10.0;
     const double startSpeed = 0.08;
-    const double jumpVel = 0.25;
+    const double jumpVel = 25.0;
     const double mass = 1.0;
     float deltaf = delta/10_000_000f;
 
@@ -1684,12 +1684,12 @@ class Camera
       vel.z = vel2.y;
 
       /* Apply gravity */
-      if (!grounded) vel.y = vel.y - 0.45 * deltaf;
+      if (!grounded) vel.y = vel.y - 50.0 * deltaf;
       else if (keyUp) { grounded=false; vel.y = jumpVel; }
       else vel.y = 0;
     }
 
-    pos += vel;
+    pos += vel * deltaf;
 
     if (noclip)
       return;
