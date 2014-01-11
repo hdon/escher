@@ -1782,7 +1782,7 @@ class Camera
                 vec3 dp = p - p3;
                 if (dp.magnitude_squared < hitSphereRadius * hitSphereRadius)
                 {
-                  writeln("@@ segment-sphere hit!");
+                  //writeln("@@ segment-sphere hit!");
 
                   /* TODO The pseudo-plane technique accelerates your movement around a bend.
                    *      This is undesirable and should be addressed!
@@ -1791,20 +1791,20 @@ class Camera
                   /* Calculate the pseudo-plane normal by subtracting 'p' from 'pos.' */
                   vec3 pseudon = (pos - p).normalized;
 
-                  writeln("@@ pseudo normal: ", n);
+                  //writeln("@@ pseudo normal: ", n);
 
                   /* Solve planar equation for 'd' of plane containing the edge we hit */
                   float p0d = -dot(p, n);
 
-                  writeln("@@   wall plane 0 d = ", p0d);
+                  //writeln("@@   wall plane 0 d = ", p0d);
 
                   /* Solve planar equation for 'd' of plane p1 */
                   float p1d = -dot(n, hitSphereEndPos);
-                  writeln("@@   wall plane 1 d = ", p1d);
+                  //writeln("@@   wall plane 1 d = ", p1d);
 
                   /* Compute new position projected onto the plane containing map face */
                   pos = pos + (p1d-p0d) * 1.01 * n;
-                  writeln("@@   wall nudge: ", n * (p1d-p0d));
+                  //writeln("@@   wall nudge: ", n * (p1d-p0d));
 
                   /* Check for floor or ceiling */
                   //if (dot(vec3(0,1,0), n.normalized) < 0.5)
@@ -1819,7 +1819,7 @@ class Camera
           {
             /* The hitpoint on the hitsphere has traveled through the wall. */
 
-            writefln("@@ Colliding with a wall");
+            //writefln("@@ Colliding with a wall");
             /* Either the hitpoint on the hitsphere has traveled through the wall or we have
              * created a pseudo-plane through which the hitpoint has traveled.
              *
@@ -1842,28 +1842,28 @@ class Camera
              * v' = v * n * f
              */
 
-            writeln("@@   wall normal: ", n);
+            //writeln("@@   wall normal: ", n);
 
             /* Solve planar equation for 'd' of plane containing map face */
             float p0d = -dot(fv[0], n);
 
-            writeln("@@   wall plane 0 d = ", p0d);
+            //writeln("@@   wall plane 0 d = ", p0d);
 
             /* Solve planar equation for 'd' of plane p1 */
             float p1d = -dot(n, hitSphereEndPos);
-            writeln("@@   wall plane 1 d = ", p1d);
+            //writeln("@@   wall plane 1 d = ", p1d);
 
             /* Compute new position projected onto the plane containing map face */
             pos = pos + (p1d-p0d) * 1.01 * n;
-            writeln("@@   wall nudge: ", n * (p1d-p0d));
+            //writeln("@@   wall nudge: ", n * (p1d-p0d));
 
             /* Check for floor */
             auto f = dot(vec3(0,-1,0), n.normalized);
-            writeln("@@ f: ", f);
+            //writeln("@@ f: ", f);
             if (f > 0.5)
               landed = true;
-            else
-              writeln("@@   wall!ceiling");
+            //else
+              //writeln("@@   wall!ceiling");
           }
         }
 
@@ -1957,7 +1957,7 @@ class Camera
 
       if (landed)
       {
-        writeln("@@ landed");
+        //writeln("@@ landed");
         grounded = true;
         vel.vector[1] = 0;
       }
