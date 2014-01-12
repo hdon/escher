@@ -1601,6 +1601,15 @@ class Camera
           vertexer.lightPos = vec3f(this.pos.x, this.pos.y, this.pos.z);
         break;
 
+      case '0':
+        if (down)
+        {
+          auto e = new EntitySpikey(spaceID, pos);
+          world.entities[spaceID] ~= e;
+          writefln("[entity] dropped spikey!");
+        }
+        break;
+
       default:
         break;
     }
@@ -1970,11 +1979,27 @@ class Camera
     }
 
     // XXX
-    world.entities[playerEntity.spaceID].length = 0;
-    playerEntity.spaceID = spaceID;
+
+    if (playerEntity.spaceID != spaceID)
+    {
+      auto entities = world.entities[playerEntity.spaceID];
+      foreach (i, e; entities)
+      {
+        if (e is playerEntity)
+        {
+          if (i < entities.length-1)
+            entities[i] = entities[$-1];
+          --entities.length;
+          break;
+        }
+      }
+
+      playerEntity.spaceID = spaceID;
+      world.entities[spaceID] ~= playerEntity;
+    }
+
     playerEntity.pos = pos;
     playerEntity.angle = camYaw;
-    world.entities[playerEntity.spaceID] ~= playerEntity;
   }
 
   bool noBody;
