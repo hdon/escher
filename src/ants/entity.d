@@ -24,6 +24,8 @@ class Entity
   }
 }
 
+alias Entity delegate() Spawner;
+
 class EntityMD5 : Entity
 {
   static
@@ -51,15 +53,32 @@ class EntityPlayer : Entity
     super(spaceID, pos);
     this.angle = angle;
   }
+
+  static Spawner spawner(int spaceID, vec3 pos, float angle=0f)
+  {
+    Entity spawn() { return new EntityPlayer(spaceID, pos, angle); };
+    return &spawn;
+  }
 }
 
-class EntitySpikey : EntityMD5
+class EntityEnemy : EntityMD5
+{
+  bool dead;
+
+  this(int spaceID, vec3 pos)
+  {
+    super(spaceID, pos);
+  }
+}
+
+class EntitySpikey : EntityEnemy
 {
   static MD5Model model;
   static MD5Animation anim;
 
-  this(int spaceID, vec3 pos)
+  this(int spaceID, vec3 pos, vec3 orient)
   {
+    // TODO orient!
     super(spaceID, pos);
   }
 
@@ -67,6 +86,12 @@ class EntitySpikey : EntityMD5
   void draw(mat4 mvmat, mat4 pmat)
   {
     anim.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
+  }
+
+  static Spawner spawner(int spaceID, vec3 pos, vec3 orient)
+  {
+    Entity spawn() { return new EntitySpikey(spaceID, pos, orient); };
+    return &spawn;
   }
 }
 
@@ -76,3 +101,5 @@ void loadEntityAssets()
   EntitySpikey.model = new MD5Model("res/md5/spikey.md5mesh");
   EntitySpikey.anim = new MD5Animation(EntitySpikey.model, "res/md5/spikey.md5anim");
 }
+
+

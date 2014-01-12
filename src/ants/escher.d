@@ -510,6 +510,7 @@ class Space
   Remote[]  remotes;
   vec3[]    verts;
   Face[]    faces;
+  Spawner[] spawns;
 
   override
   string toString()
@@ -526,6 +527,7 @@ private enum ParserMode
   expectNumSpaces,
   expectSpace,
   expectRemote,
+  expectSpawn,
   expectVert,
   expectFace
 }
@@ -813,7 +815,7 @@ class World
 
     // Used to check for file sanity
     int spaceID, remoteID, materialID;
-    size_t numSpaces, numVerts, numFaces, numRemotes, numMaterials, numTextures;
+    size_t numSpaces, numVerts, numFaces, numRemotes, numMaterials, numTextures, numSpawns;
 
     foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
     {
@@ -823,7 +825,7 @@ class World
         writefln("processing line #%d: %s", lineNo+1, line);
       if (lineNo == 0)
       {
-        enforce(line == "escher version 5", "first line of map must be: escher version 5");
+        enforce(line == "escher version 6", "first line of map must be: escher version 6");
         continue;
       }
 
@@ -900,22 +902,27 @@ class World
           enforce(words[2] == "numverts", "expected numverts");
           enforce(words[4] == "numfaces", "expected numfaces");
           enforce(words[6] == "numremotes", "expected numremotes");
+          enforce(words[8] == "numspawns", "expected numspawns");
           spaceID = to!int(words[1]);
           enforce(spaceID == spaces.length, "spaces disorganized");
 
           numVerts = to!size_t(words[3]);
           numFaces = to!size_t(words[5]);
           numRemotes = to!size_t(words[7]);
+          numSpawns = to!size_t(words[9]);
 
           space = new Space();
           space.id = spaceID;
           space.verts.reserve(numVerts);
           space.faces.reserve(numFaces);
           space.remotes.reserve(numRemotes);
+          space.spawns.reserve(numSpawns);
           spaces ~= space;
 
           if (numRemotes > 0)
             mode = ParserMode.expectRemote;
+          else if (numSpawns > 0)
+            mode = ParserMode.expectSpawn;
           else
             mode = ParserMode.expectVert;
           break;
@@ -984,6 +991,41 @@ class World
           space.remotes ~= remote;
 
           if (space.remotes.length == numRemotes)
+            mode = numSpawns != 0 ? ParserMode.expectSpawn : ParserMode.expectVert;
+          break;
+
+        case ParserMode.expectSpawn:
+          enforce(words[0] == "spawn", "expected spawn");
+          enforce(to!size_t(words[1]) == space.spawns.length, "spawns disorganized");
+          enforce(words[2] == "translation", "expected translation");
+          enforce(words[6] == "orientation", "expected orientation");
+          enforce(words[10] == "params", "expected params");
+
+          static if (1)
+          {
+            vec3 translation = vec3(
+              to!float(words[3]),
+              to!float(words[4]),
+              to!float(words[5]));
+            vec3 orientation = vec3(
+              to!float(words[7]),
+              to!float(words[8]),
+              to!float(words[9]));
+
+            switch (words[11])
+            {
+              case "player":
+                space.spawns ~= EntityPlayer.spawner(spaceID, translation, 0);
+                break;
+              case "spikey":
+                space.spawns ~= EntitySpikey.spawner(spaceID, translation, orientation);
+                break;
+              default:
+                assert(0, "unknown spawn type " ~ words[11]);
+            }
+          }
+
+          if (space.spawns.length == numSpawns)
             mode = ParserMode.expectVert;
           break;
 
@@ -1066,8 +1108,19 @@ class World
       //foreach (face; spacei.faces)
         //writeln(face);
 
-    // Initialize entities
+    /* 'entities' is an array of arrays. The first key is the spaceID. The second key is sequential
+     * otherwise and meaningless.
+     */
     entities.length = spaces.length;
+
+    /* Now we will visit spawners TODO This should happen per-Space, and it should set a timeout or
+     * something for the next time this is allowed to happen, which should be based on visibility
+     * of the space, which means that when we render Spaces, we should mark them with a timestamp
+     * of the last time they were rendered...? Needs some thought...
+     */
+    foreach (spacei, spaceb; spaces)
+      foreach (spawn; spaceb.spawns)
+        entities[spacei] ~= spawn();
 
     version (debugEscherFiles)
     {
@@ -1601,14 +1654,14 @@ class Camera
           vertexer.lightPos = vec3f(this.pos.x, this.pos.y, this.pos.z);
         break;
 
-      case '0':
+      /*case '0':
         if (down)
         {
           auto e = new EntitySpikey(spaceID, pos);
           world.entities[spaceID] ~= e;
           writefln("[entity] dropped spikey!");
         }
-        break;
+        break;*/
 
       default:
         break;
