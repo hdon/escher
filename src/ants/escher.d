@@ -17,6 +17,7 @@ import ants.md5 : MD5Model, MD5Animation;
 import ants.texture;
 import ants.vertexer;
 import ants.material;
+import ants.entity;
 import std.datetime : StopWatch;
 import core.time : TickDuration;
 debug import std.stdio : writeln, writefln;
@@ -24,11 +25,15 @@ debug import std.stdio : writeln, writefln;
 /*version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}
 else{ pragma(msg, "rendering with OPENGL transforms"); }*/
 
-version(stencil) {pragma(msg, "rendering WITH stencils");}
-else{ pragma(msg, "rendering WITHOUT stencils"); }
+version(escherClient) { pragma(msg, "Building Escher client"); }
+else version(escherServer) { pragma(msg, "Building Escher server"); }
+else { static assert(0, "Version must be either escherClient or escherServer!"); }
 
-version (lighting) {pragma(msg, "rendering WITH lighting"); }
-else{ pragma(msg, "rendering WITHOUT lighting"); }
+version(stencil) {pragma(msg, "Stencils enabled");}
+else{ pragma(msg, "Stencils disabled"); }
+
+version (lighting) {pragma(msg, "Lighting enabled"); }
+else{ pragma(msg, "Lighting disabled"); }
 
 bool portalDiagnosticMode;
 
@@ -1246,33 +1251,9 @@ class World
   }
 }
 
-Entity playerEntity;
+EntityPlayer playerEntity;
 ShaderProgram shaderProgram;
 ShaderProgram portalDiagnosticProgram;
-
-class Entity
-{
-  int spaceID;
-  vec3 pos;
-  double angle;
-  this()
-  {
-    this.spaceID = 0;
-    this.pos = vec3(0,0,0);
-  }
-  void draw(mat4 mvmat, mat4 pmat)
-  {
-    // XXX for dumbomonkey!!!
-    /*glTranslatef(pos.x, pos.y, pos.z);
-    glRotatef(angle*180.0/PI, 0, 1, 0);
-    glRotatef(180, 0, 1, 0);
-    glRotatef(90, 1, 0, 0);
-    glScalef(.5, .5, .5);*/
-
-    //shaderProgram.sendVertexAttribute("ucolor", .25, 1, .25);
-    //playerAnimation.draw();
-  }
-}
 
 vec3 getTriangleNormal(vec3 a, vec3 b, vec3 c)
 {

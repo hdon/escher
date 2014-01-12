@@ -1,7 +1,8 @@
 module display;
 
 import ants.md5 : MD5Model, MD5Animation;
-import ants.escher : World, Camera, Entity, playerEntity;
+import ants.escher : World, Camera, playerEntity;
+import ants.entity : EntityPlayer;
 import ants.doglconsole;
 import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen, format;
@@ -96,7 +97,7 @@ class Display
 
       world = new World(mapfilename);
       camera = new Camera(world, 0, vec3(0,0,0));
-      playerEntity = new Entity();
+      playerEntity = new EntityPlayer(0, vec3(0,0,0));
 
       setupGL();
 
