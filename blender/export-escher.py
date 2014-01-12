@@ -81,6 +81,9 @@ def classifySpaceName(spaceName):
 def objectIsRemote(o):
   return o.type == 'EMPTY' and o.name.startswith('EscherRemote')
 
+def objectIsSpawn(o):
+  return o.type == 'EMPTY' and not o.name.startswith('EscherRemote') and o.escherSpawn
+
 def vec3toStr(v):
   return '%s %s %s' % (repr(-v.x), repr(v.z), repr(v.y))
 
@@ -142,7 +145,7 @@ def escherExport(materials, objects, scene, filename):
       PSOs[toUnqualifiedSpaceName(ob.name)] = ob
 
   out = open(filename, 'w')
-  out.write('escher version 5\n')
+  out.write('escher version 6\n')
   out.write('nummaterials %d\n' % len(mats))
 
   for imat, mat in enumerate(mats):
@@ -157,9 +160,10 @@ def escherExport(materials, objects, scene, filename):
   for iPSO, PSO in enumerate(PSOs):
     me = PSO.data
     remotes = list(filter(objectIsRemote, PSO.children))
+    spawns = list(filter(objectIsSpawn, PSO.children))
     # Write "space" command
-    out.write('space %d numverts %d numfaces %d numremotes %d\n' %
-      (iPSO, len(me.vertices), len(me.polygons), len(remotes)))
+    out.write('space %d numverts %d numfaces %d numremotes %d numspawns %d\n' %
+      (iPSO, len(me.vertices), len(me.polygons), len(remotes), len(spawns)))
     # Write "remote" commands
     for iRemote, remote in enumerate(remotes):
       remoteSpaceName = remote['escher_remote_space_name']
@@ -170,6 +174,12 @@ def escherExport(materials, objects, scene, filename):
       translation = vec3toStr(remote.location)
       orientation = euler2str(remote.rotation_euler)
       out.write('remote %d space %d translation %s orientation %s\n' % (iRemote, remoteIndex, translation, orientation))
+    # Write "spawn" commands
+    for iSpawn, spawn in enumerate(spawns):
+      spawnType = spawn.escherSpawn
+      translation = vec3toStr(spawn.location)
+      orientation = euler2str(spawn.rotation_euler)
+      out.write('spawn %d translation %s orientation %s params %s\n' % (iSpawn, translation, orientation, spawnType))
     # Write "vert" commands
     for vi, v in enumerate(me.vertices):
       out.write('vert %d %f %f %f\n' %
@@ -204,8 +214,8 @@ class ExportEscher(bpy.types.Operator, ExportHelper):
   bl_label        = "Escher Map Exporter";
   bl_options      = {'PRESET'};
 
-  filename_ext    = ".esc5";
-  filter_glob = StringProperty(default="*.esc5", options={'HIDDEN'})
+  filename_ext    = ".esc6";
+  filter_glob = StringProperty(default="*.esc6", options={'HIDDEN'})
 
   filepath = bpy.props.StringProperty(
       name="File Path", 
@@ -213,20 +223,22 @@ class ExportEscher(bpy.types.Operator, ExportHelper):
       maxlen=1024, default="")
 
   def execute(self, context):
-    print('exporting esc5 to filename "%s"' % self.properties.filepath)
+    print('exporting esc6 to filename "%s"' % self.properties.filepath)
     escherExport(bpy.data.materials, bpy.data.objects, bpy.context.scene, self.properties.filepath)
     return {'FINISHED'};
 
 def menu_func(self, context):
-  self.layout.operator(ExportEscher.bl_idname, text="Escher Map (.esc)")
+  self.layout.operator(ExportEscher.bl_idname, text="Escher Map (.esc6)")
 
 def register():
   bpy.utils.register_module(__name__)
   bpy.types.INFO_MT_file_export.append(menu_func)
+  bpy.types.Object.escherSpawn = bpy.props.StringProperty()
 
 def unregister():
   bpy.utils.unregister_module(__name__)
   bpy.types.INFO_MT_file_export.remove(menu_func)
+  del bpy.types.Object.escherSpawn
 
 if __name__ == "__main__":
   register()

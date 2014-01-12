@@ -178,7 +178,7 @@ class MD5Model
     int mode = ParserMode.open;
     size_t nJoints;
     size_t nMeshes;
-    string dir = dirName(filename) ~ "/";
+    //string dir = dirName(filename) ~ "/";
 
     foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
     {
@@ -262,7 +262,8 @@ class MD5Model
           }
           else if (words[0] == "shader")
           {
-            string textureFilename = dir ~ words[1][1..$-1];
+            //string textureFilename = dir ~ words[1][1..$-1];
+            string textureFilename = words[1][1..$-1];
             //writefln("[md5] shader \"%s\"", textureFilename);
             auto materialTexture = new MaterialTexture();
             materialTexture.application = TextureApplication.Color;
@@ -714,13 +715,13 @@ class MD5Animation
       vertexer = new Vertexer();
       emptyMaterial = new Material();
       shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
-      shaderProgram1 = new ShaderProgram("simple.vs", "plasma0.fs");
+      shaderProgram1 = new ShaderProgram("simpler.vs", "simpler.fs");
     }
 
-    vertexer.add(vec3(-1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    vertexer.add(vec3( 1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    vertexer.add(vec3( 1,  1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_TRIANGLES);
+    //vertexer.add(vec3(-1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+    //vertexer.add(vec3( 1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+    //vertexer.add(vec3( 1,  1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+    //vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_TRIANGLES);
 
     render(mvmat, pmat);
 
