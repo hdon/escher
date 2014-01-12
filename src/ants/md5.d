@@ -675,6 +675,7 @@ class MD5Animation
       }
 
       /* Draw vertexer contents */
+      glEnable(GL_CULL_FACE);
       vertexer.draw(shaderProgram1, mvmat, pmat, mesh.material, GL_TRIANGLES);
     }
   }

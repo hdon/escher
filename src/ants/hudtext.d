@@ -175,6 +175,7 @@ class HUDText
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glEnable(GL_BLEND);
+    glDisable(GL_CULL_FACE);
     glBlendFunc(GL_ONE, GL_ONE);
     glDrawArrays(GL_TRIANGLES, 0, w*h*3*2);
 

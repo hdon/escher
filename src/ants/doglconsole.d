@@ -193,6 +193,7 @@ class DoglConsole
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
+    glDisable(GL_CULL_FACE);
     glDrawArrays(GL_TRIANGLES, 0, w*h*3*2);
 
     /* Release GL resources */
