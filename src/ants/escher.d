@@ -1020,6 +1020,9 @@ class World
               case "spikey":
                 space.spawns ~= EntitySpikey.spawner(spaceID, translation, orientation);
                 break;
+              case "dragonfly":
+                space.spawns ~= EntityDragonfly.spawner(spaceID, translation, orientation);
+                break;
               default:
                 assert(0, "unknown spawn type " ~ words[11]);
             }
@@ -1145,7 +1148,7 @@ class World
   // I'm not sure I need to do that yet, but it might be nice for when I have models
   // and shit to draw, and not just a handful of polygons per space.
   mat4 pmatPortal  = mat4.perspective(800, 600, 90, 0.00001, 100);
-  mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 100);
+  mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 10000);
   //XXX ShaderProgram shaderProgram;
 
   bool drawMapVertices;
@@ -1574,6 +1577,11 @@ vec3 vec3translation(mat4 m)
   );
 }
 
+/* Weapons */
+enum Weap {
+  None,
+  Gun
+};
 MD5Model playerModel;
 MD5Animation playerAnimation;
 

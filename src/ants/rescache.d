@@ -5,7 +5,7 @@ mixin template ResourceCacheMixin(T, KT=string)
   union ResourcePtr
   {
     Resource r;
-    int p;
+    size_t p;
   }
 
   struct ResourcePionter

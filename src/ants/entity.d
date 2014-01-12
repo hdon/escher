@@ -15,9 +15,7 @@ class Entity
   }
 
   version (escherClient)
-  void draw(mat4 mvmat, mat4 pmat)
-  {
-  }
+  abstract void draw(mat4 mvmat, mat4 pmat);
 
   void update(float deltaf)
   {
@@ -34,10 +32,20 @@ class EntityMD5 : Entity
   }
   MD5Animation currentAnimation;
 
-  override
-  void draw(mat4 mvmat, mat4 pmat)
-  {
-  }
+  enum mixme = q{
+    static {
+      MD5Model _model;
+      MD5Animation _anim;
+      static @property MD5Model model() {return _model;}
+      static @property MD5Animation anim() {return _anim;}
+    }
+
+    override
+    void draw(mat4 mvmat, mat4 pmat)
+    {
+      anim.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
+    }
+  };
 
   this(int spaceID, vec3 pos)
   {
@@ -53,6 +61,8 @@ class EntityPlayer : Entity
     super(spaceID, pos);
     this.angle = angle;
   }
+
+  override void draw(mat4 mvmat, mat4 pmat) {}
 
   static Spawner spawner(int spaceID, vec3 pos, float angle=0f)
   {
@@ -73,19 +83,12 @@ class EntityEnemy : EntityMD5
 
 class EntitySpikey : EntityEnemy
 {
-  static MD5Model model;
-  static MD5Animation anim;
+  mixin(mixme);
 
   this(int spaceID, vec3 pos, vec3 orient)
   {
     // TODO orient!
     super(spaceID, pos);
-  }
-
-  override
-  void draw(mat4 mvmat, mat4 pmat)
-  {
-    anim.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
   }
 
   static Spawner spawner(int spaceID, vec3 pos, vec3 orient)
@@ -95,11 +98,31 @@ class EntitySpikey : EntityEnemy
   }
 }
 
+class EntityDragonfly : EntityEnemy
+{
+  mixin(mixme);
+
+  this(int spaceID, vec3 pos, vec3 orient)
+  {
+    // TODO orient!
+    super(spaceID, pos);
+  }
+
+  static Spawner spawner(int spaceID, vec3 pos, vec3 orient)
+  {
+    Entity spawn() { return new EntityDragonfly(spaceID, pos, orient); };
+    return &spawn;
+  }
+}
+
 /* Shittiest easiest way to do this... */
 void loadEntityAssets()
 {
-  EntitySpikey.model = new MD5Model("res/md5/spikey.md5mesh");
-  EntitySpikey.anim = new MD5Animation(EntitySpikey.model, "res/md5/spikey.md5anim");
+  EntitySpikey._model = new MD5Model("res/md5/spikey.md5mesh");
+  EntitySpikey._anim = new MD5Animation(EntitySpikey.model, "res/md5/spikey.md5anim");
+
+  EntityDragonfly._model = new MD5Model("res/md5/dragonfly-walk.md5mesh");
+  EntityDragonfly._anim = new MD5Animation(EntityDragonfly.model, "res/md5/dragonfly-walk.md5anim");
 }
 
 
