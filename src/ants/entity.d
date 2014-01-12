@@ -26,18 +26,10 @@ alias Entity delegate() Spawner;
 
 class EntityMD5 : Entity
 {
-  static
-  {
-    MD5Model md5Model;
-  }
-  MD5Animation currentAnimation;
-
   enum mixme = q{
     static {
-      MD5Model _model;
-      MD5Animation _anim;
-      static @property MD5Model model() {return _model;}
-      static @property MD5Animation anim() {return _anim;}
+      MD5Model model;
+      MD5Animation anim;
     }
 
     override
@@ -118,11 +110,11 @@ class EntityDragonfly : EntityEnemy
 /* Shittiest easiest way to do this... */
 void loadEntityAssets()
 {
-  EntitySpikey._model = new MD5Model("res/md5/spikey.md5mesh");
-  EntitySpikey._anim = new MD5Animation(EntitySpikey.model, "res/md5/spikey.md5anim");
+  EntitySpikey.model = new MD5Model("res/md5/spikey.md5mesh");
+  EntitySpikey.anim = new MD5Animation(EntitySpikey.model, "res/md5/spikey.md5anim");
 
-  EntityDragonfly._model = new MD5Model("res/md5/dragonfly-walk.md5mesh");
-  EntityDragonfly._anim = new MD5Animation(EntityDragonfly.model, "res/md5/dragonfly-walk.md5anim");
+  EntityDragonfly.model = new MD5Model("res/md5/dragonfly-walk.md5mesh");
+  EntityDragonfly.anim = new MD5Animation(EntityDragonfly.model, "res/md5/dragonfly-walk.md5anim");
 }
 
 
