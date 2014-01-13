@@ -11,7 +11,8 @@ import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
 import std.typecons : Tuple;
-import std.algorithm : sort;
+import std.algorithm : sort, map;
+import std.range : chunks;
 import ants.shader;
 import ants.md5 : MD5Model, MD5Animation;
 import ants.texture;
@@ -1012,16 +1013,32 @@ class World
               to!float(words[8]),
               to!float(words[9]));
 
+            vec3[] path;
+
+            /* Look for a path for the spawner */
+            if (words.length > 12)
+            {
+              enforce(words[12] == "path", "expected path");
+              enforce((words.length-13)%3==0, "malformed path"); // -13 lol
+              path.reserve((words.length-13)/3);
+              foreach (vs; chunks(words[13..$], 3))
+                path ~= vec3(to!double(vs[0]),
+                             to!double(vs[1]),
+                             to!double(vs[2]));
+              // maybe something more like this?
+              // map!(to!vec3)(chunks( map!(to!float)(words[13..$]), 3 ));
+            }
+
             switch (words[11])
             {
               case "player":
                 space.spawns ~= EntityPlayer.spawner(spaceID, translation, 0);
                 break;
               case "spikey":
-                space.spawns ~= EntitySpikey.spawner(spaceID, translation, orientation);
+                space.spawns ~= EntitySpikey.spawner(spaceID, translation, orientation, path);
                 break;
               case "dragonfly":
-                space.spawns ~= EntityDragonfly.spawner(spaceID, translation, orientation);
+                space.spawns ~= EntityDragonfly.spawner(spaceID, translation, orientation, path);
                 break;
               default:
                 assert(0, "unknown spawn type " ~ words[11]);
@@ -2039,8 +2056,7 @@ class Camera
       profileCollision = stopWatch.peek.to!("msecs", float)();
     }
 
-    // XXX
-
+    // XXX shitty way to move entities into a new space so that they can be found by-space
     if (playerEntity.spaceID != spaceID)
     {
       auto entities = world.entities[playerEntity.spaceID];
@@ -2058,6 +2074,10 @@ class Camera
       playerEntity.spaceID = spaceID;
       world.entities[spaceID] ~= playerEntity;
     }
+
+    /* Update entities TODO currently I just do this in the current space */
+    foreach (e; world.entities[spaceID])
+      e.update(deltaf);
 
     playerEntity.pos = pos;
     playerEntity.angle = camYaw;

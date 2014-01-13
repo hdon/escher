@@ -1,5 +1,6 @@
 module ants.entity;
 import std.stdio;
+import gl3n.interpolate : lerp;
 import ants.escher : vec3, mat4;
 import ants.md5 : MD5Model, MD5Animation;
 
@@ -65,11 +66,52 @@ class EntityPlayer : Entity
 
 class EntityEnemy : EntityMD5
 {
+  vec3[] path;
+  size_t pathCurrentStep;
+  float pathCurrentStepDistance;
+
   bool dead;
 
-  this(int spaceID, vec3 pos)
+  this(int spaceID, vec3 pos, vec3[] path=null)
   {
     super(spaceID, pos);
+    this.path = path;
+    this.pathCurrentStepDistance = 0f;
+  }
+
+  float getPathSpeed() { return 10f; }
+
+  override
+  void update(float deltaf)
+  {
+    if (path !is null)
+    {
+      float motionLength = getPathSpeed() * deltaf;
+      pathCurrentStepDistance += motionLength;
+
+      vec3 stepVector;
+      float stepLength;
+      while (1)
+      {
+        stepVector = (path[(pathCurrentStep+1)%$] - path[pathCurrentStep]);
+        stepLength = stepVector.magnitude;
+        if (pathCurrentStepDistance < stepLength)
+          break;
+
+        /* Advance current step, first by subtracting the length of the step
+         * we've surpassed from the distance we've traveled.
+         */
+        pathCurrentStepDistance -= stepLength;
+        /* Advance current step counter */
+        if (++pathCurrentStep == path.length)
+          pathCurrentStep = 0;
+      }
+
+      /* Calculate our position along our current step */
+      stepVector = stepVector.normalized;
+      pos = path[pathCurrentStep] + stepVector * pathCurrentStepDistance;
+      /* TODO calculate orientation from stepVector! */
+    }
   }
 }
 
@@ -83,9 +125,13 @@ class EntitySpikey : EntityEnemy
     super(spaceID, pos);
   }
 
-  static Spawner spawner(int spaceID, vec3 pos, vec3 orient)
+  static Spawner spawner(int spaceID, vec3 pos, vec3 orient, vec3[] path=null)
   {
-    Entity spawn() { return new EntitySpikey(spaceID, pos, orient); };
+    Entity spawn() {
+      auto e = new EntitySpikey(spaceID, pos, orient);
+      e.path = path;
+      return e;
+    }
     return &spawn;
   }
 }
@@ -100,9 +146,13 @@ class EntityDragonfly : EntityEnemy
     super(spaceID, pos);
   }
 
-  static Spawner spawner(int spaceID, vec3 pos, vec3 orient)
+  static Spawner spawner(int spaceID, vec3 pos, vec3 orient, vec3[] path=null)
   {
-    Entity spawn() { return new EntityDragonfly(spaceID, pos, orient); };
+    Entity spawn() {
+      auto e = new EntityDragonfly(spaceID, pos, orient);
+      e.path = path;
+      return e;
+    }
     return &spawn;
   }
 }
