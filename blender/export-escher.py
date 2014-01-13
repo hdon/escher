@@ -198,21 +198,21 @@ def escherExport(materials, objects, scene, filename):
       orientation = euler2str(spawn.rotation_euler)
       # Does this spawner have a path for its entity to follow?
       spawnerPaths = list(filter(lambda ob:isPathName(ob.name), spawn.children))
-      print("spawner paths: %s" % spawnerPaths)
       spawnerPathParam = ''
       if len(spawnerPaths) > 1:
         raise Exception('multiple paths per spawner not supported!')
       elif len(spawnerPaths) == 1:
-        # Grab path mesh
-        pathMe = getMeshFromObject(scene, spawnerPaths[0], 'PREVIEW')
-        print('> got mesh')
-        if len(pathMe.polygons) != 1:
-          raise Exception('spawner path has %d faces, only 1 is supported' % len(pathMe).polgons)
-        print('> found 1 poly')
-        spawnerPathParam = ' path'
-        for v in pathMe.polygons[0].vertices:
-          print('> add vertex: %s' % spawnerPathParam)
-          spawnerPathParam += ' ' + vec3toStr(pathMe.vertices[v].co)
+        try:
+          # Grab path mesh
+          pathMe = getMeshFromObject(scene, spawnerPaths[0], 'PREVIEW')
+          if len(pathMe.polygons) != 1:
+            raise Exception('spawner path has %d faces, only 1 is supported' % len(pathMe).polgons)
+          spawnerPathParam = ' path'
+          for v in pathMe.polygons[0].vertices:
+            spawnerPathParam += ' ' + vec3toStr(pathMe.vertices[v].co)
+        finally:
+          print('>removing mesh')
+          bpy.data.meshes.remove(pathMe)
       out.write('spawn %d translation %s orientation %s params %s%s\n' %
         (iSpawn, translation, orientation, spawnType, spawnerPathParam))
     # Write "vert" commands
