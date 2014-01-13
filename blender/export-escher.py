@@ -34,6 +34,14 @@ def emitVert(v, uv):
 def unlocalizeMaterialIndex(mats, me, mai):
   return me.materials[mai]
 
+def getMeshFromObject(sc, ob, modSettings):
+  '''Get a mesh with modifiers and ob.matrix_world transform applied.
+  Be sure to remove when finished with bpy.data.meshes.remove(me).
+  Arguments: Scene, Object, Modifier setting (PREVIEW or RENDER)'''
+  me = ob.to_mesh(sc, True, 'PREVIEW', True, False)
+  me.transform(ob.matrix_world)
+  return me
+
 # These functions were taken from escher-tools.py
 # TODO put common functions in a common module somewhere
 #      Or maybe merge this module with the other one
@@ -51,7 +59,7 @@ def isPortalMaterialName(matName):
 def isUnqualifiedSpaceName(spaceName):
   return not (spaceName.startswith('EscherPSO_') or spaceName.startswith('EscherSSO_') or spaceName.startswith('EscherSM_'))
 
-def toUnqualifiedSpaceName(spaceName):
+def unqualifyObName(spaceName):
   if isUnqualifiedSpaceName(spaceName):
     return spaceName
   return spaceName[spaceName.find('_')+1:]
@@ -71,12 +79,20 @@ def spaceName2ssoName(spaceName):
     return 'EscherSSO_' + spaceName
   raise ValueError('Invalid space name!')
 
-def classifySpaceName(spaceName):
+def classifyObName(spaceName):
+  "Returns a string describing the type of special Escher Object the name came from."
   if spaceName.startswith('EscherPSO_'):
     return 'PSO'
   if spaceName.startswith('EscherSSO_'):
     return 'SSO'
+  if spaceName.startswith('EscherPathO_'):
+    return 'PATH'
+  if spaceName.startswith('EscherSpawnO_'):
+    return 'SPAWN'
   return 'UNQUALIFIED'
+
+def isPathName(obName):
+  return classifyObName(obName) == 'PATH'
 
 def objectIsRemote(o):
   return o.type == 'EMPTY' and o.name.startswith('EscherRemote')
@@ -139,10 +155,11 @@ def escherExport(materials, objects, scene, filename):
   PSOs = SuperMap()
   # TODO enumerate scene.objects instead? might be faster
   for ob in objects:
-    if classifySpaceName(ob.name) == 'PSO':
+    obClass = classifyObName(ob.name)
+    if obClass == 'PSO':
       if ob.type != 'MESH':
         raise Exception('PSO type is not MESH')
-      PSOs[toUnqualifiedSpaceName(ob.name)] = ob
+      PSOs[unqualifyObName(ob.name)] = ob
 
   out = open(filename, 'w')
   out.write('escher version 6\n')
@@ -179,7 +196,25 @@ def escherExport(materials, objects, scene, filename):
       spawnType = spawn.escherSpawn
       translation = vec3toStr(spawn.location)
       orientation = euler2str(spawn.rotation_euler)
-      out.write('spawn %d translation %s orientation %s params %s\n' % (iSpawn, translation, orientation, spawnType))
+      # Does this spawner have a path for its entity to follow?
+      spawnerPaths = list(filter(lambda ob:isPathName(ob.name), spawn.children))
+      print("spawner paths: %s" % spawnerPaths)
+      spawnerPathParam = ''
+      if len(spawnerPaths) > 1:
+        raise Exception('multiple paths per spawner not supported!')
+      elif len(spawnerPaths) == 1:
+        # Grab path mesh
+        pathMe = getMeshFromObject(scene, spawnerPaths[0], 'PREVIEW')
+        print('> got mesh')
+        if len(pathMe.polygons) != 1:
+          raise Exception('spawner path has %d faces, only 1 is supported' % len(pathMe).polgons)
+        print('> found 1 poly')
+        spawnerPathParam = ' path'
+        for v in pathMe.polygons[0].vertices:
+          print('> add vertex: %s' % spawnerPathParam)
+          spawnerPathParam += ' ' + vec3toStr(pathMe.vertices[v].co)
+      out.write('spawn %d translation %s orientation %s params %s%s\n' %
+        (iSpawn, translation, orientation, spawnType, spawnerPathParam))
     # Write "vert" commands
     for vi, v in enumerate(me.vertices):
       out.write('vert %d %f %f %f\n' %
