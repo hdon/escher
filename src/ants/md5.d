@@ -612,14 +612,19 @@ class MD5Animation
     spin += 0.5;
   }
 
+  static vec3[] vertPosBuf;
+  static vec3[] vertNorBuf;
   void render(mat4 mvmat, mat4 pmat)
   {
-    vec3[] vertsPos;
-    vec3[] vertsNormals;
+    //vec3[] vertsNormals;
 
     foreach (mesh; model.meshes)
     {
-      vertsNormals.length = mesh.verts.length;
+      if (vertPosBuf.length < mesh.verts.length)
+      {
+        vertPosBuf.length = mesh.verts.length;
+        vertNorBuf.length = mesh.verts.length;
+      }
 
       /* Calculate mesh vertex positions from animation weight positions */
       foreach (vi; 0..mesh.verts.length)
@@ -632,8 +637,8 @@ class MD5Animation
           auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
           pos += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
         }
-        vertsPos ~= pos;
-        vertsNormals[vi] = vec3(0,0,0);
+        vertPosBuf[vi] = pos;
+        vertNorBuf[vi] = vec3(0,0,0);
       }
 
       /* Calculate and accumulate triangle normals */
@@ -643,31 +648,30 @@ class MD5Animation
              vi1 = tri.vi[1],
              vi2 = tri.vi[2];
 
-        auto v0 = vertsPos[vi0],
-             v1 = vertsPos[vi1],
-             v2 = vertsPos[vi2];
+        auto v0 = vertPosBuf[vi0],
+             v1 = vertPosBuf[vi1],
+             v2 = vertPosBuf[vi2];
 
         /* Calculate triangle's normal */
         auto normal = cross(v2-v0, v1-v0);
 
-        vertsNormals[vi0] += normal;
-        vertsNormals[vi1] += normal;
-        vertsNormals[vi2] += normal;
+        vertNorBuf[vi0] += normal;
+        vertNorBuf[vi1] += normal;
+        vertNorBuf[vi2] += normal;
       }
 
-      /* Normalize vertex normals */
-      foreach (vi; 0..mesh.verts.length)
-        vertsNormals[vi] = vertsNormals[vi].normalized;
-
       /* Send all vertex data to vertexer */
+      /* TODO either integrate with vertexer more intimately, or send the vertex data to the
+       *      GL by hand here!
+       */
       foreach (tri; mesh.tris)
       {
         foreach (vi; tri.vi)
         {
           vertexer.add(
-            vertsPos[vi],
+            vertPosBuf[vi],
             mesh.verts[vi].uv, 
-            vertsNormals[vi],
+            vertNorBuf[vi].normalized,
             vec3f(1,1,1));
         }
       }
