@@ -11,22 +11,30 @@ import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
 import std.typecons : Tuple;
-import std.algorithm : sort;
+import std.algorithm : sort, map;
+import std.range : chunks;
 import ants.shader;
 import ants.md5 : MD5Model, MD5Animation;
 import ants.texture;
 import ants.vertexer;
 import ants.material;
+import ants.entity;
+import std.datetime : StopWatch;
+import core.time : TickDuration;
 debug import std.stdio : writeln, writefln;
 
 /*version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}
 else{ pragma(msg, "rendering with OPENGL transforms"); }*/
 
-version(stencil) {pragma(msg, "rendering WITH stencils");}
-else{ pragma(msg, "rendering WITHOUT stencils"); }
+version(escherClient) { pragma(msg, "Building Escher client"); }
+else version(escherServer) { pragma(msg, "Building Escher server"); }
+else { static assert(0, "Version must be either escherClient or escherServer!"); }
 
-version (lighting) {pragma(msg, "rendering WITH lighting"); }
-else{ pragma(msg, "rendering WITHOUT lighting"); }
+version(stencil) {pragma(msg, "Stencils enabled");}
+else{ pragma(msg, "Stencils disabled"); }
+
+version (lighting) {pragma(msg, "Lighting enabled"); }
+else{ pragma(msg, "Lighting disabled"); }
 
 bool portalDiagnosticMode;
 
@@ -55,6 +63,7 @@ void glErrorCheck(string source)
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
 alias Vector!(double, 4) vec4;
+alias Matrix!(double, 2, 2) mat2;
 alias Matrix!(double, 3, 3) mat3;
 alias Matrix!(double, 4, 4) mat4;
 alias Quaternion!(double) quat;
@@ -486,12 +495,23 @@ class Face
   }
 }
 
+bool compareFacesByRenderType(Face a, Face b)
+{
+  return
+    a.data.type != b.data.type ?
+    a.data.type <  b.data.type :
+      a.data.type == FaceType.SolidColor ?
+      a.data.solidColor.materialID < b.data.solidColor.materialID :
+        a.data.remote.remoteID < b.data.remote.remoteID;
+}
+
 class Space
 {
   int       id;
   Remote[]  remotes;
   vec3[]    verts;
   Face[]    faces;
+  Spawner[] spawns;
 
   override
   string toString()
@@ -508,6 +528,7 @@ private enum ParserMode
   expectNumSpaces,
   expectSpace,
   expectRemote,
+  expectSpawn,
   expectVert,
   expectFace
 }
@@ -795,7 +816,7 @@ class World
 
     // Used to check for file sanity
     int spaceID, remoteID, materialID;
-    size_t numSpaces, numVerts, numFaces, numRemotes, numMaterials, numTextures;
+    size_t numSpaces, numVerts, numFaces, numRemotes, numMaterials, numTextures, numSpawns;
 
     foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
     {
@@ -805,7 +826,7 @@ class World
         writefln("processing line #%d: %s", lineNo+1, line);
       if (lineNo == 0)
       {
-        enforce(line == "escher version 5", "first line of map must be: escher version 5");
+        enforce(line == "escher version 6", "first line of map must be: escher version 6");
         continue;
       }
 
@@ -882,22 +903,27 @@ class World
           enforce(words[2] == "numverts", "expected numverts");
           enforce(words[4] == "numfaces", "expected numfaces");
           enforce(words[6] == "numremotes", "expected numremotes");
+          enforce(words[8] == "numspawns", "expected numspawns");
           spaceID = to!int(words[1]);
           enforce(spaceID == spaces.length, "spaces disorganized");
 
           numVerts = to!size_t(words[3]);
           numFaces = to!size_t(words[5]);
           numRemotes = to!size_t(words[7]);
+          numSpawns = to!size_t(words[9]);
 
           space = new Space();
           space.id = spaceID;
           space.verts.reserve(numVerts);
           space.faces.reserve(numFaces);
           space.remotes.reserve(numRemotes);
+          space.spawns.reserve(numSpawns);
           spaces ~= space;
 
           if (numRemotes > 0)
             mode = ParserMode.expectRemote;
+          else if (numSpawns > 0)
+            mode = ParserMode.expectSpawn;
           else
             mode = ParserMode.expectVert;
           break;
@@ -966,6 +992,60 @@ class World
           space.remotes ~= remote;
 
           if (space.remotes.length == numRemotes)
+            mode = numSpawns != 0 ? ParserMode.expectSpawn : ParserMode.expectVert;
+          break;
+
+        case ParserMode.expectSpawn:
+          enforce(words[0] == "spawn", "expected spawn");
+          enforce(to!size_t(words[1]) == space.spawns.length, "spawns disorganized");
+          enforce(words[2] == "translation", "expected translation");
+          enforce(words[6] == "orientation", "expected orientation");
+          enforce(words[10] == "params", "expected params");
+
+          static if (1)
+          {
+            vec3 translation = vec3(
+              to!float(words[3]),
+              to!float(words[4]),
+              to!float(words[5]));
+            vec3 orientation = vec3(
+              to!float(words[7]),
+              to!float(words[8]),
+              to!float(words[9]));
+
+            vec3[] path;
+
+            /* Look for a path for the spawner */
+            if (words.length > 12)
+            {
+              enforce(words[12] == "path", "expected path");
+              enforce((words.length-13)%3==0, "malformed path"); // -13 lol
+              path.reserve((words.length-13)/3);
+              foreach (vs; chunks(words[13..$], 3))
+                path ~= vec3(to!double(vs[0]),
+                             to!double(vs[1]),
+                             to!double(vs[2]));
+              // maybe something more like this?
+              // map!(to!vec3)(chunks( map!(to!float)(words[13..$]), 3 ));
+            }
+
+            switch (words[11])
+            {
+              case "player":
+                space.spawns ~= EntityPlayer.spawner(spaceID, translation, 0);
+                break;
+              case "spikey":
+                space.spawns ~= EntitySpikey.spawner(spaceID, translation, orientation, path);
+                break;
+              case "dragonfly":
+                space.spawns ~= EntityDragonfly.spawner(spaceID, translation, orientation, path);
+                break;
+              default:
+                assert(0, "unknown spawn type " ~ words[11]);
+            }
+          }
+
+          if (space.spawns.length == numSpawns)
             mode = ParserMode.expectVert;
           break;
 
@@ -1040,8 +1120,27 @@ class World
       }
     }
 
-    // Initialize entities
+    /* Organizes ordinary visible faces in each space by their material ID */
+    foreach (spacei; spaces)
+      sort!compareFacesByRenderType(spacei.faces);
+
+    //foreach (spacei; spaces)
+      //foreach (face; spacei.faces)
+        //writeln(face);
+
+    /* 'entities' is an array of arrays. The first key is the spaceID. The second key is sequential
+     * otherwise and meaningless.
+     */
     entities.length = spaces.length;
+
+    /* Now we will visit spawners TODO This should happen per-Space, and it should set a timeout or
+     * something for the next time this is allowed to happen, which should be based on visibility
+     * of the space, which means that when we render Spaces, we should mark them with a timestamp
+     * of the last time they were rendered...? Needs some thought...
+     */
+    foreach (spacei, spaceb; spaces)
+      foreach (spawn; spaceb.spawns)
+        entities[spacei] ~= spawn();
 
     version (debugEscherFiles)
     {
@@ -1066,7 +1165,7 @@ class World
   // I'm not sure I need to do that yet, but it might be nice for when I have models
   // and shit to draw, and not just a handful of polygons per space.
   mat4 pmatPortal  = mat4.perspective(800, 600, 90, 0.00001, 100);
-  mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 100);
+  mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 10000);
   //XXX ShaderProgram shaderProgram;
 
   bool drawMapVertices;
@@ -1088,15 +1187,19 @@ class World
     }
     
     // Draw some triangles
+    int lastMaterialID = -1;
     foreach (faceID, face; space.faces)
     {
+      // TODO faces are sorted, so this could be changed..
       if (face.data.type != FaceType.SolidColor)
         continue;
 
       drawFace(space, face, transform, pmatWorld);
-      // TODO optimize by drawing faces in material order?
-      vertexer.draw(shaderProgram, transform, pmatWorld, materials[face.data.solidColor.materialID]);
+      if (lastMaterialID > 0 && lastMaterialID != face.data.solidColor.materialID)
+        vertexer.draw(shaderProgram, transform, pmatWorld, materials[lastMaterialID]);
+      lastMaterialID = face.data.solidColor.materialID;
     }
+    vertexer.draw(shaderProgram, transform, pmatWorld, materials[lastMaterialID]);
 
     /* Now we'll draw our entities.
      */
@@ -1221,33 +1324,9 @@ class World
   }
 }
 
-Entity playerEntity;
+EntityPlayer playerEntity;
 ShaderProgram shaderProgram;
 ShaderProgram portalDiagnosticProgram;
-
-class Entity
-{
-  int spaceID;
-  vec3 pos;
-  double angle;
-  this()
-  {
-    this.spaceID = 0;
-    this.pos = vec3(0,0,0);
-  }
-  void draw(mat4 mvmat, mat4 pmat)
-  {
-    // XXX for dumbomonkey!!!
-    /*glTranslatef(pos.x, pos.y, pos.z);
-    glRotatef(angle*180.0/PI, 0, 1, 0);
-    glRotatef(180, 0, 1, 0);
-    glRotatef(90, 1, 0, 0);
-    glScalef(.5, .5, .5);*/
-
-    //shaderProgram.sendVertexAttribute("ucolor", .25, 1, .25);
-    //playerAnimation.draw();
-  }
-}
 
 vec3 getTriangleNormal(vec3 a, vec3 b, vec3 c)
 {
@@ -1515,6 +1594,11 @@ vec3 vec3translation(mat4 m)
   );
 }
 
+/* Weapons */
+enum Weap {
+  None,
+  Gun
+};
 MD5Model playerModel;
 MD5Animation playerAnimation;
 
@@ -1595,19 +1679,34 @@ class Camera
           vertexer.lightPos = vec3f(this.pos.x, this.pos.y, this.pos.z);
         break;
 
+      /*case '0':
+        if (down)
+        {
+          auto e = new EntitySpikey(spaceID, pos);
+          world.entities[spaceID] ~= e;
+          writefln("[entity] dropped spikey!");
+        }
+        break;*/
+
       default:
         break;
     }
   }
 
+  bool noclip;
+  bool fly;
   bool grounded;
   vec3 vel;
   void update(ulong delta)
   {
+    vec3 accel;
     const double EPSILON = 0.000001;
-    float deltaf = delta/1000f;
+    const double speed = 10.0;
+    const double startSpeed = 0.08;
+    const double jumpVel = 25.0;
+    const double mass = 1.0;
+    float deltaf = delta/10_000_000f;
 
-    //writeln("position:", pos);
     // Remember old position for intersection tests
     vec3 oldpos = pos;
 
@@ -1617,57 +1716,88 @@ class Camera
     while (camYaw >= PI*2f)
       camYaw -= PI*2f;
 
-    // Gravity
-    if (!grounded)
+    /* Calculate a rotation matrix for WASD keys */
+    mat2 wasdMat = mat2(
+      cos(camYaw),  sin(camYaw),
+      -sin(camYaw), cos(camYaw));
+    mat2 wasdMatInv = mat2(
+      cos(-camYaw),  sin(-camYaw),
+      -sin(-camYaw), cos(-camYaw));
+
+    /* Calculate WASD vector representing the movement implied by WASD keys */
+    vec2 wasdVec  = vec2(
+      keyRight   == keyLeft     ? 0 :
+      keyRight   ? 1 : -1,
+      keyForward == keyBackward ? 0 :
+      keyForward ? 1 : -1) * speed;
+
+    if (fly)
     {
-      vel.vector[1] -= 2.5 * deltaf;
+      wasdVec = wasdMat * wasdVec;
+      vel = vec3(
+        wasdVec.x,
+        keyUp == keyDown ? 0 : keyUp ? 23 : -23,
+        wasdVec.y);
+    }
+    else
+    {
+      /* We'll mix previous WASD velocity with new WASD velocity based on a "friction"
+       * coefficient. First calculate that coefficient. */
+      double frictionCoef = (grounded ? 12.99 : 5.0) * deltaf;
+      double frictionCoefY = frictionCoef * 0.2;
+
+      /* Calculate previous velocity in camYaw space */
+      vec2 oldWasdVec = wasdMatInv * vec2(vel.xz);
+
+      /* Mix WASD velocity with previous velocity, giving more influence to
+       * forward/backward movement than left/right movement.
+       */
+      vec2 totalWasdVec = vec2(
+        oldWasdVec.x * (1.0-frictionCoefY) + wasdVec.x * frictionCoefY,
+        oldWasdVec.y * (1.0-frictionCoef ) + wasdVec.y * frictionCoef );
+
+      /* Apply slow-down friction */
+      if (grounded)
+      {
+        const double slowdown = 0.001;
+        auto mag = totalWasdVec.magnitude;
+        if (mag < slowdown)
+          totalWasdVec = vec2(0, 0);
+        else
+          totalWasdVec *= 1.0 - slowdown/mag;
+      }
+
+      /* Rotate by camYaw matrix to gain our final velocity vector */
+      vec2 vel2 = wasdMat * totalWasdVec;
+
+      vel.x = vel2.x;
+      vel.z = vel2.y;
+
+      /* Apply gravity */
+      if (grounded && keyUp) { grounded=false; vel.y = jumpVel; }
+      else vel.y = vel.y - 50.0 * deltaf;
     }
 
-    // walkVel represents the player's influence over character movement using the
-    // arrow keys
-    vec3 walkVel = vec3(0,0,0);
-    if (keyForward != keyBackward)
-    {
-      if (keyForward)
-        walkVel.z = 1;
-      else
-        walkVel.z = -1;
-    }
-    if (keyLeft != keyRight)
-    {
-      if (keyRight)
-        walkVel.x = 1;
-      else
-        walkVel.x = -1;
-    }
-    if (keyUp != keyDown)
-    {
-      if (keyUp) {
-        if (grounded) {
-          vel = vec3(0, 1.6, 0);
-          grounded = false;
-        }
-      } else
-        walkVel.y = -1;
-    }
+    pos += vel * deltaf;
 
-    // Nudge position and orientation
-    vec3 orient = vec3(sin(camYaw), 0, cos(camYaw));
-    mat3 orientMat = mat3(
-      cos(camYaw), 0, sin(camYaw),
-      0, 1, 0,
-      -sin(camYaw), 0, cos(camYaw));
-    //writeln("VELOCITY####### ", grounded, ' ', vel);
-    vec3 movement = orientMat * (walkVel.normalized * 3 + vel) * deltaf;
-    pos += movement;
+    if (noclip)
+      return;
 
     if (portalDiagnosticMode)
       return;
 
-    //writefln("vel: %s turn: %s", vel, turnRate);
+    vec3 movement = pos - oldpos;
+    vec3 orient = vec3(sin(camYaw), 0, cos(camYaw));
+
     /* Intersect space faces */
-    if (oldpos != pos)
+    if (oldpos != pos && !noclip)
     {
+      /* Profile collision code */
+      StopWatch stopWatch;
+      stopWatch.start();
+
+      bool landed;
+
       //writeln("movement.length = ", movement.length, " but also = ", (pos-oldpos).length);
       Space space = world.spaces[spaceID];
 
@@ -1694,6 +1824,11 @@ class Camera
            * The relevant point on the hitsphere is calculated using the planar normal times
            * the negation of the hitsphere radius.
            */
+          /*const float hitSphereRadius = 0.25;
+          const float hitSphereScaleY = 1.0;
+          vec3 hitSphereDelta = n * vec3(hitSphereRadius, hitSphereScaleY+hitSphereRadius, hitSphereRadius),
+               hitSphereStartPos = oldpos + hitSphereDelta,
+               hitSphereEndPos = pos + hitSphereDelta;*/
           const float hitSphereRadius = 0.25;
           vec3 hitSphereDelta = hitSphereRadius * n,
                hitSphereStartPos = oldpos + hitSphereDelta,
@@ -1737,39 +1872,33 @@ class Camera
                 vec3 dp = p - p3;
                 if (dp.magnitude_squared < hitSphereRadius * hitSphereRadius)
                 {
-                  writeln("@@ segment-sphere hit!");
+                  //writeln("@@ segment-sphere hit!");
 
                   /* TODO The pseudo-plane technique accelerates your movement around a bend.
                    *      This is undesirable and should be addressed!
                    */
 
                   /* Calculate the pseudo-plane normal by subtracting 'p' from 'pos.' */
-                  vec3 pseudon = pos - p;
+                  vec3 pseudon = (pos - p).normalized;
 
-                  writeln("@@ pseudo normal: ", n);
+                  //writeln("@@ pseudo normal: ", n);
 
-                  /* Solve planar equation for 'd' of plane containing map face */
+                  /* Solve planar equation for 'd' of plane containing the edge we hit */
                   float p0d = -dot(p, n);
 
-                  writeln("@@   wall plane 0 d = ", p0d);
+                  //writeln("@@   wall plane 0 d = ", p0d);
 
                   /* Solve planar equation for 'd' of plane p1 */
                   float p1d = -dot(n, hitSphereEndPos);
-                  writeln("@@   wall plane 1 d = ", p1d);
+                  //writeln("@@   wall plane 1 d = ", p1d);
 
                   /* Compute new position projected onto the plane containing map face */
                   pos = pos + (p1d-p0d) * 1.01 * n;
-                  writeln("@@   wall nudge: ", n * (p1d-p0d));
+                  //writeln("@@   wall nudge: ", n * (p1d-p0d));
 
-                  /* TODO remove this copy of this code and keep the other? */
                   /* Check for floor or ceiling */
-                  if (n.x   < EPSILON && n.x   > -EPSILON &&
-                      n.z   < EPSILON && n.z   > -EPSILON &&
-                      1+n.y < EPSILON && 1+n.y > -EPSILON)
-                  {
-                    grounded = true;
-                    vel.vector[1] = 0;
-                  }
+                  //if (dot(vec3(0,1,0), n.normalized) < 0.5)
+                    //landed = true;
                   break;
                 }
               }
@@ -1780,7 +1909,7 @@ class Camera
           {
             /* The hitpoint on the hitsphere has traveled through the wall. */
 
-            writefln("@@ Colliding with a wall");
+            //writefln("@@ Colliding with a wall");
             /* Either the hitpoint on the hitsphere has traveled through the wall or we have
              * created a pseudo-plane through which the hitpoint has traveled.
              *
@@ -1803,32 +1932,28 @@ class Camera
              * v' = v * n * f
              */
 
-            writeln("@@   wall normal: ", n);
+            //writeln("@@   wall normal: ", n);
 
             /* Solve planar equation for 'd' of plane containing map face */
             float p0d = -dot(fv[0], n);
 
-            writeln("@@   wall plane 0 d = ", p0d);
+            //writeln("@@   wall plane 0 d = ", p0d);
 
             /* Solve planar equation for 'd' of plane p1 */
             float p1d = -dot(n, hitSphereEndPos);
-            writeln("@@   wall plane 1 d = ", p1d);
+            //writeln("@@   wall plane 1 d = ", p1d);
 
             /* Compute new position projected onto the plane containing map face */
             pos = pos + (p1d-p0d) * 1.01 * n;
-            writeln("@@   wall nudge: ", n * (p1d-p0d));
+            //writeln("@@   wall nudge: ", n * (p1d-p0d));
 
-            /* Check for floor or ceiling */
-            if (n.x   < EPSILON && n.x   > -EPSILON &&
-                n.z   < EPSILON && n.z   > -EPSILON &&
-                1+n.y < EPSILON && 1+n.y > -EPSILON)
-            {
-              writeln("@@   wall=ceiling");
-              grounded = true;
-              vel.vector[1] = 0;
-            }
-            else
-              writeln("@@   wall!ceiling");
+            /* Check for floor */
+            auto f = dot(vec3(0,-1,0), n.normalized);
+            //writeln("@@ f: ", f);
+            if (f > 0.5)
+              landed = true;
+            //else
+              //writeln("@@   wall!ceiling");
           }
         }
 
@@ -1919,26 +2044,59 @@ class Camera
           }
         }
       }
+
+      if (landed)
+      {
+        //writeln("@@ landed");
+        grounded = true;
+        vel.vector[1] = 0;
+      }
+
+      stopWatch.stop();
+      profileCollision = stopWatch.peek.to!("msecs", float)();
     }
 
-    // XXX
-    world.entities[playerEntity.spaceID].length = 0;
-    playerEntity.spaceID = spaceID;
+    // XXX shitty way to move entities into a new space so that they can be found by-space
+    if (playerEntity.spaceID != spaceID)
+    {
+      auto entities = world.entities[playerEntity.spaceID];
+      foreach (i, e; entities)
+      {
+        if (e is playerEntity)
+        {
+          if (i < entities.length-1)
+            entities[i] = entities[$-1];
+          --entities.length;
+          break;
+        }
+      }
+
+      playerEntity.spaceID = spaceID;
+      world.entities[spaceID] ~= playerEntity;
+    }
+
+    /* Update entities TODO currently I just do this in the current space */
+    foreach (e; world.entities[spaceID])
+      e.update(deltaf);
+
     playerEntity.pos = pos;
     playerEntity.angle = camYaw;
-    world.entities[playerEntity.spaceID] ~= playerEntity;
   }
 
+  bool noBody;
   int frame = 0;
-  void draw(uint t)
+  float profileDrawWorld;
+  float profileDrawArms;
+  float profileCollision;
+  void draw(ulong t)
   {
-    vertexer.setFrameTime(t/1000.0);
+    vertexer.setFrameTime(t/10_000_000.0);
     ubyte portalDepth = 2;
 
     if (shaderProgram is null)
     {
       portalDiagnosticProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
-      shaderProgram = new ShaderProgram("simple.vs", "plasma2.fs");
+      shaderProgram = new ShaderProgram("simpler.vs", "simpler.fs");
       playerModel = new MD5Model("res/md5/arms-run.md5mesh");
       playerAnimation = new MD5Animation(playerModel, "res/md5/arms-run.md5anim");
       vertexer.setResolution(800, 600);
@@ -1977,10 +2135,28 @@ class Camera
       * mat4.rotation(camYaw, vec3(0,1,0))
       * mat4.translation(-pos.x, -pos.y, -pos.z);
 
-    //writeln("drawSpace() entry");
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+
+    /* Profile world draw code */
+    StopWatch stopWatch;
+    stopWatch.start();
+
     glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
     glErrorCheck("after drawSpace()");
+
+    stopWatch.stop();
+    profileDrawWorld = stopWatch.peek.to!("msecs", float);
+
+    if (noBody)
+    {
+      profileDrawArms = 0;
+      return;
+    }
+
+    stopWatch.reset();
+    stopWatch.start();
 
     mat4 playerMat = mat4.identity
       .rotate(PI*0.5, vec3(1,0,0))
@@ -1992,5 +2168,8 @@ class Camera
     mat4 pmatPlayer = mat4.perspective(800, 600, 90, 0.000001, 10);
     playerAnimation.draw(playerMat, pmatPlayer);
     frame++;
+
+    stopWatch.stop();
+    profileDrawArms = stopWatch.peek.to!("msecs", float)();
   }
 }

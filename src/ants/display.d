@@ -1,10 +1,12 @@
 module display;
 
 import ants.md5 : MD5Model, MD5Animation;
-import ants.escher : World, Camera, Entity, playerEntity;
+import ants.escher : World, Camera, playerEntity;
+import ants.entity : EntityPlayer, loadEntityAssets;
 import ants.doglconsole;
 import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen, format;
+import std.datetime : Clock;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import derelict.opengl3.gl3;
@@ -13,6 +15,7 @@ import std.math : PI;
 import std.exception : enforce;
 import std.conv : to;
 import file = std.file;
+import ants.hudtext : HUDText;
 
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
@@ -33,6 +36,7 @@ class Display
     World world;
     Camera camera;
     DoglConsole console;
+    HUDText profileHUD;
 
     GLuint glprogram;
 
@@ -93,19 +97,39 @@ class Display
 
       world = new World(mapfilename);
       camera = new Camera(world, 0, vec3(0,0,0));
-      playerEntity = new Entity();
+      playerEntity = new EntityPlayer(0, vec3(0,0,0));
+
+      loadEntityAssets();
 
       setupGL();
 
       console = new DoglConsole(width/16, height/16);
       console.handleCommand = &command;
+
+      profileHUD = new HUDText(45, 8, 0, 0, 45f*16f/width, 8f*16f/height);
+      profileHUD.print("Hello!");
     }
   }
 
   void command(DoglConsole console, string cmd)
   {
-    writefln("display.d got command from console: %s\n", cmd);
-    console.print(format("display.d got command from console: %s\n", cmd));
+    switch (cmd)
+    {
+      case "fly":
+        camera.fly = ! camera.fly;
+        console.print(format("fly %sabled\n", camera.fly ? "en" : "dis"));
+        break;
+      case "noclip":
+        camera.noclip = ! camera.noclip;
+        console.print(format("noclip %sabled\n", camera.noclip ? "en" : "dis"));
+        break;
+      case "nobody":
+        camera.noBody = ! camera.noBody;
+        console.print(format("nobody %sabled\n", camera.noBody ? "en" : "dis"));
+        break;
+      default:
+        console.print(format("unknown command: %s\n", cmd));
+    }
   }
 
   this(string filename)
@@ -132,12 +156,11 @@ class Display
     DerelictSDL2.unload();
   }
 
-  uint lastFrame;
-
+  ulong lastFrame;
   void drawGLFrame()
   {
-    uint t = SDL_GetTicks();
-    uint delta = t - lastFrame;
+    ulong t = Clock.currStdTime();
+    ulong delta = lastFrame == 0 ? 100 : t - lastFrame;
 
     SDL_GL_MakeCurrent(displayWindow, displayContext);
     setupGL();
@@ -147,6 +170,26 @@ class Display
     camera.update(delta);
     camera.draw(t);
 
+    profileHUD.print(format(
+`fps: %3.3s
+dt: %2.4s ms
+w: %2.4s ms
+a: %2.4s ms
+c: %2.4s ms
+x: %3.3s
+y: %3.3s
+z: %3.3s
+`,
+      10_000_000.0 / delta,
+      delta / 10_000.0,
+      camera.profileDrawWorld,
+      camera.profileDrawArms,
+      camera.profileCollision,
+      camera.pos.x,
+      camera.pos.y,
+      camera.pos.z
+      ));
+    profileHUD.draw();
     console.draw();
 
     SDL_RenderPresent(displayRenderer);

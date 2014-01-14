@@ -178,7 +178,7 @@ class MD5Model
     int mode = ParserMode.open;
     size_t nJoints;
     size_t nMeshes;
-    string dir = dirName(filename) ~ "/";
+    //string dir = dirName(filename) ~ "/";
 
     foreach (lineNo, line; splitLines(to!string(cast(char[])file.read(filename))))
     {
@@ -262,7 +262,8 @@ class MD5Model
           }
           else if (words[0] == "shader")
           {
-            string textureFilename = dir ~ words[1][1..$-1];
+            //string textureFilename = dir ~ words[1][1..$-1];
+            string textureFilename = words[1][1..$-1];
             //writefln("[md5] shader \"%s\"", textureFilename);
             auto materialTexture = new MaterialTexture();
             materialTexture.application = TextureApplication.Color;
@@ -611,16 +612,19 @@ class MD5Animation
     spin += 0.5;
   }
 
+  static vec3[] vertPosBuf;
+  static vec3[] vertNorBuf;
   void render(mat4 mvmat, mat4 pmat)
   {
-    vec3[] vertsPos;
-    vec3[] vertsNormals;
-    SurVert[] vertsOut;
+    //vec3[] vertsNormals;
 
     foreach (mesh; model.meshes)
     {
-      vertsOut.length = 0;
-      vertsNormals.length = mesh.verts.length;
+      if (vertPosBuf.length < mesh.verts.length)
+      {
+        vertPosBuf.length = mesh.verts.length;
+        vertNorBuf.length = mesh.verts.length;
+      }
 
       /* Calculate mesh vertex positions from animation weight positions */
       foreach (vi; 0..mesh.verts.length)
@@ -633,8 +637,8 @@ class MD5Animation
           auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
           pos += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
         }
-        vertsPos ~= pos;
-        vertsNormals[vi] = vec3(0,0,0);
+        vertPosBuf[vi] = pos;
+        vertNorBuf[vi] = vec3(0,0,0);
       }
 
       /* Calculate and accumulate triangle normals */
@@ -644,36 +648,36 @@ class MD5Animation
              vi1 = tri.vi[1],
              vi2 = tri.vi[2];
 
-        auto v0 = vertsPos[vi0],
-             v1 = vertsPos[vi1],
-             v2 = vertsPos[vi2];
+        auto v0 = vertPosBuf[vi0],
+             v1 = vertPosBuf[vi1],
+             v2 = vertPosBuf[vi2];
 
         /* Calculate triangle's normal */
         auto normal = cross(v2-v0, v1-v0);
 
-        vertsNormals[vi0] += normal;
-        vertsNormals[vi1] += normal;
-        vertsNormals[vi2] += normal;
+        vertNorBuf[vi0] += normal;
+        vertNorBuf[vi1] += normal;
+        vertNorBuf[vi2] += normal;
       }
 
-      /* Normalize vertex normals */
-      foreach (vi; 0..mesh.verts.length)
-        vertsNormals[vi] = vertsNormals[vi].normalized;
-
       /* Send all vertex data to vertexer */
+      /* TODO either integrate with vertexer more intimately, or send the vertex data to the
+       *      GL by hand here!
+       */
       foreach (tri; mesh.tris)
       {
         foreach (vi; tri.vi)
         {
           vertexer.add(
-            vertsPos[vi],
+            vertPosBuf[vi],
             mesh.verts[vi].uv, 
-            vertsNormals[vi],
+            vertNorBuf[vi].normalized,
             vec3f(1,1,1));
         }
       }
 
       /* Draw vertexer contents */
+      glEnable(GL_CULL_FACE);
       vertexer.draw(shaderProgram1, mvmat, pmat, mesh.material, GL_TRIANGLES);
     }
   }
@@ -714,13 +718,13 @@ class MD5Animation
       vertexer = new Vertexer();
       emptyMaterial = new Material();
       shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
-      shaderProgram1 = new ShaderProgram("simple.vs", "plasma0.fs");
+      shaderProgram1 = new ShaderProgram("simpler.vs", "simpler.fs");
     }
 
-    vertexer.add(vec3(-1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    vertexer.add(vec3( 1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    vertexer.add(vec3( 1,  1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_TRIANGLES);
+    //vertexer.add(vec3(-1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+    //vertexer.add(vec3( 1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+    //vertexer.add(vec3( 1,  1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+    //vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_TRIANGLES);
 
     render(mvmat, pmat);
 

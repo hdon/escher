@@ -7,7 +7,7 @@ import ants.rescache;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import derelict.opengl3.gl3;
-debug import std.stdio : writefln;
+import std.stdio : writefln;
 
 mixin ResourceCacheMixin!GLuint;
 

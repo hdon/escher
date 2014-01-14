@@ -1,2 +1,2 @@
 escher engine init script version 1
-map res/esc5/level-training.esc5
+map res/map/metroid0.esc6

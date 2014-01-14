@@ -1,6 +1,7 @@
 import display;
 import std.stdio;
 import std.string : splitLines, split, toStringz, format;
+import core.memory : GC;
 import file = std.file;
 version (Windows) import core.sys.windows.windows : MessageBoxA;
 
@@ -75,11 +76,14 @@ int main(string[] args)
     Display display = new Display(mapfilename);
     scope(exit) display.cleanup();
 
+    GC.disable();
     while (isRunning)
     {
       isRunning = display.event();
       display.drawGLFrame();
+      GC.collect();
     }
+    GC.enable();
   }
   catch (Throwable e)
   {
