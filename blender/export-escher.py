@@ -211,7 +211,6 @@ def escherExport(materials, objects, scene, filename):
           for v in pathMe.polygons[0].vertices:
             spawnerPathParam += ' ' + vec3toStr(pathMe.vertices[v].co)
         finally:
-          print('>removing mesh')
           bpy.data.meshes.remove(pathMe)
       out.write('spawn %d translation %s orientation %s params %s%s\n' %
         (iSpawn, translation, orientation, spawnType, spawnerPathParam))
