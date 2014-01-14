@@ -79,7 +79,7 @@ class EntityEnemy : EntityMD5
     this.pathCurrentStepDistance = 0f;
   }
 
-  float getPathSpeed() { return 10f; }
+  float getPathSpeed() { return 1f; }
 
   override
   void update(float deltaf)
@@ -113,6 +113,26 @@ class EntityEnemy : EntityMD5
       /* TODO calculate orientation from stepVector! */
     }
   }
+
+  /* This function will adjust the EntityEnemy's step-in-path as well as
+   * their step-of-path using my shitty primitive path system. It's used
+   * at spawn time so that you can stagger enemy positions within their
+   * paths in the map itself without adding extra info.
+   */
+  void getIntoPath(size_t pathStep=0)
+  {
+    /* Set steo-of-path */
+    pathCurrentStep = pathStep;
+
+    /* Calculate our progress within this path step, starting with calculating
+     * the direction of movement for this step.
+     */
+    vec3 pathDir = (path[(pathCurrentStep+1)%$] - path[pathCurrentStep]).normalized;
+    /* Calculate how far along we are in this direction from the position of the
+     * beginning of this step. Assuming 'pathStep' is correct this should work...
+     */
+    pathCurrentStepDistance = (path[pathCurrentStep] - pos).magnitude;
+  }
 }
 
 class EntitySpikey : EntityEnemy
@@ -130,6 +150,7 @@ class EntitySpikey : EntityEnemy
     Entity spawn() {
       auto e = new EntitySpikey(spaceID, pos, orient);
       e.path = path;
+      e.getIntoPath(0); // XXX 0 is probably wrong!
       return e;
     }
     return &spawn;
@@ -151,6 +172,7 @@ class EntityDragonfly : EntityEnemy
     Entity spawn() {
       auto e = new EntityDragonfly(spaceID, pos, orient);
       e.path = path;
+      e.getIntoPath(0); // XXX 0 is probably wrong!
       return e;
     }
     return &spawn;
