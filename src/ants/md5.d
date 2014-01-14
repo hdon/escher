@@ -616,11 +616,9 @@ class MD5Animation
   {
     vec3[] vertsPos;
     vec3[] vertsNormals;
-    SurVert[] vertsOut;
 
     foreach (mesh; model.meshes)
     {
-      vertsOut.length = 0;
       vertsNormals.length = mesh.verts.length;
 
       /* Calculate mesh vertex positions from animation weight positions */
