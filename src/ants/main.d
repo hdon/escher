@@ -89,8 +89,7 @@ int main(string[] args)
   {
     stdout.write(to!string(e));
     stdout.writeln("\ncrashed!");
-    message(`Sorry, we've crashed!
-The details can be found in crash.txt`);
+    message("Sorry, we've crashed! Please send the files \"stdout.txt\" and \"stderr.txt\" to don@codebad.com");
     return 1;
   }
 
