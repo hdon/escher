@@ -6,32 +6,52 @@ import std.stdio : writeln, writefln;
 import std.string : format, toStringz;
 import std.traits : isPointer, PointerTarget;
 import std.conv : to;
+import std.path : baseName;
+import std.algorithm : sort;
 
-private void glErrorCheck()
+private int[][string] availableShaders;
+
+private bool isnum(char c) { return c >= '0' && c <= '9'; }
+private int unstrVersion(string s)
 {
-  GLenum err = glGetError();
-  if (err)
-  {
-    writefln("error: opengl: %s", err);
-    assert(0);
-  }
+  return s.length == 4 && s[1] == '.' && isnum(s[0]) && isnum(s[2]) && isnum(s[3]) ?
+    (s[0]-'0')*100 + (s[2]-'0')*10 + (s[3]-'0') : -1;
 }
-
-private string glslPath;
-private string getPath() {
-  if (glslPath.length == 0) {
-    const(char)*a = glGetString(GL_SHADING_LANGUAGE_VERSION);
-    const(char)*b = a;
-    while (*b != ' ' && *b != '\0')
-      b++;
-    glslPath = "glsl/" ~ to!string(a[0..b-a]) ~ "/";
+private void scan()
+{
+  foreach (string d; file.dirEntries("glsl", file.SpanMode.shallow))
+  {
+    int v = unstrVersion(d[5..$]);
+    if (v >= 0)
+      foreach (string s; file.dirEntries(d, file.SpanMode.shallow))
+        if (s[$-3..$] == ".vs" || s[$-3..$] == ".fs")
+          availableShaders[s[d.length+1..$]] ~= v;
   }
-  return glslPath;
+  foreach (versions; availableShaders)
+    sort!"b < a"(versions);
+}
+private int glslVersion;
+private string findBestShader(string shaderName)
+{
+  if (glslVersion == 0)
+  {
+    const(char)*a = glGetString(GL_SHADING_LANGUAGE_VERSION);
+    glslVersion = unstrVersion(to!string(a[0..4]));
+    scan();
+  }
+
+  if (shaderName !in availableShaders)
+    throw new Exception("could not find your shader");
+
+  foreach (v; availableShaders[shaderName])
+    if (v <= glslVersion)
+      return format("glsl/%01d.%02d/%s", v/100, v%100, shaderName);
+
+  throw new Exception("could not find your shader in any compatible version");
 }
 
 GLuint loadShader(GLenum type, string filename)
 {
-  getPath();
   GLenum err;
   GLuint shaderObject;
   GLint iresult;
@@ -44,7 +64,9 @@ GLuint loadShader(GLenum type, string filename)
   enforce(shaderObject != 0, "glCreateShader() failed");
 
   // Read shader source into memory
-  source = cast(char[])file.read(getPath() ~ filename);
+  auto exactName = findBestShader(filename);
+  version (debugShaders) writefln("[shader] loading \"%s\"", exactName);
+  source = cast(char[])file.read(exactName);
 
   // Send shader source to the GL
   sourcePtr = source.ptr;
@@ -172,9 +194,29 @@ class ShaderProgram
     return glGetAttribLocation(programObject, name.toStringz());
   }
 
+  GLuint getUniformLocationz(const char* name)
+  {
+    return glGetUniformLocation(programObject, name);
+  }
+
+  GLint getAttribLocationz(const char* name)
+  {
+    return glGetAttribLocation(programObject, name);
+  }
+
   void use()
   {
     glUseProgram(programObject);
     glErrorCheck();
+  }
+}
+
+private void glErrorCheck()
+{
+  GLenum err = glGetError();
+  if (err)
+  {
+    writefln("error: opengl: %s", err);
+    assert(0);
   }
 }
