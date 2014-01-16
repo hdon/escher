@@ -983,7 +983,7 @@ class World
 
             transform.translate(translation.x, translation.y, translation.z);
 
-            writeln("space transform\n", transform);
+            //writeln("space transform\n", transform);
 
             remote.transform = transform;
             remote.untransform = untransform;
