@@ -17,5 +17,5 @@ win32package ::
 	cp -vR res/esc5 Escher-Win32/res
 	#cp $(shell ls escher.exe *.dll init.txt glsl/*/* res/images/* res/md5/* res/esc5/* ) Escher-Win32/
 	(echo Version: ; hg id ; hg parents) | unix2dos > Escher-Win32/version.txt
-	rm -v `find Escher-Win32 -name .\*.sw\*`
+	rm -fv `find Escher-Win32 -name .\*.sw\*`
 	zip "Escher-Win32.zip" -r Escher-Win32/
