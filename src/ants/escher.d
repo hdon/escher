@@ -1171,6 +1171,7 @@ class World
   bool drawMapVertices;
   bool drawMapNormals;
 
+  bool noDrawEntities;
   void drawSpace(int spaceID, mat4 transform, ubyte portalDepth, int dmode)
   {
     Space space = spaces[spaceID];
@@ -1203,6 +1204,7 @@ class World
 
     /* Now we'll draw our entities.
      */
+    if (!noDrawEntities)
     foreach (entity; entities[spaceID])
     {
       entity.draw(transform, pmatWorld);

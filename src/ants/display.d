@@ -127,6 +127,9 @@ class Display
         camera.noBody = ! camera.noBody;
         console.print(format("nobody %sabled\n", camera.noBody ? "en" : "dis"));
         break;
+      case "noent":
+        world.noDrawEntities = ! world.noDrawEntities;
+        console.print(format("noent %sabled\n", camera.noBody ? "en" : "dis"));
       default:
         console.print(format("unknown command: %s\n", cmd));
     }
