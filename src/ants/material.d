@@ -1,5 +1,6 @@
 module ants.material;
 import ants.texture;
+import derelict.opengl3.gl3;
 
 enum TextureApplication
 {
@@ -9,7 +10,7 @@ enum TextureApplication
 
 class MaterialTexture
 {
-  Texture texture;
+  GLuint texture;
   TextureApplication application;
 }
 

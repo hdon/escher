@@ -22,7 +22,7 @@ ShaderProgram shaderProgram;
 class HUDText
 {
   bool visible;
-  Texture font;
+  GLuint font;
   char[] buf;
   
   uint w, h;
@@ -168,7 +168,7 @@ class HUDText
 
     /* Bind texture */
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, font.v);
+    glBindTexture(GL_TEXTURE_2D, font);
     glUniform1i(fontTexUniformLocation, 0);
 
     /* Draw */

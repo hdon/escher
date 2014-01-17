@@ -21,7 +21,7 @@ void glErrorCheck(string source)
 class DoglConsole
 {
   bool visible;
-  Texture font;
+  GLuint font;
   ShaderProgram shaderProgram;
   void delegate(DoglConsole console, string cmd) handleCommand;
 
@@ -38,7 +38,7 @@ class DoglConsole
 
     font = getTexture("font850.png");
     // TODO this is bullshit and should be done elsewhere but for now it's easy to do here
-    glBindTexture(GL_TEXTURE_2D, font.v);
+    glBindTexture(GL_TEXTURE_2D, font);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -186,7 +186,7 @@ class DoglConsole
 
     /* Bind texture */
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, font.v);
+    glBindTexture(GL_TEXTURE_2D, font);
     glUniform1i(fontTexUniformLocation, 0);
 
     /* Draw */

@@ -3,36 +3,12 @@ module ants.texture;
 import std.conv;
 import std.string : toStringz;
 import std.format : appender;
-import ants.rescache;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import derelict.opengl3.gl3;
 import std.stdio : writefln;
 
-mixin ResourceCacheMixin!GLuint;
-
-private Resource loadResource(string k)
-{
-  GLuint v = loadTexture(k);
-  if (v == 0)
-    return null;
-  return new Resource(k, v);
-}
-
-private void freeResource(GLuint v)
-{
-  debug writefln("texture.freeResource(%x)", v);
-  if (v != 0)
-    glDeleteTextures(1, &v);
-}
-
-private class Resource
-{
-  mixin ResourceMixin;
-}
-
-alias get getTexture;
-alias Resource Texture;
+alias loadTexture getTexture;
 
 /// load a texture resource from the specified path
 GLuint loadTexture(string filename) {

@@ -886,7 +886,7 @@ class World
           {
             assert(0, "unknown texture application");
           }
-          materialTexture.texture = getTexture(words[2]);
+          materialTexture.texture = loadTexture(words[2]);
           materials[materialID].texes ~= materialTexture;
           // XXX
           if (materials[materialID].texes.length == numTextures)

@@ -1,4 +1,5 @@
 module ants.rescache;
+import std.stdio : writeln;
 
 mixin template ResourceCacheMixin(T, KT=string)
 {
@@ -22,6 +23,7 @@ mixin template ResourceCacheMixin(T, KT=string)
 
     Resource get()
     {
+      writeln("************************** dead: ", dead);
       if (dead)
         return null;
       auto rp = u;
@@ -45,6 +47,7 @@ mixin template ResourceCacheMixin(T, KT=string)
 
     if (!(k in arr))
       arr[k] = ResourcePionter(loadResource(k));
+    writeln("************************** getting ", k, " from ", arr);
     return arr[k].get();
   }
 

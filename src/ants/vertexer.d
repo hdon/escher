@@ -66,8 +66,8 @@ class Vertexer
 
   void draw(ShaderProgram shaderProgram, mat4d mvMatd, mat4d pMatd, Material material, GLenum mode=GL_TRIANGLES)
   {
-    Texture colorMap;
-    Texture normalMap;
+    GLuint colorMap;
+    GLuint normalMap;
 
     if (material !is null)
     {
@@ -206,16 +206,16 @@ class Vertexer
 
     int texCounter = 0;
 
-    if (colorMapUniformLocation >= 0 && colorMap !is null)
+    if (colorMapUniformLocation >= 0)
     {
       glActiveTexture(GL_TEXTURE0 + texCounter);
-      glBindTexture(GL_TEXTURE_2D, colorMap.v);
+      glBindTexture(GL_TEXTURE_2D, colorMap);
       glUniform1i(colorMapUniformLocation, texCounter++);
     }
-    if (normalMapUniformLocation >= 0 && normalMap !is null)
+    if (normalMapUniformLocation >= 0)
     {
       glActiveTexture(GL_TEXTURE0 + texCounter);
-      glBindTexture(GL_TEXTURE_2D, normalMap.v);
+      glBindTexture(GL_TEXTURE_2D, normalMap);
       glUniform1i(normalMapUniformLocation, texCounter++);
     }
 
