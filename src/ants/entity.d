@@ -121,7 +121,10 @@ class EntityEnemy : EntityMD5
    */
   void getIntoPath(size_t pathStep=0)
   {
-    /* Set steo-of-path */
+    if (path is null)
+      return;
+
+    /* Set step-of-path */
     pathCurrentStep = pathStep;
 
     /* Calculate our progress within this path step, starting with calculating
