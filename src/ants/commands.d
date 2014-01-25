@@ -6,6 +6,7 @@ import file = std.file;
 import ants.main : display;
 import ants.escher : World, Camera, EntityPlayer, vec3, playerEntity;
 import ants.doglconsole : DoglConsole;
+import ants.md5 : MD5Animation;
 
 void doCommand(DoglConsole console, string cmd)
 {
@@ -87,6 +88,16 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           assert(words.length == 2, "invalid number of arguments");
           console.print(format("evaluating script file \"%s\"\n", words[1]));
           doCommandFile(console, words[1]);
+          break;
+
+        case "drawweights":
+          if (words.length == 1)
+            b = ! MD5Animation.optRenderWeights;
+          else
+            b = to!bool(words[1]);
+          assert(words.length <= 2, "invalid number of arguments");
+          MD5Animation.optRenderWeights = b;
+          console.print(format("drawweights %sabled\n", b ? "en" : "dis"));
           break;
 
         default:

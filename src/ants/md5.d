@@ -696,8 +696,29 @@ class MD5Animation
       }
 
       /* Draw vertexer contents */
-      glEnable(GL_CULL_FACE);
       vertexer.draw(shaderProgram1, mvmat, pmat, mesh.material, GL_TRIANGLES);
+    }
+  }
+  void renderWeights(mat4 mvmat, mat4 pmat)
+  {
+    foreach (mesh; model.meshes)
+    {
+      /* Calculate mesh vertex positions from animation weight positions */
+      foreach (vi; 0..mesh.verts.length)
+      {
+        Vert vert = mesh.verts[vi];
+        Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
+        vec3 pos = vec3(0,0,0);
+        foreach (weight; weights)
+        {
+          auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
+          auto weightPos = joint.orient * weight.pos + joint.pos;
+          vertexer.add(weightPos, vec2(0,0), vec3(1,0,0), vec3f(1,0,1));
+        }
+      }
+
+      /* Draw vertexer contents */
+      vertexer.draw(shaderProgram1, mvmat, pmat, mesh.material, GL_POINTS);
     }
   }
 
@@ -777,7 +798,16 @@ class MD5Animation
     }
 
     if (optRenderFull)
+    {
+      glEnable(GL_CULL_FACE);
       render(mvmat, pmat);
+    }
+    if (optRenderWeights)
+    {
+      glDisable(GL_DEPTH_TEST);
+      renderWeights(mvmat, pmat);
+      glEnable(GL_DEPTH_TEST);
+    }
     if (optRenderWireframe)
       renderSkeleton(mvmat, pmat);
     if (optRenderVerts)

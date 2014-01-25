@@ -179,6 +179,28 @@ class EntityDragonfly : EntityEnemy
   }
 }
 
+class EntityBendingBar : EntityEnemy
+{
+  mixin(mixme);
+
+  this(int spaceID, vec3 pos, vec3 orient)
+  {
+    // TODO orient!
+    super(spaceID, pos);
+  }
+
+  static Spawner spawner(int spaceID, vec3 pos, vec3 orient, vec3[] path=null)
+  {
+    Entity spawn() {
+      auto e = new EntityBendingBar(spaceID, pos, orient);
+      e.path = path;
+      e.getIntoPath(0); // XXX 0 is probably wrong!
+      return e;
+    }
+    return &spawn;
+  }
+}
+
 /* Shittiest easiest way to do this... */
 void loadEntityAssets()
 {
@@ -187,6 +209,9 @@ void loadEntityAssets()
 
   EntityDragonfly.model = new MD5Model("res/md5/dragonfly-walk.md5mesh");
   EntityDragonfly.anim = new MD5Animation(EntityDragonfly.model, "res/md5/dragonfly-walk.md5anim");
+
+  EntityBendingBar.model = new MD5Model("res/md5/bending-bar.md5mesh");
+  EntityBendingBar.anim = new MD5Animation(EntityBendingBar.model, "res/md5/bending-bar.md5anim");
 }
 
 

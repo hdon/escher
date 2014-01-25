@@ -1041,6 +1041,9 @@ class World
               case "dragonfly":
                 space.spawns ~= EntityDragonfly.spawner(spaceID, translation, orientation, path);
                 break;
+              case "bendingbar":
+                space.spawns ~= EntityBendingBar.spawner(spaceID, translation, orientation, path);
+                break;
               default:
                 assert(0, "unknown spawn type " ~ words[11]);
             }
