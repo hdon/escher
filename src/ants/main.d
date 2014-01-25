@@ -1,8 +1,13 @@
-import display;
+module ants.main;
 import std.stdio;
 import std.string : splitLines, split, toStringz, format;
-import core.memory : GC;
+import std.conv : to;
+import std.algorithm : startsWith;
 import file = std.file;
+import core.memory : GC;
+import ants.display : Display;
+import ants.commands;
+
 version (Windows) import core.sys.windows.windows : MessageBoxA;
 
 void message(string message)
@@ -17,6 +22,7 @@ void message(string message)
   }
 }
 
+Display display;
 int main(string[] args)
 {
   version (Windows)
@@ -25,58 +31,35 @@ int main(string[] args)
     stderr.open("stderr.txt", "w");
   }
 
+  if (args.length > 2)
+  {
+    message("Please invoke with zero or one arguments");
+    return 1;
+  }
+
   try
   {
-    string mapfilename;
-    if (args.length == 2)
+    display = new Display();
+    scope(exit) display.cleanup();
+
+    if (args.length == 1)
     {
-      mapfilename = args[1];
+      doCommandFile(display.console, "init.txt");
     }
     else
     {
-      string initText;
-      try
-      {
-        initText = to!string(cast(char[])file.read("init.txt"));
-      }
-      catch (file.FileException e)
-      {
-        message(e.msg);
-        return 1;
-      }
-
-      foreach (lineNo, line; splitLines(initText))
-      {
-        if (lineNo == 0)
-        {
-          if (line != "escher engine init script version 1")
-          {
-            message("Could not find Escher engine initialization script!");
-            return 1;
-          }
-          continue;
-        }
-
-        auto words = split(line);
-        if (words.length == 0)
-          continue;
-        switch (words[0])
-        {
-          case "map":
-            mapfilename = words[1];
-            break;
-          default:
-            message(format("error: init.txt: unknown command \"%s\"", words[0]));
-            return 1;
-        }
-      }
+      auto filename = args[1];
+      auto fileContent = cast(char[])file.read(filename);
+      if (fileContent.startsWith("escher script version 2\n"))
+        doCommandFile(display.console, filename, to!string(fileContent[24..$]), 2);
+      // TODO instead invoke some load map command that can use the already
+      //      read-in content of the map file.
+      else if (fileContent.startsWith("escher version"))
+        doCommand(display.console, "map " ~ filename);
     }
 
-    bool isRunning = true;
-    Display display = new Display(mapfilename);
-    scope(exit) display.cleanup();
-
     GC.disable();
+    bool isRunning = true;
     while (isRunning)
     {
       isRunning = display.event();

@@ -1,2 +1,4 @@
-escher engine init script version 1
+escher script version 2
 map res/map/metroid0.esc6
+fly false
+noclip false

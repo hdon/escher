@@ -143,6 +143,24 @@ class MD5Model
   Mesh[] meshes;
 
   float spin;
+
+  /* Generates a frequency distribution of vertex weight counts */
+  uint[] getWeightingInfo()
+  {
+    uint[] rval;
+    foreach (mesh; meshes)
+    {
+      foreach (vert; mesh.verts)
+      {
+        auto nw = vert.numWeights;
+        if (nw >= rval.length)
+          rval.length = nw+1;
+        rval[nw]++;
+      }
+    }
+    return rval;
+  }
+
   void draw()
   {
     /* THIS DOESN'T EVEN MATTER */
@@ -285,9 +303,9 @@ class MD5Model
 
             Vert vert = Vert(
               vec2(to!double(words[3]),
-                   to!double(words[4])),
-              to!uint(words[6]),
-              to!uint(words[7]));
+                   to!double(words[4])),  // uv
+              to!uint(words[6]),          // Vert.weightIndex
+              to!uint(words[7]));         // Vert.numWeights
 
             meshes[$-1].verts ~= vert;
           }
@@ -335,6 +353,8 @@ class MD5Model
       //writeln(joints);
       //writeln(meshes);
     }
+
+    writeln("[info] @@@@ weight distributions for ", filename, ": ", getWeightingInfo());
   }
 }
 
@@ -350,13 +370,6 @@ private struct LoadingBone
   int   firstComponentIndex;
 }
 
-struct SurVert
-{
-  vec3 pos;
-  vec3 norm;
-  vec2 uv;
-}
-
 class MD5Animation
 {
   MD5Model model;
@@ -368,6 +381,12 @@ class MD5Animation
   int frameDelay;
   size_t frameNumber;
   size_t numJoints;
+
+  static bool optRenderFull = true;
+  static bool optRenderWireframe;
+  static bool optRenderJoints;
+  static bool optRenderVerts;
+  static bool optRenderWeights;
 
   // Bone/joint position+orientation for the "base frame." The "base frame" contains all the default
   // values for each component in the position and orientation of any bone in any frame. Which components
@@ -583,7 +602,6 @@ class MD5Animation
     }
   }
 
-  // TODO WHAT I'M DOING RIGHT NOW IS UPDATING THIS FUNCTION
   void renderSkeleton(mat4 mvmat, mat4 pmat)
   {
     // bones in current frame
@@ -612,6 +630,7 @@ class MD5Animation
     spin += 0.5;
   }
 
+  // render()
   static vec3[] vertPosBuf;
   static vec3[] vertNorBuf;
   void render(mat4 mvmat, mat4 pmat)
@@ -682,6 +701,42 @@ class MD5Animation
     }
   }
 
+  // renderGPU()
+  /*static mat4f[] boneMatrices;
+  void renderGPU(mat4 mvmat, mat4 pmat)
+  {
+    if (boneMatrices.length < numJoints.length)
+      boneMatrices.length = numJoints.length;
+
+    foreach (iBone, bone; frameBones[frameNumber * numJoints .. (frameNumber+1) * numJoints])
+    {
+      //boneMatrices
+    }
+
+    foreach (mesh; model.meshes)
+    {
+      glUniformMatrix4fv(
+        frameBones.ptr + [frameNumber * numJoints]
+
+      /* Calculate mesh vertex positions from animation weight positions * /
+      foreach (vi; 0..mesh.verts.length)
+      {
+        Vert vert = mesh.verts[vi];
+        Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
+        vec3 pos = vec3(0,0,0);
+        foreach (weight; weights)
+        {
+          auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
+          pos += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
+        }
+        vertPosBuf[vi] = pos;
+        vertNorBuf[vi] = vec3(0,0,0);
+      }
+    }
+
+    // draw!
+  }*/
+
   void renderVerts(mat4 mvmat, mat4 pmat)
   {
     foreach (mesh; model.meshes)
@@ -721,12 +776,12 @@ class MD5Animation
       shaderProgram1 = new ShaderProgram("simpler.vs", "simpler.fs");
     }
 
-    //vertexer.add(vec3(-1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    //vertexer.add(vec3( 1, -1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    //vertexer.add(vec3( 1,  1, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
-    //vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_TRIANGLES);
-
-    render(mvmat, pmat);
+    if (optRenderFull)
+      render(mvmat, pmat);
+    if (optRenderWireframe)
+      renderSkeleton(mvmat, pmat);
+    if (optRenderVerts)
+      renderVerts(mvmat, pmat);
 
     if (++frameDelay >= 1)
     {
@@ -734,8 +789,5 @@ class MD5Animation
       if (++frameNumber >= numFrames)
         frameNumber = 0;
     }
-    //renderSkeleton(mvmat, pmat);
-    //renderVerts(mvmat, pmat);
   }
-
 }

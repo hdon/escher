@@ -1,5 +1,6 @@
-module display;
+module ants.display;
 
+import std.functional : toDelegate;
 import ants.md5 : MD5Model, MD5Animation;
 import ants.escher : World, Camera, playerEntity;
 import ants.entity : EntityPlayer, loadEntityAssets;
@@ -16,6 +17,7 @@ import std.exception : enforce;
 import std.conv : to;
 import file = std.file;
 import ants.hudtext : HUDText;
+import ants.commands : doCommand;
 
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
@@ -25,6 +27,10 @@ alias Quaternion!(double) quat;
 
 class Display
 {
+  World world;
+  Camera camera;
+  DoglConsole console;
+
   private {
     string mapfilename;
     uint height;
@@ -33,9 +39,6 @@ class Display
     float fov;
     float znear;
     float zfar;
-    World world;
-    Camera camera;
-    DoglConsole console;
     HUDText profileHUD;
 
     GLuint glprogram;
@@ -95,49 +98,20 @@ class Display
       SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
       //SDL_WM_SetCaption(toStringz("D is the best"), null);
 
-      world = new World(mapfilename);
-      camera = new Camera(world, 0, vec3(0,0,0));
-      playerEntity = new EntityPlayer(0, vec3(0,0,0));
-
       loadEntityAssets();
 
       setupGL();
 
       console = new DoglConsole(width/16, height/16);
-      console.handleCommand = &command;
+      console.handleCommand = toDelegate(&doCommand);
 
       profileHUD = new HUDText(45, 8, 0, 0, 45f*16f/width, 8f*16f/height);
       profileHUD.print("Hello!");
     }
   }
 
-  void command(DoglConsole console, string cmd)
+  this()
   {
-    switch (cmd)
-    {
-      case "fly":
-        camera.fly = ! camera.fly;
-        console.print(format("fly %sabled\n", camera.fly ? "en" : "dis"));
-        break;
-      case "noclip":
-        camera.noclip = ! camera.noclip;
-        console.print(format("noclip %sabled\n", camera.noclip ? "en" : "dis"));
-        break;
-      case "nobody":
-        camera.noBody = ! camera.noBody;
-        console.print(format("nobody %sabled\n", camera.noBody ? "en" : "dis"));
-        break;
-      case "noent":
-        world.noDrawEntities = ! world.noDrawEntities;
-        console.print(format("noent %sabled\n", camera.noBody ? "en" : "dis"));
-      default:
-        console.print(format("unknown command: %s\n", cmd));
-    }
-  }
-
-  this(string filename)
-  {
-    this.mapfilename = filename;
     width = 800;
     height = 600;
     bpp = 24;

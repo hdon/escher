@@ -19,6 +19,7 @@ import ants.texture;
 import ants.vertexer;
 import ants.material;
 import ants.entity;
+import ants.vbo;
 import std.datetime : StopWatch;
 import core.time : TickDuration;
 debug import std.stdio : writeln, writefln;
@@ -2090,22 +2091,27 @@ class Camera
   float profileDrawWorld;
   float profileDrawArms;
   float profileCollision;
+  VBO vbo;
   void draw(ulong t)
   {
-    vertexer.setFrameTime(t/10_000_000.0);
     ubyte portalDepth = 2;
 
+    /* Instantiate some global/static instances here */
     if (shaderProgram is null)
     {
       portalDiagnosticProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
       shaderProgram = new ShaderProgram("simpler.vs", "simpler.fs");
       playerModel = new MD5Model("res/md5/arms-run.md5mesh");
       playerAnimation = new MD5Animation(playerModel, "res/md5/arms-run.md5anim");
-      vertexer.setResolution(800, 600);
-    }
-    if (vertexer is null)
-    {
       vertexer = new Vertexer();
+    }
+    vertexer.setFrameTime(t/10_000_000.0);
+    vertexer.setResolution(800, 600);
+
+    /* Instantiate some members here */
+    if (vbo is null)
+    {
+      vbo = new VBO();
     }
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -2146,6 +2152,7 @@ class Camera
 
     glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
+    vbo.draw(mvmat, world.pmatWorld);
     glErrorCheck("after drawSpace()");
 
     stopWatch.stop();
