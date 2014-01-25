@@ -1,4 +1,5 @@
 module ants.doglconsole;
+import std.stdio : write;
 import derelict.opengl3.gl3;
 import derelict.sdl2.sdl;
 import ants.texture;
@@ -92,6 +93,7 @@ class DoglConsole
 
   void print(string text)
   {
+    write("[console] ", text);
     uint cursor = front;
     foreach (char c; text)
     {
