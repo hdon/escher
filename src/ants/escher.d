@@ -1204,7 +1204,8 @@ class World
         vertexer.draw(shaderProgram, transform, pmatWorld, materials[lastMaterialID]);
       lastMaterialID = face.data.solidColor.materialID;
     }
-    vertexer.draw(shaderProgram, transform, pmatWorld, materials[lastMaterialID]);
+    if (space.faces.length != 0)
+      vertexer.draw(shaderProgram, transform, pmatWorld, materials[lastMaterialID]);
 
     /* Now we'll draw our entities.
      */
@@ -2155,7 +2156,7 @@ class Camera
 
     glErrorCheck("before drawSpace()");
     world.drawSpace(spaceID, mvmat, portalDepth, 0);
-    vbo.draw(mvmat, world.pmatWorld);
+    //vbo.draw(mvmat, world.pmatWorld);
     glErrorCheck("after drawSpace()");
 
     stopWatch.stop();
