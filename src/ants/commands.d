@@ -90,14 +90,34 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           doCommandFile(console, words[1]);
           break;
 
-        case "drawweights":
+        case "md5drawfull":
+          if (words.length == 1)
+            b = ! MD5Animation.optRenderFull;
+          else
+            b = to!bool(words[1]);
+          assert(words.length <= 2, "invalid number of arguments");
+          MD5Animation.optRenderFull = b;
+          console.print(format("md5drawfull %sabled\n", b ? "en" : "dis"));
+          break;
+
+        case "md5drawweights":
           if (words.length == 1)
             b = ! MD5Animation.optRenderWeights;
           else
             b = to!bool(words[1]);
           assert(words.length <= 2, "invalid number of arguments");
           MD5Animation.optRenderWeights = b;
-          console.print(format("drawweights %sabled\n", b ? "en" : "dis"));
+          console.print(format("md5drawweights %sabled\n", b ? "en" : "dis"));
+          break;
+
+        case "md5drawframe":
+          if (words.length == 1)
+            b = ! MD5Animation.optRenderWireframe;
+          else
+            b = to!bool(words[1]);
+          assert(words.length <= 2, "invalid number of arguments");
+          MD5Animation.optRenderWireframe = b;
+          console.print(format("md5drawframe %sabled\n", b ? "en" : "dis"));
           break;
 
         default:
