@@ -120,6 +120,16 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           console.print(format("md5drawframe %sabled\n", b ? "en" : "dis"));
           break;
 
+        case "md5drawverts":
+          if (words.length == 1)
+            b = ! MD5Animation.optRenderVerts;
+          else
+            b = to!bool(words[1]);
+          assert(words.length <= 2, "invalid number of arguments");
+          MD5Animation.optRenderVerts = b;
+          console.print(format("md5drawframe %sabled\n", b ? "en" : "dis"));
+          break;
+          
         default:
           console.print(format("unknown command: %s\n", words[0]));
       }

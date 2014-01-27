@@ -29,6 +29,7 @@ private Material emptyMaterial;
 private ShaderProgram shaderProgram;
 private ShaderProgram shaderProgram1;
 private ShaderProgram md5ShaderProgram;
+private ShaderProgram varyingColorShaderProgram;
 
 private struct Ray
 {
@@ -399,6 +400,7 @@ class MD5Animation
   size_t numJoints;
 
   static bool optRenderFull = true;
+  static bool optRenderSoftware;
   static bool optRenderWireframe;
   static bool optRenderJoints;
   static bool optRenderVerts;
@@ -649,6 +651,7 @@ class MD5Animation
   // render()
   static vec3[] vertPosBuf;
   static vec3[] vertNorBuf;
+  static vec3f[] vertColBuf;
   void render(mat4 mvmat, mat4 pmat)
   {
     //vec3[] vertsNormals;
@@ -659,6 +662,7 @@ class MD5Animation
       {
         vertPosBuf.length = mesh.verts.length;
         vertNorBuf.length = mesh.verts.length;
+        vertColBuf.length = mesh.verts.length;
       }
 
       /* Calculate mesh vertex positions from animation weight positions */
@@ -674,6 +678,10 @@ class MD5Animation
         }
         vertPosBuf[vi] = pos;
         vertNorBuf[vi] = vec3(0,0,0);
+        vertColBuf[vi] = vec3f(
+          vert.numWeights == 2 ? 1f : 0f,
+          vert.numWeights == 1 && mesh.weights[vert.weightIndex].jointIndex == 0 ? 1f : 0f,
+          vert.numWeights == 1 && mesh.weights[vert.weightIndex].jointIndex == 1 ? 1f : 0f);
       }
 
       /* Calculate and accumulate triangle normals */
@@ -707,7 +715,7 @@ class MD5Animation
             vertPosBuf[vi],
             mesh.verts[vi].uv, 
             vertNorBuf[vi].normalized,
-            vec3f(1,1,1));
+            vertColBuf[vi]);
         }
       }
 
@@ -729,12 +737,12 @@ class MD5Animation
         {
           auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
           auto weightPos = joint.orient * weight.pos + joint.pos;
-          vertexer.add(weightPos, vec2(0,0), vec3(1,0,0), vec3f(1,0,1));
+          vertexer.add(weightPos, vec2(0,0), vec3(1,0,0), vec3f(1,1,1));
         }
       }
 
       /* Draw vertexer contents */
-      vertexer.draw(shaderProgram1, mvmat, pmat, mesh.material, GL_POINTS);
+      vertexer.draw(varyingColorShaderProgram, mvmat, pmat, null, GL_POINTS);
     }
   }
 
@@ -764,12 +772,27 @@ class MD5Animation
     /* Calculate the value of each bone matrix */
     foreach (iBone, bone; frameBones[frameNumber * numJoints .. (frameNumber+1) * numJoints])
     {
+      vec3f[3] v0 = [
+        vec3f(bone.orient * vec3(1,0,0)),
+        vec3f(bone.orient * vec3(0,1,0)),
+        vec3f(bone.orient * vec3(0,0,1)),
+      ];
       /* Create a rotation matrix representing the orientation of this joint/bone */
-      mat4f boneMatrix = bone.orient.to_matrix!(4,4);
+      mat4f m0 = mat4f( //bone.orient.to_matrix!(4,4);
+        v0[0].x, v0[0].y, v0[0].z, bone.pos.x,
+        v0[1].x, v0[1].y, v0[1].z, bone.pos.y,
+        v0[2].x, v0[2].y, v0[2].z, bone.pos.z,
+        0f, 0f, 0f, 1f);
+
+      mat4f m1 = bone.orient.to_matrix!(4,4);
+      //writeln("quat.to_matrix: ", m1);
+      //writeln("quat.meeeeeeee: ", m0);
+
       /* Factor in translation of this joint/bone */
-      boneMatrix.translate(bone.pos.x, bone.pos.y, bone.pos.z);
+      mat4f boneMatrix = m1.translate(bone.pos.x, bone.pos.y, bone.pos.z);
       /* Assign the bone matrix to the array */
       boneMatrices[iBone] = boneMatrix;
+      //writefln("bone %d matrix: %s", iBone, boneMatrix.as_pretty_string);
     }
     //writeln("BONE MATRICES ******** ", boneMatrices);
     //writeln("mvmat         ******** ", mvmat);
@@ -803,26 +826,29 @@ class MD5Animation
       glErrorCheck("md5 1");
 
       /* Enable our vertex attributes */
+      static if (0) writefln(`
+        attribute location: boneIndices:  %d
+        attribute location: weightBiases: %d
+        attribute location: weightPos:    %d
+        attribute location: uv:           %d`,
+        boneIndicesAttloc,
+        weightBiasesAttloc,
+        weightPosAttloc,
+        uvAttloc);
+
       glEnableVertexAttribArray(uvAttloc);
-      glErrorCheck("md5 2");
       glEnableVertexAttribArray(boneIndicesAttloc+0);
-      glErrorCheck("md5 3.0");
       glEnableVertexAttribArray(weightBiasesAttloc);
-      glErrorCheck("md5 4");
       glEnableVertexAttribArray(weightPosAttloc+0);
-      glErrorCheck("md5 4.1");
       glEnableVertexAttribArray(weightPosAttloc+1);
-      glErrorCheck("md5 4.2");
       glEnableVertexAttribArray(weightPosAttloc+2);
-      glErrorCheck("md5 4.3");
       glEnableVertexAttribArray(weightPosAttloc+3);
-      glErrorCheck("md5 4.4");
 
       /* Specify our vertex attribute layout (actual data in VBO already) */
       foreach (i; 0..4)
         glVertexAttribPointer(weightPosAttloc+i, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(4*4*i));
       glVertexAttribPointer(weightBiasesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)64);
-      glVertexAttribPointer(boneIndicesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(80+4));
+      glVertexAttribPointer(boneIndicesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(80));
       glVertexAttribPointer(uvAttloc, 2, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)96);
 
       /* Set texture sampler for color map TODO use Material better! */
@@ -868,12 +894,12 @@ class MD5Animation
     /* Generate needed buffers */
     /* Vertex buffer objects for each mesh */
     vbo.length = model.meshes.length;
+    /* Index buffer objects for face indices */
     ibo.length = vbo.length;
     /* Create buffer objects for both vertex data and face data */
     glGenBuffers(cast(GLint)vbo.length, vbo.ptr);
     glGenBuffers(cast(GLint)ibo.length, ibo.ptr);
     glErrorCheck("glGenBuffers()");
-    /* Buffer objects for face indices */
 
     GPUVert[] data;
     foreach (iMesh, mesh; model.meshes)
@@ -890,6 +916,7 @@ class MD5Animation
           if (iWeight < vert.numWeights)
           {
             auto weight = mesh.weights[vert.weightIndex + iWeight];
+            writefln("vert %d weight %d joint %d", iVert, iWeight, weight.jointIndex);
             v.weightIndices.vector[iWeight] = cast(uint)weight.jointIndex;
             v.weightBiases [iWeight] = cast(float)weight.weightBias;
             v.weightPos    [iWeight] = vec4f(weight.pos.x, weight.pos.y, weight.pos.z, 1f);
@@ -900,7 +927,11 @@ class MD5Animation
             v.weightBiases [iWeight] = 0f;
             v.weightPos    [iWeight] = vec4f(0,0,0,0);
           }
+          v.pad = vec2f(666f, 666f);
         }
+        if (vert.numWeights == 2 &&
+            mesh.weights[vert.weightIndex].jointIndex < mesh.weights[vert.weightIndex+1].jointIndex)
+          v.pad.x = 1f;
         data[iVert] = v;
       }
 
@@ -908,7 +939,24 @@ class MD5Animation
       /* Create the buffer object in the GL */
       glBindBuffer(GL_ARRAY_BUFFER, vbo[iMesh]);
       /* Fill the buffer object with our data */
-      writefln("ASJDFLASJDFLASJFDLASJDFA %d %d", typeid(data[0]).sizeof, GPUVert.sizeof);
+      writeln("vbo data: ");
+      foreach(v; data) if (v.pad.x == 1f) writefln(`
+        weight 0 pos: %s
+        weight 1 pos: %s
+        weight 2 pos: %s
+        weight 3 pos: %s
+        weight biases: %s
+        weight indices: %s
+        uv: %s
+        pad: %s`,
+        v.weightPos[0],
+        v.weightPos[1],
+        v.weightPos[2],
+        v.weightPos[3],
+        v.weightBiases,
+        v.weightIndices,
+        v.uv, v.pad);
+
       glBufferData(GL_ARRAY_BUFFER, GPUVert.sizeof * data.length, data.ptr, GL_STATIC_DRAW);
       /* Finish using this buffer object */
       glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -981,18 +1029,23 @@ class MD5Animation
       shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
       shaderProgram1 = new ShaderProgram("simpler.vs", "simpler.fs");
       md5ShaderProgram = new ShaderProgram("md5-uniform-color.vs", "simpler.fs");
+      varyingColorShaderProgram = new ShaderProgram("simpler.vs", "simple-color.fs");
     }
 
     if (optRenderFull)
     {
       glEnable(GL_CULL_FACE);
-      //render(mvmat, pmat);
-      renderGPU(mvmat, pmat);
+      if (optRenderSoftware)
+        render(mvmat, pmat);
+      else
+        renderGPU(mvmat, pmat);
     }
     if (optRenderWeights)
     {
       glDisable(GL_DEPTH_TEST);
+      glPointSize(5f);
       renderWeights(mvmat, pmat);
+      glPointSize(1f);
       glEnable(GL_DEPTH_TEST);
     }
     if (optRenderWireframe)
@@ -1000,12 +1053,12 @@ class MD5Animation
     if (optRenderVerts)
       renderVerts(mvmat, pmat);
 
-    if (++frameDelay >= 1)
+    /*if (++frameDelay >= 100)
     {
       frameDelay = 0;
       if (++frameNumber >= numFrames)
         frameNumber = 0;
-    }
+    }*/
   }
 }
 

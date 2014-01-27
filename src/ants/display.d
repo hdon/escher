@@ -3,7 +3,7 @@ module ants.display;
 import std.functional : toDelegate;
 import ants.md5 : MD5Model, MD5Animation;
 import ants.escher : World, Camera, playerEntity;
-import ants.entity : EntityPlayer, loadEntityAssets;
+import ants.entity : EntityPlayer, EntityBendingBar, loadEntityAssets;
 import ants.doglconsole;
 import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen, format;
@@ -200,7 +200,33 @@ z: %3.3s
             }
             break;
           }
-
+          else if (event.key.keysym.sym == '5')
+          {
+            MD5Animation.optRenderSoftware = ! MD5Animation.optRenderSoftware;
+            console.print(format("MD5 Rendering mode: %sware\n",
+              MD5Animation.optRenderSoftware?"soft":"hard"));
+            break;
+          }
+          /* LOL XXX */
+          else if (event.key.keysym.sym == SDLK_KP_PLUS)
+          {
+            if (world.entities.length > 0 && world.entities[0].length > 0)
+            {
+              auto e = cast(EntityBendingBar)world.entities[0][0];
+              if (e !is null)
+                e.anim.frameNumber = (e.anim.frameNumber+1)%e.anim.numFrames;
+            }
+          }
+          /* LOL XXX */
+          else if (event.key.keysym.sym == SDLK_KP_MINUS)
+          {
+            if (world.entities.length > 0 && world.entities[0].length > 0)
+            {
+              auto e = cast(EntityBendingBar)world.entities[0][0];
+              if (e !is null)
+                e.anim.frameNumber = (e.anim.frameNumber-1+e.anim.numFrames)%e.anim.numFrames;
+            }
+          }
           if (event.key.repeat == 0)
             camera.key(event.key.keysym.sym, event.key.state != 0);
           break;
