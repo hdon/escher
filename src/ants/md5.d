@@ -798,8 +798,6 @@ class MD5Animation
     /* Send draw command for each mesh! */
     foreach (iMesh, mesh; model.meshes)
     {
-      GPUVert foo; // XXX work around a compiler bug / language limitation
-
       /* Select our GL buffer object containing our vertex data */
       glBindBuffer(GL_ARRAY_BUFFER, vbo[iMesh]);
       glErrorCheck("md5 1");
@@ -821,22 +819,6 @@ class MD5Animation
       glErrorCheck("md5 4.4");
 
       /* Specify our vertex attribute layout (actual data in VBO already) */
-      static if (0)
-      writeln("--- offsets: ",
-        foo.uv.offsetof, ' ',
-        foo.weightIndices.offsetof, ' ',
-        foo.weightBiases.offsetof, ' ',
-        foo.weightPos.offsetof, " sizes: ",
-        GPUVert.sizeof, ' ',
-        foo.weightIndices.sizeof, ' ',
-        foo.weightPos[0].sizeof,
-        "\n--- generic vertex attrib indices: ",
-        weightPosAttloc, ' ',
-        weightBiasesAttloc, ' ',
-        boneIndicesAttloc, ' ',
-        uvAttloc
-        );
-
       foreach (i; 0..4)
         glVertexAttribPointer(weightPosAttloc+i, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(4*4*i));
       glVertexAttribPointer(weightBiasesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)64);
