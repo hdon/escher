@@ -391,7 +391,7 @@ class MD5Animation
 {
   MD5Model model;
   size_t numFrames;
-  uint frameRate;
+  uint frameRate; // frames per second
   size_t frameStride; // number of joints in animation
   Joint[] animation;
   float spin;
@@ -916,7 +916,7 @@ class MD5Animation
           if (iWeight < vert.numWeights)
           {
             auto weight = mesh.weights[vert.weightIndex + iWeight];
-            writefln("vert %d weight %d joint %d", iVert, iWeight, weight.jointIndex);
+            //writefln("vert %d weight %d joint %d", iVert, iWeight, weight.jointIndex);
             v.weightIndices.vector[iWeight] = cast(uint)weight.jointIndex;
             v.weightBiases [iWeight] = cast(float)weight.weightBias;
             v.weightPos    [iWeight] = vec4f(weight.pos.x, weight.pos.y, weight.pos.z, 1f);
@@ -939,7 +939,8 @@ class MD5Animation
       /* Create the buffer object in the GL */
       glBindBuffer(GL_ARRAY_BUFFER, vbo[iMesh]);
       /* Fill the buffer object with our data */
-      writeln("vbo data: ");
+      //writeln("vbo data: ");
+      static if (0)
       foreach(v; data) if (v.pad.x == 1f) writefln(`
         weight 0 pos: %s
         weight 1 pos: %s
@@ -1053,12 +1054,12 @@ class MD5Animation
     if (optRenderVerts)
       renderVerts(mvmat, pmat);
 
-    /*if (++frameDelay >= 100)
+    if (++frameDelay >= 1)
     {
       frameDelay = 0;
       if (++frameNumber >= numFrames)
         frameNumber = 0;
-    }*/
+    }
   }
 }
 

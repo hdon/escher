@@ -207,7 +207,7 @@ z: %3.3s
               MD5Animation.optRenderSoftware?"soft":"hard"));
             break;
           }
-          /* LOL XXX */
+          /* LOL XXX * /
           else if (event.key.keysym.sym == SDLK_KP_PLUS)
           {
             if (world.entities.length > 0 && world.entities[0].length > 0)
@@ -217,7 +217,7 @@ z: %3.3s
                 e.anim.frameNumber = (e.anim.frameNumber+1)%e.anim.numFrames;
             }
           }
-          /* LOL XXX */
+          /* LOL XXX * /
           else if (event.key.keysym.sym == SDLK_KP_MINUS)
           {
             if (world.entities.length > 0 && world.entities[0].length > 0)
@@ -226,7 +226,7 @@ z: %3.3s
               if (e !is null)
                 e.anim.frameNumber = (e.anim.frameNumber-1+e.anim.numFrames)%e.anim.numFrames;
             }
-          }
+          }*/
           if (event.key.repeat == 0)
             camera.key(event.key.keysym.sym, event.key.state != 0);
           break;
