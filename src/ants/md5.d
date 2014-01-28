@@ -940,23 +940,30 @@ class MD5Animation
       glBindBuffer(GL_ARRAY_BUFFER, vbo[iMesh]);
       /* Fill the buffer object with our data */
       //writeln("vbo data: ");
-      static if (0)
-      foreach(v; data) if (v.pad.x == 1f) writefln(`
-        weight 0 pos: %s
-        weight 1 pos: %s
-        weight 2 pos: %s
-        weight 3 pos: %s
-        weight biases: %s
-        weight indices: %s
-        uv: %s
-        pad: %s`,
-        v.weightPos[0],
-        v.weightPos[1],
-        v.weightPos[2],
-        v.weightPos[3],
-        v.weightBiases,
-        v.weightIndices,
-        v.uv, v.pad);
+      version (debugMD5)
+      {
+        foreach(v; data) if (v.pad.x == 1f) writefln(`
+          weight 0 pos: %s
+          weight 1 pos: %s
+          weight 2 pos: %s
+          weight 3 pos: %s
+          weight biases: %s
+          weight indices: %s
+          uv: %s
+          pad: %s`,
+          v.weightPos[0],
+          v.weightPos[1],
+          v.weightPos[2],
+          v.weightPos[3],
+          v.weightBiases,
+          v.weightIndices,
+          v.uv, v.pad);
+
+        GLint maxVA;
+        glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &maxVA);
+        writefln("%d %d-byte triangles %d bytes tota (%d max!): %s",
+          mesh.tris.length, Tri.sizeof, Tri.sizeof * mesh.tris.length, maxVA, mesh.tris);
+      }
 
       glBufferData(GL_ARRAY_BUFFER, GPUVert.sizeof * data.length, data.ptr, GL_STATIC_DRAW);
       /* Finish using this buffer object */
@@ -966,10 +973,6 @@ class MD5Animation
       /* Create the buffer object in the GL */
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[iMesh]);
       /* Fill the buffer object with our data */
-      GLint maxVA;
-      glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &maxVA);
-      writefln("%d %d-byte triangles %d bytes tota (%d max!): %s",
-        mesh.tris.length, Tri.sizeof, Tri.sizeof * mesh.tris.length, maxVA, mesh.tris);
       glBufferData(GL_ELEMENT_ARRAY_BUFFER, Tri.sizeof * mesh.tris.length, mesh.tris.ptr, GL_STATIC_DRAW);
       /* Finish using this buffer object */
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -1060,6 +1063,19 @@ class MD5Animation
       if (++frameNumber >= numFrames)
         frameNumber = 0;
     }
+  }
+}
+
+class MD5Animator
+{
+  MD5Animation anim;
+  ulong start; // hnsecs!
+
+  /* t = current start time
+   */
+  void draw(ulong t, mat4 mvmat, mat4 pmat)
+  {
+    auto fps = anim.frameRate;
   }
 }
 
