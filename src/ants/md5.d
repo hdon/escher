@@ -371,7 +371,9 @@ class MD5Model
       //writeln(meshes);
     }
 
-    writeln("[info] @@@@ weight distributions for ", filename, ": ", getWeightingInfo());
+    auto weightInfo = getWeightingInfo();
+    if (weightInfo.length > 4)
+      writeln("[warning] some vertices have too many weights: ", filename, ": ", getWeightingInfo());
   }
 }
 
