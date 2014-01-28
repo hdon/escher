@@ -14,7 +14,7 @@ import std.typecons : Tuple;
 import std.algorithm : sort, map;
 import std.range : chunks;
 import ants.shader;
-import ants.md5 : MD5Model, MD5Animation;
+import ants.md5 : MD5Model, MD5Animation, MD5Animator;
 import ants.texture;
 import ants.vertexer;
 import ants.material;
@@ -1608,6 +1608,7 @@ enum Weap {
 };
 MD5Model playerModel;
 MD5Animation playerAnimation;
+MD5Animator playerAnimator;
 
 class Camera
 {
@@ -2107,6 +2108,7 @@ class Camera
       shaderProgram = new ShaderProgram("simpler.vs", "simpler.fs");
       playerModel = new MD5Model("res/md5/arms-run.md5mesh");
       playerAnimation = new MD5Animation(playerModel, "res/md5/arms-run.md5anim");
+      playerAnimator = new MD5Animator(playerAnimation, t);
       vertexer = new Vertexer();
     }
     vertexer.setFrameTime(t/10_000_000.0);
@@ -2179,7 +2181,7 @@ class Camera
       ;
     glClear(GL_DEPTH_BUFFER_BIT);
     mat4 pmatPlayer = mat4.perspective(800, 600, 90, 0.000001, 10);
-    playerAnimation.draw(playerMat, pmatPlayer);
+    playerAnimator.draw(t, playerMat, pmatPlayer);
     frame++;
 
     stopWatch.stop();

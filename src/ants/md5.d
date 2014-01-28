@@ -1071,11 +1071,20 @@ class MD5Animator
   MD5Animation anim;
   ulong start; // hnsecs!
 
-  /* t = current start time
-   */
-  void draw(ulong t, mat4 mvmat, mat4 pmat)
+  this(MD5Animation anim, ulong now)
   {
-    auto fps = anim.frameRate;
+    this.anim = anim;
+    this.start = now;
+  }
+
+  /* now = current start time
+   */
+  void draw(ulong now, mat4 mvmat, mat4 pmat)
+  {
+    /* TODO animation sequences instead of just looping the same animation */
+    ulong frameRate = 10_000_000 / cast(ulong)anim.frameRate;
+    anim.frameNumber = ((now-start)/ frameRate) % anim.numFrames;
+    anim.draw(mvmat, pmat);
   }
 }
 
