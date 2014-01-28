@@ -988,7 +988,7 @@ class MD5Animation
     uvAttloc           = md5ShaderProgram.getAttribLocation ("uvV");
     boneIndicesAttloc  = md5ShaderProgram.getAttribLocation ("boneIndices");
     weightBiasesAttloc = md5ShaderProgram.getAttribLocation ("weightBiases");
-    weightPosAttloc    = md5ShaderProgram.getAttribLocation ("weightPos");
+    weightPosAttloc    = md5ShaderProgram.getAttribLocation ("weightPos[0]");
 
     glErrorCheck("initGPU finished");
 
