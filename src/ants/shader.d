@@ -47,7 +47,7 @@ private string findBestShader(string shaderName)
     if (v <= glslVersion)
       return format("glsl/%01d.%02d/%s", v/100, v%100, shaderName);
 
-  throw new Exception("could not find your shader in any compatible version");
+  throw new Exception(format("could not find shader \"%s\" in any compatible version", shaderName));
 }
 
 GLuint loadShader(GLenum type, string filename)
