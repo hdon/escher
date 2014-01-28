@@ -200,6 +200,11 @@ version (never)
   }
 }
 
+/* Can be used by drawing functions to get the time of the current frame, specified in hectonanoseconds,
+ * which is 0.1 microseconds. There are 10,000,000 of these in a second.
+ */
+ulong drawNow;
+
 private struct Segment
 {
   size_t a, b;
@@ -1212,7 +1217,7 @@ class World
     if (!noDrawEntities)
     foreach (entity; entities[spaceID])
     {
-      entity.draw(transform, pmatWorld);
+      entity.draw(drawNow, transform, pmatWorld);
     }
 
 
@@ -2099,6 +2104,8 @@ class Camera
   VBO vbo;
   void draw(ulong t)
   {
+    drawNow = t;
+
     ubyte portalDepth = 2;
 
     /* Instantiate some global/static instances here */

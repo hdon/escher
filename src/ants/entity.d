@@ -2,7 +2,7 @@ module ants.entity;
 import std.stdio;
 import gl3n.interpolate : lerp;
 import ants.escher : vec3, mat4;
-import ants.md5 : MD5Model, MD5Animation;
+import ants.md5 : MD5Model, MD5Animation, MD5Animator;
 
 class Entity
 {
@@ -16,7 +16,7 @@ class Entity
   }
 
   version (escherClient)
-  abstract void draw(mat4 mvmat, mat4 pmat);
+  abstract void draw(ulong now, mat4 mvmat, mat4 pmat);
 
   void update(float deltaf)
   {
@@ -34,11 +34,17 @@ class EntityMD5 : Entity
     }
 
     override
-    void draw(mat4 mvmat, mat4 pmat)
+    void draw(ulong now, mat4 mvmat, mat4 pmat)
     {
-      anim.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
+      animator.draw(now, mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
     }
   };
+
+  enum consmixme = q{
+    animator = new MD5Animator(anim);
+  };
+
+  MD5Animator animator;
 
   this(int spaceID, vec3 pos)
   {
@@ -55,7 +61,7 @@ class EntityPlayer : Entity
     this.angle = angle;
   }
 
-  override void draw(mat4 mvmat, mat4 pmat) {}
+  override void draw(ulong now, mat4 mvmat, mat4 pmat) {}
 
   static Spawner spawner(int spaceID, vec3 pos, float angle=0f)
   {
@@ -146,6 +152,7 @@ class EntitySpikey : EntityEnemy
   {
     // TODO orient!
     super(spaceID, pos);
+    mixin(consmixme);
   }
 
   static Spawner spawner(int spaceID, vec3 pos, vec3 orient, vec3[] path=null)
@@ -168,6 +175,7 @@ class EntityDragonfly : EntityEnemy
   {
     // TODO orient!
     super(spaceID, pos);
+    mixin(consmixme);
   }
 
   static Spawner spawner(int spaceID, vec3 pos, vec3 orient, vec3[] path=null)
@@ -190,6 +198,7 @@ class EntityBendingBar : EntityEnemy
   {
     // TODO orient!
     super(spaceID, pos);
+    mixin(consmixme);
   }
 
   static Spawner spawner(int spaceID, vec3 pos, vec3 orient, vec3[] path=null)

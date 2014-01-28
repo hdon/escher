@@ -1071,7 +1071,11 @@ class MD5Animator
   MD5Animation anim;
   ulong start; // hnsecs!
 
-  this(MD5Animation anim, ulong now)
+  /* TODO allowing 'now' to have a default value is only useful in the world of everything
+   * just being a single stupid looping animation. i should refactor a bit and make this
+   * better.
+   */
+  this(MD5Animation anim, ulong now=0)
   {
     this.anim = anim;
     this.start = now;
