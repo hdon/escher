@@ -534,8 +534,8 @@ class Space
     static struct GPUDrawCommand
     {
       int materialID;
-      void* iboOffset;
-      GLsizei numVerts;
+      size_t iboOffset;
+      size_t numVerts;
     }
     static struct GPUVert
     {
@@ -635,22 +635,30 @@ class Space
       glBufferData(GL_ARRAY_BUFFER, numUniqueVerts * GPUVert.sizeof, gpuVerts.ptr, GL_STATIC_DRAW);
       glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-      /* Now we can handle draw commands */
+      /* Now we can handle draw commands. We'll fill out 'drawCommands,' and a temporary array, 'gpuFaceIndices'
+       * which is only a staging area before sending primitives to the GL.
+       */
+      numVerts = 0;
       size_t numFaceVerts;
       int lastMaterialID = -1;
       foreach (face; faces)
       {
+        /* Faces have been sorted by material when they were loaded from disk. Here, when we encounter
+         * a new material, we begin a new "draw command" which is more or less just the arguments we
+         * need for a call to glDrawElements().
+         */
         if (face.data.solidColor.materialID != lastMaterialID)
         {
           lastMaterialID = face.data.solidColor.materialID;
-          drawCommands ~= GPUDrawCommand(lastMaterialID, cast(void*)numVerts, 0);
+          drawCommands ~= GPUDrawCommand(lastMaterialID, numVerts, 0);
           numFaceVerts = 0;
         }
 
         if (gpuFaceIndices.length < face.indices.length)
           gpuFaceIndices.length = face.indices.length;
-        foreach (i, vi; face.indices)
-          gpuFaceIndices[numFaceVerts+i] = cast(uint)vi;
+        /* TODO triangulate faces! */
+        foreach (nVert; 0..face.indices.length)
+          gpuFaceIndices[numVerts + nVert] = newVertIndices[face.indices[nVert]];
         drawCommands[$-1].numVerts += face.indices.length;
         numVerts += face.indices.length;
       }
