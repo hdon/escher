@@ -654,8 +654,9 @@ class Space
           numFaceVerts = 0;
         }
 
-        if (gpuFaceIndices.length < face.indices.length)
-          gpuFaceIndices.length = face.indices.length;
+        if (gpuFaceIndices.length < numVerts + face.indices.length)
+          gpuFaceIndices.length += 1024;
+
         /* TODO triangulate faces! */
         foreach (nVert; 0..face.indices.length)
           gpuFaceIndices[numVerts + nVert] = newVertIndices[face.indices[nVert]];
