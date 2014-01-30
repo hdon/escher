@@ -22,7 +22,7 @@ import ants.entity;
 import ants.vbo;
 import std.datetime : StopWatch;
 import core.time : TickDuration;
-debug import std.stdio : writeln, writefln;
+debug import std.stdio : write, writeln, writefln;
 
 /*version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}
 else{ pragma(msg, "rendering with OPENGL transforms"); }*/
@@ -69,6 +69,7 @@ alias Matrix!(double, 3, 3) mat3;
 alias Matrix!(double, 4, 4) mat4;
 alias Quaternion!(double) quat;
 
+alias Vector!(float, 2) vec2f;
 alias Vector!(float, 3) vec3f;
 alias Vector!(float, 3) ColorVec;
 
@@ -523,6 +524,149 @@ class Space
   string toString()
   {
     return to!string(faces);
+  }
+
+  version (escherClient)
+  {
+    /* This struct represents the data needed to make a call to glDrawElements() using the buffers
+     * created in gpuSetUp().
+     */
+    static struct GPUDrawCommand
+    {
+      int materialID;
+      void* iboOffset;
+      GLsizei numVerts;
+    }
+    static struct GPUVert
+    {
+      vec3f pos;
+      vec3f norm;
+      vec2f uv;
+    }
+    static bool cmpGPUVert(GPUVert a, GPUVert b) {
+      return
+          a.pos.x != b.pos.x ?
+          a.pos.x  > b.pos.x :
+          a.pos.y != b.pos.y ?
+          a.pos.y  > b.pos.y :
+          a.pos.z != b.pos.z ?
+          a.pos.z  > b.pos.z :
+          a.norm.x != b.norm.x ?
+          a.norm.x  > b.norm.x :
+          a.norm.y != b.norm.y ?
+          a.norm.y  > b.norm.y :
+          a.norm.z != b.norm.z ?
+          a.norm.z  > b.norm.z :
+          a.uv.x != b.uv.x ?
+          a.uv.x  > b.uv.x :
+          a.uv.y != b.uv.y ?
+          a.uv.y  > b.uv.y :
+          false;
+    }
+
+    static uint[] newVertIndices;
+    static uint[] gpuFaceIndices;
+    static GPUVert[] gpuVerts;
+    static GPUVert[] vertSort;
+    GPUDrawCommand[] drawCommands;
+
+    /* mapping of mesh.verts index -> gpuVerts */
+    GLuint vbo;
+    GLuint ibo;
+    bool gpuUp;
+    void gpuSetUp()
+    {
+      if (gpuUp) return;
+
+      /* First we'll deal with vertices */
+
+      /* Redimension arrays if necessary */
+      /* XXX all of these are bullshit now */
+      if (newVertIndices.length < this.verts.length)
+      {
+        newVertIndices.length = this.verts.length;
+        drawCommands.length = this.faces.length; // max allocation we'll need
+      }
+
+      /* Restructure vertex data for sorting. This involves composing data from
+       * this.faces and this.verts
+       */
+      size_t numVerts = 0;
+      foreach (face; faces)
+      {
+        foreach (i, vi; face.indices)
+        {
+          // TODO stopdoubles!
+          vec3f pos = this.verts[vi];
+          vec3f nor = face.normals[i];
+          vec2f uv  = face.UVs[i];
+          if (vertSort.length < numVerts+1)
+            vertSort.length += 4096 / GPUVert.sizeof;
+          vertSort[numVerts++] = GPUVert(pos, nor, uv);
+        }
+      }
+
+      /* Sort vertex data */
+      sort!cmpGPUVert(vertSort[0..numVerts]);
+
+      /* Map from restructured verts into a list of verts that contain no duplicates. */
+      int numUniqueVerts = -1;
+      /* Allocate the maximum capacity we'll need for newVertIndices and gpuVerts */
+      if (newVertIndices.length < vertSort.length)
+      {
+        newVertIndices.length = vertSort.length; // allocate max capacity we'll need
+        gpuVerts.length = vertSort.length;
+      }
+      foreach (uint i; 0..cast(uint)numVerts)
+      {
+        if (i == 0 || vertSort[i] != vertSort[i-1])
+        {
+          numUniqueVerts++;
+          newVertIndices[numUniqueVerts] = i;
+        }
+
+        gpuVerts[numUniqueVerts] = vertSort[i];
+      }
+
+      /* Create GL buffers */
+      glGenBuffers(2, &vbo); // includes ibo
+      /* Send vertex data to vbo */
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+      glBufferData(GL_ARRAY_BUFFER, numUniqueVerts * GPUVert.sizeof, gpuVerts.ptr, GL_STATIC_DRAW);
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+      /* Now we can handle draw commands */
+      size_t numFaceVerts;
+      int lastMaterialID = -1;
+      foreach (face; faces)
+      {
+        if (face.data.solidColor.materialID != lastMaterialID)
+        {
+          lastMaterialID = face.data.solidColor.materialID;
+          drawCommands ~= GPUDrawCommand(lastMaterialID, cast(void*)numVerts, 0);
+          numFaceVerts = 0;
+        }
+
+        if (gpuFaceIndices.length < face.indices.length)
+          gpuFaceIndices.length = face.indices.length;
+        foreach (i, vi; face.indices)
+          gpuFaceIndices[numFaceVerts+i] = cast(uint)vi;
+        drawCommands[$-1].numVerts += face.indices.length;
+        numVerts += face.indices.length;
+      }
+
+      /* Now send our vertex indices to the GL */
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+      glBufferData(GL_ELEMENT_ARRAY_BUFFER, numVerts * uint.sizeof, gpuFaceIndices.ptr, GL_STATIC_DRAW);
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+      glErrorCheck("gpuSetUp()");
+    }
+
+    void gpuTearDown()
+    {
+      writeln("TODO implement Space.gpuTeardown()");
+    }
   }
 }
 
@@ -1184,6 +1328,7 @@ class World
   void drawSpace(int spaceID, mat4 transform, ubyte portalDepth, int dmode)
   {
     Space space = spaces[spaceID];
+    space.gpuSetUp();
 
     /* First we'll draw solid faces. This requires a stencil test, but does not
      * draw to the stencil.
