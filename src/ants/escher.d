@@ -6,7 +6,7 @@ import derelict.opengl3.gl3;
 import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.conv;
 import gl3n.interpolate : lerp;
-import std.math : sqrt, PI, sin, cos, atan2, isNaN, abs;
+import std.math : sqrt, PI, sin, cos, atan2, isNaN, abs, ceil;
 import std.exception : enforce;
 import std.string : splitLines, split;
 import file = std.file;
@@ -533,7 +533,7 @@ class Space
      */
     static struct GPUDrawCommand
     {
-      int materialID;
+      FaceData faceData;
       size_t iboOffset;
       size_t numVerts;
     }
@@ -543,31 +543,41 @@ class Space
       vec3f norm;
       vec2f uv;
     }
-    static bool cmpGPUVert(GPUVert a, GPUVert b) {
+    static struct SortingGPUVert
+    {
+      GPUVert gpuVert;
+      VertMapping mapping;
+    }
+    static struct VertMapping
+    {
+      size_t faceIndex;
+      size_t faceVertIndex;
+    }
+
+    static bool cmpGPUVert(SortingGPUVert a, SortingGPUVert b) {
       return
-          a.pos.x != b.pos.x ?
-          a.pos.x  > b.pos.x :
-          a.pos.y != b.pos.y ?
-          a.pos.y  > b.pos.y :
-          a.pos.z != b.pos.z ?
-          a.pos.z  > b.pos.z :
-          a.norm.x != b.norm.x ?
-          a.norm.x  > b.norm.x :
-          a.norm.y != b.norm.y ?
-          a.norm.y  > b.norm.y :
-          a.norm.z != b.norm.z ?
-          a.norm.z  > b.norm.z :
-          a.uv.x != b.uv.x ?
-          a.uv.x  > b.uv.x :
-          a.uv.y != b.uv.y ?
-          a.uv.y  > b.uv.y :
+          a.gpuVert.pos.x  != b.gpuVert.pos.x ?
+          a.gpuVert.pos.x   > b.gpuVert.pos.x :
+          a.gpuVert.pos.y  != b.gpuVert.pos.y ?
+          a.gpuVert.pos.y   > b.gpuVert.pos.y :
+          a.gpuVert.pos.z  != b.gpuVert.pos.z ?
+          a.gpuVert.pos.z   > b.gpuVert.pos.z :
+          a.gpuVert.norm.x != b.gpuVert.norm.x ?
+          a.gpuVert.norm.x  > b.gpuVert.norm.x :
+          a.gpuVert.norm.y != b.gpuVert.norm.y ?
+          a.gpuVert.norm.y  > b.gpuVert.norm.y :
+          a.gpuVert.norm.z != b.gpuVert.norm.z ?
+          a.gpuVert.norm.z  > b.gpuVert.norm.z :
+          a.gpuVert.uv.x   != b.gpuVert.uv.x ?
+          a.gpuVert.uv.x    > b.gpuVert.uv.x :
+          a.gpuVert.uv.y   != b.gpuVert.uv.y ?
+          a.gpuVert.uv.y    > b.gpuVert.uv.y :
           false;
     }
 
-    static uint[] newVertIndices;
-    static uint[] gpuFaceIndices;
+    static uint[] gpuVertIndices;
     static GPUVert[] gpuVerts;
-    static GPUVert[] vertSort;
+    static SortingGPUVert[] vertSort;
     GPUDrawCommand[] drawCommands;
 
     /* mapping of mesh.verts index -> gpuVerts */
@@ -578,21 +588,11 @@ class Space
     {
       if (gpuUp) return;
 
-      /* First we'll deal with vertices */
-
-      /* Redimension arrays if necessary */
-      /* XXX all of these are bullshit now */
-      if (newVertIndices.length < this.verts.length)
-      {
-        newVertIndices.length = this.verts.length;
-        drawCommands.length = this.faces.length; // max allocation we'll need
-      }
-
       /* Restructure vertex data for sorting. This involves composing data from
        * this.faces and this.verts
        */
       size_t numVerts = 0;
-      foreach (face; faces)
+      foreach (iFace, face; faces)
       {
         foreach (i, vi; face.indices)
         {
@@ -600,33 +600,32 @@ class Space
           vec3f pos = this.verts[vi];
           vec3f nor = face.normals[i];
           vec2f uv  = face.UVs[i];
-          if (vertSort.length < numVerts+1)
+          if (numVerts >= vertSort.length)
             vertSort.length += 4096 / GPUVert.sizeof;
-          vertSort[numVerts++] = GPUVert(pos, nor, uv);
+          vertSort[numVerts++] = SortingGPUVert(GPUVert(pos, nor, uv), VertMapping(iFace, i));
         }
       }
 
       /* Sort vertex data */
       sort!cmpGPUVert(vertSort[0..numVerts]);
+      writeln("SortingGPUVerts: ");
+      foreach (v; vertSort[0..numVerts])
+        writeln("    ", v);
 
-      /* Map from restructured verts into a list of verts that contain no duplicates. */
-      int numUniqueVerts = -1;
-      /* Allocate the maximum capacity we'll need for newVertIndices and gpuVerts */
-      if (newVertIndices.length < vertSort.length)
-      {
-        newVertIndices.length = vertSort.length; // allocate max capacity we'll need
-        gpuVerts.length = vertSort.length;
+      /* Identify duplicate verts, and map from (faceIndex, faceVertIndex) to gpuVerts index */
+      if (gpuVerts.length < numVerts)
+        gpuVerts.length = 512 * cast(size_t) (ceil(numVerts / 512f));
+      uint[VertMapping] newVertIndices;
+      uint numUniqueVerts = 0;
+      foreach (uint i; 0..cast(uint)numVerts) {
+        auto v = vertSort[i];
+        if (i == 0 || v.gpuVert != vertSort[i-1].gpuVert)
+          gpuVerts[numUniqueVerts++] = v.gpuVert;
+        newVertIndices[v.mapping] = numUniqueVerts-1;
       }
-      foreach (uint i; 0..cast(uint)numVerts)
-      {
-        if (i == 0 || vertSort[i] != vertSort[i-1])
-        {
-          numUniqueVerts++;
-          newVertIndices[numUniqueVerts] = i;
-        }
-
-        gpuVerts[numUniqueVerts] = vertSort[i];
-      }
+      writeln("GPUVerts: ");
+      foreach (v; gpuVerts[0..numUniqueVerts])
+        writeln("    ", v);
 
       /* Create GL buffers */
       glGenBuffers(2, &vbo); // includes ibo
@@ -635,41 +634,53 @@ class Space
       glBufferData(GL_ARRAY_BUFFER, numUniqueVerts * GPUVert.sizeof, gpuVerts.ptr, GL_STATIC_DRAW);
       glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-      /* Now we can handle draw commands. We'll fill out 'drawCommands,' and a temporary array, 'gpuFaceIndices'
-       * which is only a staging area before sending primitives to the GL.
-       */
+      /* Now we can handle draw commands */
       numVerts = 0;
-      size_t numFaceVerts;
-      int lastMaterialID = -1;
-      foreach (face; faces)
+      FaceData lastFaceData;
+      foreach (iFace, face; faces)
       {
-        /* Faces have been sorted by material when they were loaded from disk. Here, when we encounter
-         * a new material, we begin a new "draw command" which is more or less just the arguments we
-         * need for a call to glDrawElements().
-         */
-        if (face.data.solidColor.materialID != lastMaterialID)
+        if (face.data.type != FaceType.SolidColor) break;
+
+        if (face.data != lastFaceData)
         {
-          lastMaterialID = face.data.solidColor.materialID;
-          drawCommands ~= GPUDrawCommand(lastMaterialID, numVerts, 0);
-          numFaceVerts = 0;
+          lastFaceData = face.data;
+          drawCommands ~= GPUDrawCommand(lastFaceData, numVerts, 0);
         }
 
-        if (gpuFaceIndices.length < numVerts + face.indices.length)
-          gpuFaceIndices.length += 1024;
+        /* Triangulate this face, and map the old (face,vertex) index to the new gpuVerts index */
+        auto numTriangulatedVerts = (face.indices.length - 2) * 3;
+        if (gpuVertIndices.length < numVerts + numTriangulatedVerts)
+          gpuVertIndices.length = 128 * cast(size_t) ceil((numVerts + numTriangulatedVerts) / 128f);
+        foreach (nVert; 2..face.indices.length)
+        {
+          writeln(": mapping: ", iFace, ", ", 0, " = ", newVertIndices[VertMapping(iFace, 0)]);
+          writeln(": mapping: ", iFace, ", ", nVert-1, " = ", newVertIndices[VertMapping(iFace, nVert-1)]);
+          writeln(": mapping: ", iFace, ", ", nVert, " = ", newVertIndices[VertMapping(iFace, nVert)]);
+          auto n = (nVert-2)*3;
+          gpuVertIndices[numVerts + n + 0] = newVertIndices[VertMapping(iFace, 0)];
+          gpuVertIndices[numVerts + n + 1] = newVertIndices[VertMapping(iFace, nVert - 1)];
+          gpuVertIndices[numVerts + n + 2] = newVertIndices[VertMapping(iFace, nVert)];
+        }
+        drawCommands[$-1].numVerts += numTriangulatedVerts;
+        numVerts += numTriangulatedVerts;
+      }
 
-        /* TODO triangulate faces! */
-        foreach (nVert; 0..face.indices.length)
-          gpuFaceIndices[numVerts + nVert] = newVertIndices[face.indices[nVert]];
-        drawCommands[$-1].numVerts += face.indices.length;
-        numVerts += face.indices.length;
+      writeln("draw commands:");
+      foreach (i, dc; drawCommands)
+      {
+        writeln("  ", i, ": ", dc);
+        foreach (v; gpuVertIndices[dc.iboOffset .. dc.numVerts])
+          writeln("    ", v, ": ", gpuVerts[v]);
       }
 
       /* Now send our vertex indices to the GL */
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-      glBufferData(GL_ELEMENT_ARRAY_BUFFER, numVerts * uint.sizeof, gpuFaceIndices.ptr, GL_STATIC_DRAW);
+      glBufferData(GL_ELEMENT_ARRAY_BUFFER, numVerts * uint.sizeof, gpuVertIndices.ptr, GL_STATIC_DRAW);
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
       glErrorCheck("gpuSetUp()");
+
+      gpuUp = true;
     }
 
     void gpuTearDown()
@@ -1350,21 +1361,73 @@ class World
       glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     }
     
-    // Draw some triangles
-    int lastMaterialID = -1;
-    foreach (faceID, face; space.faces)
+    shaderProgram.use();
+
+    /* XXX-doc Send some uniforms... */
+    /* TODO stop-doubles */
+    mat4f tempMatrix = transform;
+    glUniformMatrix4fv(shaderProgram.getUniformLocation("viewMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
+    tempMatrix = mat4f(pmatWorld);
+    glUniformMatrix4fv(shaderProgram.getUniformLocation("projMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
+    glBindBuffer(GL_ARRAY_BUFFER, space.vbo);
+
+    auto attloc = shaderProgram.getAttribLocation("positionV");
+    if (attloc >= 0)
     {
-      // TODO faces are sorted, so this could be changed..
-      if (face.data.type != FaceType.SolidColor)
+      glEnableVertexAttribArray(attloc);
+      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)0);
+    }
+
+    attloc = shaderProgram.getAttribLocation("normalV");
+    if (attloc >= 0)
+    {
+      glEnableVertexAttribArray(attloc);
+      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(3*4));
+    }
+
+    attloc = shaderProgram.getAttribLocation("uvV");
+    if (attloc >= 0)
+    {
+      glEnableVertexAttribArray(attloc);
+      glVertexAttribPointer(attloc, 2, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(6*4));
+    }
+
+    auto colorMapUniloc = shaderProgram.getUniformLocation("colorMap");
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, space.ibo);
+
+    foreach (drawCommand; space.drawCommands)
+    {
+      /* TODO optimize this check by sorting the draw commands or something */
+      if (drawCommand.faceData.type != FaceType.SolidColor)
         continue;
 
-      drawFace(space, face, transform, pmatWorld);
-      if (lastMaterialID > 0 && lastMaterialID != face.data.solidColor.materialID)
-        vertexer.draw(shaderProgram, transform, pmatWorld, materials[lastMaterialID]);
-      lastMaterialID = face.data.solidColor.materialID;
+      if (colorMapUniloc >= 0)
+      {
+        auto materialID = drawCommand.faceData.solidColor.materialID;
+        auto mat = materials[materialID];
+        GLuint colorMap;
+        foreach (mt; mat.texes)
+        {
+          if (mt.application == TextureApplication.Color)
+          {
+            colorMap = mt.texture;
+            break;
+          }
+        }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorMap);
+        glUniform1i(colorMapUniloc, 0);
+      }
+
+      //writeln("drawing ", drawCommand.numVerts, " verts @ ", drawCommand.iboOffset);
+      glDrawElements(GL_TRIANGLES,
+        cast(GLint)drawCommand.numVerts, GL_UNSIGNED_INT, cast(void*)drawCommand.iboOffset);
     }
-    if (space.faces.length != 0)
-      vertexer.draw(shaderProgram, transform, pmatWorld, materials[lastMaterialID]);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glUseProgram(0);
 
     /* Now we'll draw our entities.
      */
@@ -2266,7 +2329,7 @@ class Camera
     if (shaderProgram is null)
     {
       portalDiagnosticProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
-      shaderProgram = new ShaderProgram("simpler.vs", "simpler.fs");
+      shaderProgram = new ShaderProgram("vert-pos-uv--uv.vs", "frag-uv-colorMap.fs");
       playerModel = new MD5Model("res/md5/arms-run.md5mesh");
       playerAnimation = new MD5Animation(playerModel, "res/md5/arms-run.md5anim");
       playerAnimator = new MD5Animator(playerAnimation, t);
