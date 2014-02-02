@@ -397,7 +397,6 @@ class MD5Animation
   size_t frameStride; // number of joints in animation
   Joint[] animation;
   float spin;
-  size_t frameNumber;
   size_t numJoints;
 
   static bool optRenderFull = true;
@@ -406,6 +405,14 @@ class MD5Animation
   static bool optRenderJoints;
   static bool optRenderVerts;
   static bool optRenderWeights;
+
+  /* t is provided in hecto-nano seconds */
+  void calculateFrame(ulong t, ref size_t frameNumber0, ref size_t frameNumber1, float tween)
+  {
+    frameNumber0 = (t / (10_000_000 / cast(ulong)frameRate)) % numFrames;
+    frameNumber1 = (frameNumber0 + 1) % numFrames;
+    tween = 1f;
+  }
 
   // Bone/joint position+orientation for the "base frame." The "base frame" contains all the default
   // values for each component in the position and orientation of any bone in any frame. Which components
@@ -621,8 +628,12 @@ class MD5Animation
     }
   }
 
-  void renderSkeleton(mat4 mvmat, mat4 pmat)
+  void renderSkeleton(mat4 mvmat, mat4 pmat, ulong t)
   {
+    size_t frameNumber, frameNumber1;
+    float tween;
+    calculateFrame(t, frameNumber, frameNumber1, tween);
+
     // bones in current frame
     auto bones = frameBones[frameNumber*numJoints .. (frameNumber+1)*numJoints];
 
@@ -653,8 +664,12 @@ class MD5Animation
   static vec3[] vertPosBuf;
   static vec3[] vertNorBuf;
   static vec3f[] vertColBuf;
-  void render(mat4 mvmat, mat4 pmat)
+  void render(mat4 mvmat, mat4 pmat, ulong t)
   {
+    size_t frameNumber, frameNumber1;
+    float tween;
+    calculateFrame(t, frameNumber, frameNumber1, tween);
+
     //vec3[] vertsNormals;
 
     foreach (mesh; model.meshes)
@@ -724,8 +739,12 @@ class MD5Animation
       vertexer.draw(shaderProgram1, mvmat, pmat, mesh.material, GL_TRIANGLES);
     }
   }
-  void renderWeights(mat4 mvmat, mat4 pmat)
+  void renderWeights(mat4 mvmat, mat4 pmat, ulong t)
   {
+    size_t frameNumber, frameNumber1;
+    float tween;
+    calculateFrame(t, frameNumber, frameNumber1, tween);
+
     foreach (mesh; model.meshes)
     {
       /* Calculate mesh vertex positions from animation weight positions */
@@ -762,9 +781,13 @@ class MD5Animation
   /* GL Buffer Objects to hold vertex attributes and face indices. One per mesh. */
   GLuint[] vbo;
   GLuint[] ibo;
-  void renderGPU(mat4 mvmat, mat4 pmat)
+  void renderGPU(mat4 mvmat, mat4 pmat, ulong t)
   {
     initGPU();
+
+    size_t frameNumber, frameNumber1;
+    float tween;
+    calculateFrame(t, frameNumber, frameNumber1, tween);
 
     /* Create our array of bone matrices describing the armature/skeleton */
     /* Resize if necessary the array we reuse for storing bone matrices */
@@ -996,8 +1019,12 @@ class MD5Animation
     initGPUDone = true;
   }
 
-  void renderVerts(mat4 mvmat, mat4 pmat)
+  void renderVerts(mat4 mvmat, mat4 pmat, ulong t)
   {
+    size_t frameNumber, frameNumber1;
+    float tween;
+    calculateFrame(t, frameNumber, frameNumber1, tween);
+
     foreach (mesh; model.meshes)
     {
       foreach (tri; mesh.tris)
@@ -1025,7 +1052,7 @@ class MD5Animation
     }
   }
 
-  void draw(mat4 mvmat, mat4 pmat)
+  void draw(mat4 mvmat, mat4 pmat, ulong t)
   {
     if (vertexer is null)
     {
@@ -1041,22 +1068,22 @@ class MD5Animation
     {
       glEnable(GL_CULL_FACE);
       if (optRenderSoftware)
-        render(mvmat, pmat);
+        render(mvmat, pmat, t);
       else
-        renderGPU(mvmat, pmat);
+        renderGPU(mvmat, pmat, t);
     }
     if (optRenderWeights)
     {
       glDisable(GL_DEPTH_TEST);
       glPointSize(5f);
-      renderWeights(mvmat, pmat);
+      renderWeights(mvmat, pmat, t);
       glPointSize(1f);
       glEnable(GL_DEPTH_TEST);
     }
     if (optRenderWireframe)
-      renderSkeleton(mvmat, pmat);
+      renderSkeleton(mvmat, pmat, t);
     if (optRenderVerts)
-      renderVerts(mvmat, pmat);
+      renderVerts(mvmat, pmat, t);
   }
 }
 
@@ -1075,14 +1102,12 @@ class MD5Animator
     this.start = now;
   }
 
-  /* now = current start time
+  /* now = current time
    */
   void draw(ulong now, mat4 mvmat, mat4 pmat)
   {
     /* TODO animation sequences instead of just looping the same animation */
-    ulong frameRate = 10_000_000 / cast(ulong)anim.frameRate;
-    anim.frameNumber = ((now-start)/ frameRate) % anim.numFrames;
-    anim.draw(mvmat, pmat);
+    anim.draw(mvmat, pmat, now-start);
   }
 }
 
