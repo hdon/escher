@@ -397,7 +397,6 @@ class MD5Animation
   size_t frameStride; // number of joints in animation
   Joint[] animation;
   float spin;
-  int frameDelay;
   size_t frameNumber;
   size_t numJoints;
 
@@ -1058,13 +1057,6 @@ class MD5Animation
       renderSkeleton(mvmat, pmat);
     if (optRenderVerts)
       renderVerts(mvmat, pmat);
-
-    if (++frameDelay >= 1)
-    {
-      frameDelay = 0;
-      if (++frameNumber >= numFrames)
-        frameNumber = 0;
-    }
   }
 }
 
