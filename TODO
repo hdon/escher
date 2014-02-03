@@ -1,10 +1,16 @@
 TODO
 
+This document will be numbered in order of additions to the TODO file,
+however the order in which they appear will be roughly the order in
+which I plan to do them.
+
 4) Reevaluate/bugfix the "vanish culling" code
 
 5) Fix the portal stencil code!!!
 
 6) Fix buggy line segment collision code
+
+8) Triangulate collision geometry upon loading!
 
 7) Rewrite collision code:
 introduce new collision primitives:
