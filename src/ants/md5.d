@@ -407,11 +407,11 @@ class MD5Animation
   static bool optRenderWeights;
 
   /* t is provided in hecto-nano seconds */
-  void calculateFrame(ulong t, ref size_t frameNumber0, ref size_t frameNumber1, float tween)
+  void calculateFrame(ulong t, ref size_t frameNumber0, ref size_t frameNumber1, ref float tween)
   {
-    frameNumber0 = (t / (10_000_000 / cast(ulong)frameRate)) % numFrames;
+    frameNumber0 = (t * cast(ulong)frameRate / 10_000_000) % numFrames;
     frameNumber1 = (frameNumber0 + 1) % numFrames;
-    tween = 1f;
+    tween = t * frameRate % 10_000_000 / 10_000_000f;
   }
 
   // Bone/joint position+orientation for the "base frame." The "base frame" contains all the default
@@ -781,20 +781,16 @@ class MD5Animation
   /* GL Buffer Objects to hold vertex attributes and face indices. One per mesh. */
   GLuint[] vbo;
   GLuint[] ibo;
-  void renderGPU(mat4 mvmat, mat4 pmat, ulong t)
+  void renderGPU(mat4 mvmat, mat4 pmat)
   {
     initGPU();
-
-    size_t frameNumber, frameNumber1;
-    float tween;
-    calculateFrame(t, frameNumber, frameNumber1, tween);
 
     /* Create our array of bone matrices describing the armature/skeleton */
     /* Resize if necessary the array we reuse for storing bone matrices */
     if (boneMatrices.length < numJoints)
       boneMatrices.length = numJoints;
     /* Calculate the value of each bone matrix */
-    foreach (iBone, bone; frameBones[frameNumber * numJoints .. (frameNumber+1) * numJoints])
+    foreach (iBone, bone; interpolatedSkeleton[0..numJoints])
     {
       vec3f[3] v0 = [
         vec3f(bone.orient * vec3(1,0,0)),
@@ -1064,13 +1060,15 @@ class MD5Animation
       varyingColorShaderProgram = new ShaderProgram("simpler.vs", "simple-color.fs");
     }
 
+    calculateInterpolatedSkeleton(t);
+
     if (optRenderFull)
     {
       glEnable(GL_CULL_FACE);
       if (optRenderSoftware)
         render(mvmat, pmat, t);
       else
-        renderGPU(mvmat, pmat, t);
+        renderGPU(mvmat, pmat);
     }
     if (optRenderWeights)
     {
@@ -1084,6 +1082,29 @@ class MD5Animation
       renderSkeleton(mvmat, pmat, t);
     if (optRenderVerts)
       renderVerts(mvmat, pmat, t);
+  }
+
+  /* We can store an interpolated skeleton (a slice of frameBones) here, allowing us to
+   * avoid recalculating a given skeleton, and also providing a place in memory to store
+   * it, sans alloca.
+   */
+  static Ray[] interpolatedSkeleton;
+  void calculateInterpolatedSkeleton(ulong t)
+  {
+    size_t f0, f1;
+    float f01;
+    calculateFrame(t, f0, f1, f01);
+
+    if (interpolatedSkeleton.length < numJoints)
+      interpolatedSkeleton.length = numJoints;
+
+    foreach (iBone; 0..numJoints)
+    {
+      auto b0 = frameBones[f0 * numJoints + iBone];
+      auto b1 = frameBones[f1 * numJoints + iBone];
+      interpolatedSkeleton[iBone].pos = lerp(b0.pos, b1.pos, f01);
+      interpolatedSkeleton[iBone].orient = lerp(b0.orient, b1.orient, f01);
+    }
   }
 }
 
