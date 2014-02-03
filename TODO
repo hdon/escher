@@ -1,0 +1,24 @@
+TODO
+
+4) Reevaluate/bugfix the "vanish culling" code
+
+5) Fix the portal stencil code!!!
+
+6) Fix buggy line segment collision code
+
+7) Rewrite collision code:
+introduce new collision primitives:
+Spaces should have an array of planar normals of its collision surfaces.
+Each planar normal should then list the values for 'd' to complete the
+parametric equation of each such plane. Then each of those should list
+the polygons in that plane which are collidable.
+
+The collision test can go like this:
+For each planar normal 'n':
+  project entity movement along the line r*n
+  For each 'd':
+    if movement does not pass through the value 'd', next 'd'
+    For each polygon in this plane:
+      use ray casting (even/odd) rule to determine collision
+
+http://en.wikipedia.org/wiki/Point_in_polygon#Ray_casting_algorithm
