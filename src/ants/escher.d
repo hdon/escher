@@ -56,6 +56,8 @@ void glErrorCheck(string source)
   }
 }
 
+enum PHYSPUSH = 1.01;
+
 // TODO look this up
 // http://www.opengl.org/registry/specs/ARB/depth_clamp.txt
 // this might help deal with the issue of portal rendering when the portal face
@@ -1370,6 +1372,7 @@ class World
     tempMatrix = mat4f(pmatWorld);
     glUniformMatrix4fv(shaderProgram.getUniformLocation("projMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
     glBindBuffer(GL_ARRAY_BUFFER, space.vbo);
+    glEnable(GL_CULL_FACE);
 
     auto attloc = shaderProgram.getAttribLocation("positionV");
     if (attloc >= 0)
@@ -1935,7 +1938,7 @@ class Camera
     const double startSpeed = 0.08;
     const double jumpVel = 25.0;
     const double mass = 1.0;
-    float deltaf = delta/10_000_000f;
+    double deltaf = delta/10_000_000f;
 
     // Remember old position for intersection tests
     vec3 oldpos = pos;
@@ -2032,6 +2035,8 @@ class Camera
       Space space = world.spaces[spaceID];
 
       /* Collide with solid Space Faces */
+      //foreach (tryEdges; 0..1)
+      enum tryEdges = false;
       foreach (faceIndex, face; space.faces)
       {
         if (face.data.type == FaceType.SolidColor)
@@ -2054,23 +2059,27 @@ class Camera
            * The relevant point on the hitsphere is calculated using the planar normal times
            * the negation of the hitsphere radius.
            */
-          /*const float hitSphereRadius = 0.25;
-          const float hitSphereScaleY = 1.0;
+          /*const double hitSphereRadius = 0.25;
+          const double hitSphereScaleY = 1.0;
           vec3 hitSphereDelta = n * vec3(hitSphereRadius, hitSphereScaleY+hitSphereRadius, hitSphereRadius),
                hitSphereStartPos = oldpos + hitSphereDelta,
                hitSphereEndPos = pos + hitSphereDelta;*/
-          const float hitSphereRadius = 0.25;
+          const double hitSphereRadius = 0.25;
           vec3 hitSphereDelta = hitSphereRadius * n,
                hitSphereStartPos = oldpos + hitSphereDelta,
                hitSphereEndPos = pos + hitSphereDelta;
 
           /* Has the hitpoint passed through this triangle in this space face? */
           bool hit =
+            !tryEdges &&
             face.indices.length == 3 &&
             passThruTest(hitSphereStartPos, movement.normalized, fv[0], fv[1], fv[2], movement.length);
 
           if (!hit)
           {
+            if (!tryEdges)
+              continue;
+
             //writefln("@@ attempting segment-sphere intersection___________");
 
             /* We have determined that the motion of the "hitpoint" on the hitsphere has not
@@ -2091,7 +2100,7 @@ class Camera
               vec3 p3 = pos;
 
               vec3 p2_p1 = p2-p1;
-              float u = dot(p3-p1, p2_p1) / p2_p1.magnitude_squared;
+              double u = dot(p3-p1, p2_p1) / p2_p1.magnitude_squared;
 
               //writefln("@@ attempting segment-sphere intersection: %f", u);
               if (u >= 0 && u <= 1)
@@ -2102,7 +2111,9 @@ class Camera
                 vec3 dp = p - p3;
                 if (dp.magnitude_squared < hitSphereRadius * hitSphereRadius)
                 {
-                  //writeln("@@ segment-sphere hit!");
+                  writeln("@@ segment-sphere hit!");
+                  writefln("@@ segment %s %s belongs to face %s %s %s",
+                    p1, p2, fv[0], fv[1], fv[2]);
 
                   /* TODO The pseudo-plane technique accelerates your movement around a bend.
                    *      This is undesirable and should be addressed!
@@ -2114,16 +2125,16 @@ class Camera
                   //writeln("@@ pseudo normal: ", n);
 
                   /* Solve planar equation for 'd' of plane containing the edge we hit */
-                  float p0d = -dot(p, n);
+                  double p0d = -dot(p, n);
 
                   //writeln("@@   wall plane 0 d = ", p0d);
 
                   /* Solve planar equation for 'd' of plane p1 */
-                  float p1d = -dot(n, hitSphereEndPos);
+                  double p1d = -dot(n, hitSphereEndPos);
                   //writeln("@@   wall plane 1 d = ", p1d);
 
                   /* Compute new position projected onto the plane containing map face */
-                  pos = pos + (p1d-p0d) * 1.01 * n;
+                  pos = pos + (p1d-p0d) * PHYSPUSH * n;
                   //writeln("@@   wall nudge: ", n * (p1d-p0d));
 
                   /* Check for floor or ceiling */
@@ -2165,16 +2176,16 @@ class Camera
             //writeln("@@   wall normal: ", n);
 
             /* Solve planar equation for 'd' of plane containing map face */
-            float p0d = -dot(fv[0], n);
+            double p0d = -dot(fv[0], n);
 
             //writeln("@@   wall plane 0 d = ", p0d);
 
             /* Solve planar equation for 'd' of plane p1 */
-            float p1d = -dot(n, hitSphereEndPos);
+            double p1d = -dot(n, hitSphereEndPos);
             //writeln("@@   wall plane 1 d = ", p1d);
 
             /* Compute new position projected onto the plane containing map face */
-            pos = pos + (p1d-p0d) * 1.01 * n;
+            pos = pos + (p1d-p0d) * PHYSPUSH * n;
             //writeln("@@   wall nudge: ", n * (p1d-p0d));
 
             /* Check for floor */
