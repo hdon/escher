@@ -671,7 +671,7 @@ class Space
       foreach (i, dc; drawCommands)
       {
         writeln("  ", i, ": ", dc);
-        foreach (v; gpuVertIndices[dc.iboOffset .. dc.numVerts])
+        foreach (v; gpuVertIndices[dc.iboOffset .. dc.iboOffset + dc.numVerts])
           writeln("    ", v, ": ", gpuVerts[v]);
       }
 
