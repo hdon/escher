@@ -58,6 +58,7 @@ int main(string[] args)
         doCommand(display.console, "map " ~ filename);
     }
 
+    GC.collect();
     GC.disable();
     bool isRunning = true;
     while (isRunning)
@@ -67,6 +68,7 @@ int main(string[] args)
       GC.collect();
     }
     GC.enable();
+    GC.collect();
   }
   catch (Throwable e)
   {

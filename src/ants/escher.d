@@ -2035,8 +2035,8 @@ class Camera
       Space space = world.spaces[spaceID];
 
       /* Collide with solid Space Faces */
-      //foreach (tryEdges; 0..1)
-      enum tryEdges = false;
+      foreach (tryEdges; 0..2)
+      //enum tryEdges = false;
       foreach (faceIndex, face; space.faces)
       {
         if (face.data.type == FaceType.SolidColor)
@@ -2134,7 +2134,8 @@ class Camera
                   //writeln("@@   wall plane 1 d = ", p1d);
 
                   /* Compute new position projected onto the plane containing map face */
-                  pos = pos + (p1d-p0d) * PHYSPUSH * n;
+                  if (p1d < p0d)
+                    pos = pos + (p1d-p0d) * PHYSPUSH * n;
                   //writeln("@@   wall nudge: ", n * (p1d-p0d));
 
                   /* Check for floor or ceiling */
@@ -2170,7 +2171,7 @@ class Camera
              *
              * The difference in d from the plane we wish to project onto and the new
              * plane containing our point is the coefficient f for the translation
-             * v' = v * n * f
+             * v' = v + n * f
              */
 
             //writeln("@@   wall normal: ", n);
@@ -2185,7 +2186,8 @@ class Camera
             //writeln("@@   wall plane 1 d = ", p1d);
 
             /* Compute new position projected onto the plane containing map face */
-            pos = pos + (p1d-p0d) * PHYSPUSH * n;
+            if (p1d < p0d)
+              pos = pos + (p1d-p0d) * PHYSPUSH * n;
             //writeln("@@   wall nudge: ", n * (p1d-p0d));
 
             /* Check for floor */
