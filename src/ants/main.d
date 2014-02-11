@@ -3,6 +3,7 @@ import std.stdio;
 import std.string : splitLines, split, toStringz, format;
 import std.conv : to;
 import std.algorithm : startsWith;
+import std.process : getenv;
 import file = std.file;
 import core.memory : GC;
 import ants.display : Display;
@@ -57,6 +58,10 @@ int main(string[] args)
       else if (fileContent.startsWith("escher version"))
         doCommand(display.console, "map " ~ filename);
     }
+
+    /* Load user's settings */
+    auto rcPath = getenv("HOME") ~ "/.escherrc";
+    doCommandFile(display.console, rcPath, "");
 
     GC.collect();
     GC.disable();
