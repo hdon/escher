@@ -61,8 +61,8 @@ class HUDText
     float rH = sh/h;
     float rW = sw/w;
     float y0, y1, x0, x1;
-    float sx_sw = sx / sw;
-    float sy_sh = sy / sh;
+    float sx_sw = sx;
+    float sy_sh = sy;
     y1 = sy_sh;
     for (uint y=0; y<h; y++)
     {
