@@ -41,6 +41,7 @@ int main(string[] args)
   try
   {
     display = new Display();
+    display.init();
     scope(exit) display.cleanup();
 
     if (args.length == 1)

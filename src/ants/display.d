@@ -18,6 +18,7 @@ import std.conv : to;
 import file = std.file;
 import ants.hudtext : HUDText;
 import ants.commands : doCommand;
+import ants.screen;
 
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
@@ -30,11 +31,13 @@ class Display
   World world;
   Camera camera;
   DoglConsole console;
+  PauseScreen pauseScreen;
+
+  uint height;
+  uint width;
 
   private {
     string mapfilename;
-    uint height;
-    uint width;
     uint bpp;
     float fov;
     float znear;
@@ -59,55 +62,58 @@ class Display
     SDL_Renderer* displayRenderer;
     SDL_GLContext displayContext;
 
-    void init()
-    {
-      SDL_RendererInfo displayRendererInfo;
-      GLenum err;
-      GLint iresult;
-      GLboolean bresult;
+  }
 
-      DerelictSDL2.load();
-      DerelictSDL2Image.load();
-      DerelictGL3.load();
-      assert(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) == 0);
+  void init()
+  {
+    SDL_RendererInfo displayRendererInfo;
+    GLenum err;
+    GLint iresult;
+    GLboolean bresult;
 
-      /* Code from: https://gist.github.com/exavolt/2360410 */
-      SDL_CreateWindowAndRenderer(800, 600, SDL_WINDOW_OPENGL, &displayWindow, &displayRenderer);
-      SDL_GetRendererInfo(displayRenderer, &displayRendererInfo);
-      /*TODO: Check that we have OpenGL */
-      if ((displayRendererInfo.flags & SDL_RENDERER_ACCELERATED) == 0 ||
-          (displayRendererInfo.flags & SDL_RENDERER_TARGETTEXTURE) == 0) {
-        /*TODO: Handle this. We have no render surface and not accelerated. */
-      }
+    DerelictSDL2.load();
+    DerelictSDL2Image.load();
+    DerelictGL3.load();
+    assert(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) == 0);
 
-      displayContext = SDL_GL_CreateContext(displayWindow);
-      SDL_GL_MakeCurrent(displayWindow, displayContext);
-
-      DerelictGL3.reload();
-
-      displayContext = SDL_GL_CreateContext(displayWindow);
-      SDL_GL_MakeCurrent(displayWindow, displayContext);
-
-      const char *glVersion = glGetString(GL_VERSION);
-      writeln("OpenGL version: ", to!string(glVersion));
-
-      const char *glslVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
-      writeln("Shader version: ", to!string(glslVersion));
-
-      SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 0);
-      SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-      //SDL_WM_SetCaption(toStringz("D is the best"), null);
-
-      loadEntityAssets();
-
-      setupGL();
-
-      console = new DoglConsole(width/16, height/16);
-      console.handleCommand = toDelegate(&doCommand);
-
-      profileHUD = new HUDText(45, 8, 0, 0, 45f*16f/width, 8f*16f/height);
-      profileHUD.print("Hello!");
+    /* Code from: https://gist.github.com/exavolt/2360410 */
+    SDL_CreateWindowAndRenderer(800, 600, SDL_WINDOW_OPENGL, &displayWindow, &displayRenderer);
+    SDL_GetRendererInfo(displayRenderer, &displayRendererInfo);
+    /*TODO: Check that we have OpenGL */
+    if ((displayRendererInfo.flags & SDL_RENDERER_ACCELERATED) == 0 ||
+        (displayRendererInfo.flags & SDL_RENDERER_TARGETTEXTURE) == 0) {
+      /*TODO: Handle this. We have no render surface and not accelerated. */
     }
+
+    displayContext = SDL_GL_CreateContext(displayWindow);
+    SDL_GL_MakeCurrent(displayWindow, displayContext);
+
+    DerelictGL3.reload();
+
+    displayContext = SDL_GL_CreateContext(displayWindow);
+    SDL_GL_MakeCurrent(displayWindow, displayContext);
+
+    const char *glVersion = glGetString(GL_VERSION);
+    writeln("OpenGL version: ", to!string(glVersion));
+
+    const char *glslVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
+    writeln("Shader version: ", to!string(glslVersion));
+
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 0);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+    //SDL_WM_SetCaption(toStringz("D is the best"), null);
+
+    loadEntityAssets();
+
+    setupGL();
+
+    console = new DoglConsole(width/16, height/16);
+    console.handleCommand = toDelegate(&doCommand);
+
+    profileHUD = new HUDText(45, 8, 0, 0, 45f*16f/width, 8f*16f/height);
+    profileHUD.print("Hello!");
+
+    pauseScreen = new PauseScreen();
   }
 
   this()
@@ -118,7 +124,6 @@ class Display
     znear = 0.1f;
     zfar = 100.0f;
     fov = 90.0f;
-    init();
   }
 
   ~this()
@@ -144,9 +149,6 @@ class Display
 
     //anim.draw();
     //world.draw();
-    camera.update(delta);
-    camera.draw(t);
-
     profileHUD.print(format(
 `fps: %3.3s
 dt: %2.4s ms
@@ -166,7 +168,17 @@ z: %3.3s
       camera.pos.y,
       camera.pos.z
       ));
-    profileHUD.draw();
+
+    if (Screen.current !is null)
+    {
+      Screen.current.draw();
+    }
+    else
+    {
+      camera.update(delta);
+      camera.draw(t);
+      profileHUD.draw();
+    }
     console.draw();
 
     SDL_RenderPresent(displayRenderer);
@@ -181,7 +193,7 @@ z: %3.3s
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
-      if (console.handleSDLEvent(&event))
+      if (console.handleSDLEvent(&event) && (Screen.current is null || Screen.current.handleEvent(&event)))
       switch (event.type)
       {
         case SDL_QUIT:
@@ -205,6 +217,16 @@ z: %3.3s
             MD5Animation.optRenderSoftware = ! MD5Animation.optRenderSoftware;
             console.print(format("MD5 Rendering mode: %sware\n",
               MD5Animation.optRenderSoftware?"soft":"hard"));
+            break;
+          }
+          else if (event.key.keysym.sym == SDLK_ESCAPE)
+          {
+            pauseScreen.show();
+            break;
+          }
+          else if (event.key.keysym.sym == 'q' && (event.key.keysym.mod & KMOD_CTRL))
+          {
+            isRunning = false;
             break;
           }
           /* LOL XXX * /
@@ -232,12 +254,6 @@ z: %3.3s
           break;
 
         case SDL_KEYUP:
-          if (event.key.keysym.sym == SDLK_ESCAPE)
-          {
-            isRunning = false;
-            break;
-          }
-
           if (event.key.keysym.sym == SDLK_p && event.type == SDL_KEYDOWN)
           {
             writeln("position: ", camera.pos);
