@@ -61,7 +61,14 @@ int main(string[] args)
 
     /* Load user's settings */
     auto rcPath = getenv("HOME") ~ "/.escherrc";
-    doCommandFile(display.console, rcPath, "");
+    try
+    {
+      doCommandFile(display.console, rcPath, "");
+    }
+    catch (file.FileException e)
+    {
+      display.console.print(format("Error loading user config script \"%s\": %s", rcPath, e.msg));
+    }
 
     GC.collect();
     GC.disable();
