@@ -1842,6 +1842,7 @@ class Camera
   vec3 pos;
   double camYaw;
   double camPitch;
+  double mousef;
 
   float turnRate;
 
@@ -1860,6 +1861,7 @@ class Camera
     this.turnRate = 0f;
     this.camYaw = 0.0;
     this.camPitch = 0.0;
+    this.mousef = 0.002;
     this.vel = vec3(0,0,0);
     this.grounded = true; // TODO for debugging no falling until jump
   }

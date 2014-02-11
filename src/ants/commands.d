@@ -140,6 +140,13 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           console.print(format("md5software %sabled\n", b ? "en" : "dis"));
           break;
           
+        case "mousef":
+          assert(words.length <= 2, "invalid number of arguments");
+          if (words.length == 2)
+            display.camera.mousef = to!double(words[1]);
+          console.print(format("mousef = %s\n", display.camera.mousef));
+          break;
+
         default:
           console.print(format("unknown command: %s\n", words[0]));
       }

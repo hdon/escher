@@ -263,12 +263,8 @@ z: %3.3s
     SDL_WarpMouseInWindow(displayWindow, cast(ushort)(width/2),cast(ushort)(height/2));
     SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
 
-    double deltaYaw = (x-w/2)*-0.002;
-    double deltaPitch = (y-h/2)*-0.002;
-    //writefln("[MOUSE LOOK] %x %x %f %f", x, y, deltaYaw, deltaPitch);
-
-    camera.camYaw += deltaYaw;
-    camera.camPitch += deltaPitch;
+    camera.camYaw += camera.mousef * -(x-w/2);
+    camera.camPitch += camera.mousef * -(y-h/2);
 
     return isRunning;
   }
