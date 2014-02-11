@@ -2,7 +2,6 @@ module ants.hudtext;
 import derelict.opengl3.gl3;
 import ants.texture;
 import ants.shader;
-import ants.ascii : holdShift, capsLocked;
 
 import gl3n.linalg : Vector;
 private alias Vector!(float, 2) vec2;
