@@ -40,6 +40,8 @@ else{ pragma(msg, "Lighting disabled"); }
 
 bool portalDiagnosticMode;
 
+T sq(T)(T x) { return x*x; }
+
 void explode()
 {
   static bool explosion;
@@ -1924,6 +1926,21 @@ class Camera
     }
   }
 
+  void collideWithEntities()
+  {
+    foreach (iEntity, entity; world.entities[spaceID])
+    {
+      if (entity is playerEntity)
+        continue;
+
+      /* instantaneous sphere-vs-sphere intersection test, lol */
+      if ((entity.pos - pos).magnitude_squared <= sq(entity.getHitSphereRadius() + 0.35))
+      {
+        entity.dead = true;
+      }
+    }
+  }
+
   bool noclip;
   bool fly;
   bool grounded;
@@ -2322,6 +2339,8 @@ class Camera
 
     playerEntity.pos = pos;
     playerEntity.angle = camYaw;
+
+    collideWithEntities();
   }
 
   bool noBody;

@@ -8,12 +8,15 @@ class Entity
 {
   int spaceID;
   vec3 pos;
+  bool dead;
 
   this(int spaceID, vec3 pos)
   {
     this.spaceID = spaceID;
     this.pos = pos;
   }
+
+  float getHitSphereRadius() { return 1f; }
 
   version (escherClient)
   abstract void draw(mat4 mvmat, mat4 pmat);
@@ -32,13 +35,12 @@ class EntityMD5 : Entity
       MD5Model model;
       MD5Animation anim;
     }
-
-    override
-    void draw(mat4 mvmat, mat4 pmat)
-    {
-      animator.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
-    }
   };
+
+  override void draw(mat4 mvmat, mat4 pmat)
+  {
+    animator.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
+  }
 
   enum consmixme = q{
     animator = new MD5Animator(anim);
@@ -76,8 +78,6 @@ class EntityEnemy : EntityMD5
   size_t pathCurrentStep;
   float pathCurrentStepDistance;
 
-  bool dead;
-
   this(int spaceID, vec3 pos, vec3[] path=null)
   {
     super(spaceID, pos);
@@ -87,9 +87,18 @@ class EntityEnemy : EntityMD5
 
   float getPathSpeed() { return 1f; }
 
+  override void draw(mat4 mvmat, mat4 pmat)
+  {
+    if (!dead)
+      super.draw(mvmat, pmat);
+  }
+
   override
   void update(float deltaf)
   {
+    if (dead)
+      return;
+
     if (path !is null)
     {
       float motionLength = getPathSpeed() * deltaf;
