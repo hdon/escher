@@ -20,6 +20,7 @@ import ants.vertexer;
 import ants.material;
 import ants.entity;
 import ants.vbo;
+import ants.gametime;
 import std.datetime : StopWatch;
 import core.time : TickDuration;
 debug import std.stdio : write, writeln, writefln;
@@ -202,11 +203,6 @@ version (never)
     }
   }
 }
-
-/* Can be used by drawing functions to get the time of the current frame, specified in hectonanoseconds,
- * which is 0.1 microseconds. There are 10,000,000 of these in a second.
- */
-ulong drawNow;
 
 private struct Segment
 {
@@ -1437,7 +1433,7 @@ class World
     if (!noDrawEntities)
     foreach (entity; entities[spaceID])
     {
-      entity.draw(drawNow, transform, pmatWorld);
+      entity.draw(transform, pmatWorld);
     }
 
 
@@ -1932,7 +1928,7 @@ class Camera
   bool fly;
   bool grounded;
   vec3 vel;
-  void update(ulong delta)
+  void update()
   {
     vec3 accel;
     const double EPSILON = 0.000001;
@@ -1940,7 +1936,7 @@ class Camera
     const double startSpeed = 0.08;
     const double jumpVel = 25.0;
     const double mass = 1.0;
-    double deltaf = delta/10_000_000f;
+    double deltaf = GameTime.gtd /10_000_000f;
 
     // Remember old position for intersection tests
     vec3 oldpos = pos;
@@ -2334,10 +2330,8 @@ class Camera
   float profileDrawArms;
   float profileCollision;
   VBO vbo;
-  void draw(ulong t)
+  void draw()
   {
-    drawNow = t;
-
     ubyte portalDepth = 2;
 
     /* Instantiate some global/static instances here */
@@ -2347,10 +2341,10 @@ class Camera
       shaderProgram = new ShaderProgram("vert-pos-uv--uv.vs", "frag-uv-colorMap.fs");
       playerModel = new MD5Model("res/md5/arms-run.md5mesh");
       playerAnimation = new MD5Animation(playerModel, "res/md5/arms-run.md5anim");
-      playerAnimator = new MD5Animator(playerAnimation, t);
+      playerAnimator = new MD5Animator(playerAnimation);
       vertexer = new Vertexer();
     }
-    vertexer.setFrameTime(t/10_000_000.0);
+    vertexer.setFrameTime(GameTime.gt/10_000_000.0);
     vertexer.setResolution(800, 600);
 
     /* Instantiate some members here */
@@ -2420,7 +2414,7 @@ class Camera
       ;
     glClear(GL_DEPTH_BUFFER_BIT);
     mat4 pmatPlayer = mat4.perspective(800, 600, 90, 0.000001, 10);
-    playerAnimator.draw(t, playerMat, pmatPlayer);
+    playerAnimator.draw(playerMat, pmatPlayer);
     frame++;
 
     stopWatch.stop();

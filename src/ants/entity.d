@@ -16,7 +16,7 @@ class Entity
   }
 
   version (escherClient)
-  abstract void draw(ulong now, mat4 mvmat, mat4 pmat);
+  abstract void draw(mat4 mvmat, mat4 pmat);
 
   void update(float deltaf)
   {
@@ -34,9 +34,9 @@ class EntityMD5 : Entity
     }
 
     override
-    void draw(ulong now, mat4 mvmat, mat4 pmat)
+    void draw(mat4 mvmat, mat4 pmat)
     {
-      animator.draw(now, mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
+      animator.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
     }
   };
 
@@ -61,7 +61,7 @@ class EntityPlayer : Entity
     this.angle = angle;
   }
 
-  override void draw(ulong now, mat4 mvmat, mat4 pmat) {}
+  override void draw(mat4 mvmat, mat4 pmat) {}
 
   static Spawner spawner(int spaceID, vec3 pos, float angle=0f)
   {

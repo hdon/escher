@@ -1,6 +1,7 @@
 module ants.screen;
 import ants.hudtext : HUDText;
 import ants.main : display;
+import ants.gametime;
 import derelict.sdl2.sdl;
 import derelict.opengl3.gl3;
 import gl3n.linalg : Vector;
@@ -14,11 +15,15 @@ class Screen
   Screen previous;
   static Screen current;
   void show() {
+    if (current is null)
+      GameTime.pause();
     this.previous = current;
     current = this;
   }
   void hide() {
     current = this.previous;
+    if (current is null)
+      GameTime.unpause();
   }
   abstract void draw();
   abstract bool handleEvent(SDL_Event* ev);

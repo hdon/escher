@@ -12,6 +12,7 @@ import ants.vertexer;
 import ants.material;
 import ants.shader;
 import ants.texture;
+import ants.gametime;
 import std.math : sqrt;
 import std.stdio : writeln, writefln;
 
@@ -1117,18 +1118,18 @@ class MD5Animator
    * just being a single stupid looping animation. i should refactor a bit and make this
    * better.
    */
-  this(MD5Animation anim, ulong now=0)
+  this(MD5Animation anim)
   {
     this.anim = anim;
-    this.start = now;
+    this.start = GameTime.gt;
   }
 
   /* now = current time
    */
-  void draw(ulong now, mat4 mvmat, mat4 pmat)
+  void draw(mat4 mvmat, mat4 pmat)
   {
     /* TODO animation sequences instead of just looping the same animation */
-    anim.draw(mvmat, pmat, now-start);
+    anim.draw(mvmat, pmat, GameTime.gt-start);
   }
 }
 

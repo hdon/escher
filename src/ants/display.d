@@ -7,7 +7,6 @@ import ants.entity : EntityPlayer, EntityBendingBar, loadEntityAssets;
 import ants.doglconsole;
 import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen, format;
-import std.datetime : Clock;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import derelict.opengl3.gl3;
@@ -19,6 +18,7 @@ import file = std.file;
 import ants.hudtext : HUDText;
 import ants.commands : doCommand;
 import ants.screen;
+import ants.gametime;
 
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
@@ -138,11 +138,9 @@ class Display
     DerelictSDL2.unload();
   }
 
-  ulong lastFrame;
   void drawGLFrame()
   {
-    ulong t = Clock.currStdTime();
-    ulong delta = lastFrame == 0 ? 100 : t - lastFrame;
+    GameTime.update();
 
     SDL_GL_MakeCurrent(displayWindow, displayContext);
     setupGL();
@@ -159,8 +157,8 @@ x: %3.3s
 y: %3.3s
 z: %3.3s
 `,
-      10_000_000.0 / delta,
-      delta / 10_000.0,
+      10_000_000.0 / GameTime.td,
+      GameTime.td / 10_000.0,
       camera.profileDrawWorld,
       camera.profileDrawArms,
       camera.profileCollision,
@@ -175,16 +173,14 @@ z: %3.3s
     }
     else
     {
-      camera.update(delta);
-      camera.draw(t);
+      camera.update();
+      camera.draw();
       profileHUD.draw();
     }
     console.draw();
 
     SDL_RenderPresent(displayRenderer);
     SDL_GL_SwapWindow(displayWindow);
-
-    lastFrame = t;
   }
 
   bool event()
