@@ -1933,6 +1933,9 @@ class Camera
       if (entity is playerEntity)
         continue;
 
+      if (entity.dead)
+        continue;
+
       /* instantaneous sphere-vs-sphere intersection test, lol */
       if ((entity.pos - pos).magnitude_squared <= sq(entity.getHitSphereRadius() + 0.35))
       {
