@@ -43,6 +43,7 @@ class Display
     float znear;
     float zfar;
     HUDText profileHUD;
+    HUDText crosshairHUD;
 
     GLuint glprogram;
 
@@ -113,6 +114,16 @@ class Display
     profileHUD = new HUDText(45, 8, 0, 0, 45f*16f/width, 8f*16f/height);
     profileHUD.print("Hello!");
 
+    float pw = 1f * 16f;
+    float ph = 1f * 16f;
+    float sw = pw/display.width;
+    float sh = ph/display.height;
+    float x = ((display.width  - pw) /  2f) / display.width;
+    float y = ((display.height - ph) / -2f) / display.height;
+
+    crosshairHUD = new HUDText(1, 1, x, y, sw, sh);
+    crosshairHUD.print("\xc5");
+
     pauseScreen = new PauseScreen();
   }
 
@@ -176,6 +187,7 @@ z: %3.3s
       camera.update();
       camera.draw();
       profileHUD.draw();
+      crosshairHUD.draw();
     }
     console.draw();
 
