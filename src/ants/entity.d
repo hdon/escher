@@ -1,19 +1,24 @@
 module ants.entity;
 import std.stdio;
 import gl3n.interpolate : lerp;
+import gl3n.linalg : Vector;
 import ants.escher : vec3, mat4;
 import ants.md5 : MD5Model, MD5Animation, MD5Animator;
+
+alias vec4f = Vector!(float, 4);
 
 class Entity
 {
   int spaceID;
   vec3 pos;
   bool dead;
+  vec4f color;
 
   this(int spaceID, vec3 pos)
   {
     this.spaceID = spaceID;
     this.pos = pos;
+    this.color = vec4f(1,1,1,1);
   }
 
   float getHitSphereRadius() { return 1f; }
@@ -39,7 +44,7 @@ class EntityMD5 : Entity
 
   override void draw(mat4 mvmat, mat4 pmat)
   {
-    animator.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat);
+    animator.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat, color);
   }
 
   enum consmixme = q{

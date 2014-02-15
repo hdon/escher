@@ -774,6 +774,7 @@ class MD5Animation
   GLint pmatUniloc;
   GLint boneMatricesUniloc;
   GLint colorMapUniloc;
+  GLint colorUniloc;
   GLint uvAttloc;
   GLint boneIndicesAttloc;
   GLint weightBiasesAttloc;
@@ -782,7 +783,7 @@ class MD5Animation
   /* GL Buffer Objects to hold vertex attributes and face indices. One per mesh. */
   GLuint[] vbo;
   GLuint[] ibo;
-  void renderGPU(mat4 mvmat, mat4 pmat)
+  void renderGPU(mat4 mvmat, mat4 pmat, vec4f color=vec4f(1,1,1,1))
   {
     initGPU();
 
@@ -877,6 +878,9 @@ class MD5Animation
       glBindTexture(GL_TEXTURE_2D, mesh.material.texes[0].texture);
       glUniform1i(colorMapUniloc, 0);
       glErrorCheck("md5 9.1");
+
+      glUniform4fv(colorUniloc, 1, color.value_ptr);
+      glErrorCheck("md5 9.1.1");
 
       /* Draw! */
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[iMesh]);
@@ -1006,6 +1010,7 @@ class MD5Animation
     pmatUniloc         = md5ShaderProgram.getUniformLocation("projMatrix");
     boneMatricesUniloc = md5ShaderProgram.getUniformLocation("boneMatrices");
     colorMapUniloc     = md5ShaderProgram.getUniformLocation("colorMap");
+    colorUniloc        = md5ShaderProgram.getUniformLocation("colorU");
     uvAttloc           = md5ShaderProgram.getAttribLocation ("uvV");
     boneIndicesAttloc  = md5ShaderProgram.getAttribLocation ("boneIndices");
     weightBiasesAttloc = md5ShaderProgram.getAttribLocation ("weightBiases");
@@ -1049,7 +1054,7 @@ class MD5Animation
     }
   }
 
-  void draw(mat4 mvmat, mat4 pmat, ulong t)
+  void draw(mat4 mvmat, mat4 pmat, ulong t, vec4f color=vec4f(1,1,1,1))
   {
     if (vertexer is null)
     {
@@ -1057,7 +1062,7 @@ class MD5Animation
       emptyMaterial = new Material();
       shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
       shaderProgram1 = new ShaderProgram("simpler.vs", "simpler.fs");
-      md5ShaderProgram = new ShaderProgram("md5-uniform-color.vs", "simpler.fs");
+      md5ShaderProgram = new ShaderProgram("md5-color--uv--uv-color.vs", "simpler.fs");
       varyingColorShaderProgram = new ShaderProgram("simpler.vs", "simple-color.fs");
     }
 
@@ -1069,7 +1074,7 @@ class MD5Animation
       if (optRenderSoftware)
         render(mvmat, pmat, t);
       else
-        renderGPU(mvmat, pmat);
+        renderGPU(mvmat, pmat, color);
     }
     if (optRenderWeights)
     {
@@ -1126,10 +1131,10 @@ class MD5Animator
 
   /* now = current time
    */
-  void draw(mat4 mvmat, mat4 pmat)
+  void draw(mat4 mvmat, mat4 pmat, vec4f color=vec4f(1,1,1,1))
   {
     /* TODO animation sequences instead of just looping the same animation */
-    anim.draw(mvmat, pmat, GameTime.gt-start);
+    anim.draw(mvmat, pmat, GameTime.gt-start, color);
   }
 }
 
