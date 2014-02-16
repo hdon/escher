@@ -1926,6 +1926,38 @@ class Camera
     }
   }
 
+  Entity aimFind(mat4 mvmat, mat4 pmat)
+  {
+    //auto mvm = mat4.identity
+      //* mat4.translation(pos.x, pos.y, pos.z)
+      //* mat4.rotation(-camYaw, vec3(0,1,0))
+      //* mat4.rotation(-camPitch, vec3(1,0,0));
+
+    auto mvm = mkmvmat();
+
+    //writeln("mvm: ", mvm);
+    auto prm = mat4.perspective(1, 1, 22.5, 0.1, 10000);
+    //writeln("prm: ", prm);
+
+    auto m = prm * mvm;
+    //writeln("  m: ", m);
+
+    foreach (iEnt, ent; world.entities[spaceID])
+    {
+      //writeln("vec4(ent.pos.xyz, 1f) = ", vec4(ent.pos.xyz, 1.0));
+      auto p = xformVec(ent.pos, m);
+      //auto p = vec4(ent.pos.xyz, 1.0) * m;
+      //writeln("                  * m = ", vec4(ent.pos.xyz, 1.0) * m);
+      //auto c = clipClassifyVertex(p);
+      //writefln("ent:%d p: %s q: %s", iEnt, ent.pos, p);
+
+      ent.color = vec2(p.xy).magnitude_squared < 1.0 ?
+        vec4f(1,0,0,1) : vec4f(1,1,1,1);
+    }
+
+    return null;
+  }
+
   void collideWithEntities()
   {
     foreach (iEntity, entity; world.entities[spaceID])
@@ -1939,7 +1971,8 @@ class Camera
       /* instantaneous sphere-vs-sphere intersection test, lol */
       if ((entity.pos - pos).magnitude_squared <= sq(entity.getHitSphereRadius() + 0.35))
       {
-        entity.dead = true;
+        //entity.dead = true;
+        //entity.color = vec4f(1,0,0,1);
       }
     }
   }
@@ -2399,13 +2432,13 @@ class Camera
     glEnable(GL_DEPTH_TEST);
     version (stencil) glEnable(GL_STENCIL_TEST);
 
-    mat4 mvmat = mat4.identity
-      * mat4.rotation(camPitch, vec3(1,0,0))
-      * mat4.rotation(camYaw, vec3(0,1,0))
-      * mat4.translation(-pos.x, -pos.y, -pos.z);
+    mat4 mvmat = mkmvmat();
 
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
+
+    /* Target entities whatever */
+    aimFind(mvmat, world.pmatWorld);
 
     /* Profile world draw code */
     StopWatch stopWatch;
@@ -2441,5 +2474,13 @@ class Camera
 
     stopWatch.stop();
     profileDrawArms = stopWatch.peek.to!("msecs", float)();
+  }
+
+  mat4 mkmvmat()
+  {
+    return mat4.identity
+      * mat4.rotation(camPitch, vec3(1,0,0))
+      * mat4.rotation(camYaw, vec3(0,1,0))
+      * mat4.translation(-pos.x, -pos.y, -pos.z);
   }
 }
