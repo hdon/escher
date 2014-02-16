@@ -230,6 +230,7 @@ z: %3.3s
           else if (event.key.keysym.sym == SDLK_ESCAPE)
           {
             pauseScreen.show();
+            SDL_ShowCursor(true);
             break;
           }
           else if (event.key.keysym.sym == 'q' && (event.key.keysym.mod & KMOD_CTRL))
@@ -278,17 +279,20 @@ z: %3.3s
     }
 
     // mouse look update
-    int x, y;
-    int w = width;
-    int h = height;
-    SDL_ShowCursor(false);
-    SDL_GetMouseState(&x,&y);
-    SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
-    SDL_WarpMouseInWindow(displayWindow, cast(ushort)(width/2),cast(ushort)(height/2));
-    SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
+    if (Screen.current is null)
+    {
+      int x, y;
+      int w = width;
+      int h = height;
+      SDL_ShowCursor(false);
+      SDL_GetMouseState(&x,&y);
+      SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
+      SDL_WarpMouseInWindow(displayWindow, cast(ushort)(width/2),cast(ushort)(height/2));
+      SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
 
-    camera.camYaw += camera.mousef * -(x-w/2);
-    camera.camPitch += camera.mousef * -(y-h/2);
+      camera.camYaw += camera.mousef * -(x-w/2);
+      camera.camPitch += camera.mousef * -(y-h/2);
+    }
 
     return isRunning;
   }
