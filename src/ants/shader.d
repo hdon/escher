@@ -41,7 +41,7 @@ private string findBestShader(string shaderName)
   }
 
   if (shaderName !in availableShaders)
-    throw new Exception("could not find your shader");
+    throw new Exception(format("could not find your shader named \"%s\"", shaderName));
 
   foreach (v; availableShaders[shaderName])
     if (v <= glslVersion)
