@@ -608,9 +608,9 @@ class Space
 
       /* Sort vertex data */
       sort!cmpGPUVert(vertSort[0..numVerts]);
-      writeln("SortingGPUVerts: ");
-      foreach (v; vertSort[0..numVerts])
-        writeln("    ", v);
+      //writeln("SortingGPUVerts: ");
+      //foreach (v; vertSort[0..numVerts])
+        //writeln("    ", v);
 
       /* Identify duplicate verts, and map from (faceIndex, faceVertIndex) to gpuVerts index */
       if (gpuVerts.length < numVerts)
@@ -623,9 +623,9 @@ class Space
           gpuVerts[numUniqueVerts++] = v.gpuVert;
         newVertIndices[v.mapping] = numUniqueVerts-1;
       }
-      writeln("GPUVerts: ");
-      foreach (v; gpuVerts[0..numUniqueVerts])
-        writeln("    ", v);
+      //writeln("GPUVerts: ");
+      //foreach (v; gpuVerts[0..numUniqueVerts])
+        //writeln("    ", v);
 
       /* Create GL buffers */
       glGenBuffers(2, &vbo); // includes ibo
@@ -653,9 +653,9 @@ class Space
           gpuVertIndices.length = 128 * cast(size_t) ceil((numVerts + numTriangulatedVerts) / 128f);
         foreach (nVert; 2..face.indices.length)
         {
-          writeln(": mapping: ", iFace, ", ", 0, " = ", newVertIndices[VertMapping(iFace, 0)]);
-          writeln(": mapping: ", iFace, ", ", nVert-1, " = ", newVertIndices[VertMapping(iFace, nVert-1)]);
-          writeln(": mapping: ", iFace, ", ", nVert, " = ", newVertIndices[VertMapping(iFace, nVert)]);
+          //writeln(": mapping: ", iFace, ", ", 0, " = ", newVertIndices[VertMapping(iFace, 0)]);
+          //writeln(": mapping: ", iFace, ", ", nVert-1, " = ", newVertIndices[VertMapping(iFace, nVert-1)]);
+          //writeln(": mapping: ", iFace, ", ", nVert, " = ", newVertIndices[VertMapping(iFace, nVert)]);
           auto n = (nVert-2)*3;
           gpuVertIndices[numVerts + n + 0] = newVertIndices[VertMapping(iFace, 0)];
           gpuVertIndices[numVerts + n + 1] = newVertIndices[VertMapping(iFace, nVert - 1)];
@@ -665,13 +665,13 @@ class Space
         numVerts += numTriangulatedVerts;
       }
 
-      writeln("draw commands:");
-      foreach (i, dc; drawCommands)
-      {
-        writeln("  ", i, ": ", dc);
-        foreach (v; gpuVertIndices[dc.iboOffset .. dc.iboOffset + dc.numVerts])
-          writeln("    ", v, ": ", gpuVerts[v]);
-      }
+      //writeln("draw commands:");
+      //foreach (i, dc; drawCommands)
+      //{
+        //writeln("  ", i, ": ", dc);
+        //foreach (v; gpuVertIndices[dc.iboOffset .. dc.iboOffset + dc.numVerts])
+          //writeln("    ", v, ": ", gpuVerts[v]);
+      //}
 
       /* Now send our vertex indices to the GL */
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
@@ -2294,7 +2294,7 @@ class Camera
           //writefln("intersected face %d", faceIndex);
           if (face.data.type == FaceType.Remote && face.data.remote.remoteID >= 0)
           {
-            writefln("trying to crash spaceID=%d remoteID=%d num space remotes=%d",
+            debug writefln("entering space %d remoteID=%d num space remotes=%d",
               spaceID, face.data.remote.remoteID, space.remotes.length);
 
             Remote remote = world.spaces[spaceID].remotes[face.data.remote.remoteID];

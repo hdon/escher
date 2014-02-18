@@ -19,6 +19,7 @@ import ants.hudtext : HUDText;
 import ants.commands : doCommand;
 import ants.screen;
 import ants.gametime;
+import ants.glutil;
 
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
@@ -60,14 +61,12 @@ class Display
     }
 
     SDL_Window* displayWindow;
-    SDL_Renderer* displayRenderer;
     SDL_GLContext displayContext;
 
   }
 
   void init()
   {
-    SDL_RendererInfo displayRendererInfo;
     GLenum err;
     GLint iresult;
     GLboolean bresult;
@@ -77,19 +76,26 @@ class Display
     DerelictGL3.load();
     assert(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) == 0);
 
-    /* Code from: https://gist.github.com/exavolt/2360410 */
-    SDL_CreateWindowAndRenderer(800, 600, SDL_WINDOW_OPENGL, &displayWindow, &displayRenderer);
-    SDL_GetRendererInfo(displayRenderer, &displayRendererInfo);
-    /*TODO: Check that we have OpenGL */
-    if ((displayRendererInfo.flags & SDL_RENDERER_ACCELERATED) == 0 ||
-        (displayRendererInfo.flags & SDL_RENDERER_TARGETTEXTURE) == 0) {
-      /*TODO: Handle this. We have no render surface and not accelerated. */
-    }
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
+    displayWindow = SDL_CreateWindow("Escher Game Engine".toStringz(),
+      SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_OPENGL);
     displayContext = SDL_GL_CreateContext(displayWindow);
-    SDL_GL_MakeCurrent(displayWindow, displayContext);
+    SDL_GL_SetSwapInterval(0); // disable vsync
+    //SDL_GL_MakeCurrent(displayWindow, displayContext);
 
     DerelictGL3.reload();
+
+    GLint res;
+    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_STENCIL, GL_FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE, &res);
+    writefln("stencil bits: %d", res);
 
     displayContext = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, displayContext);
@@ -99,10 +105,6 @@ class Display
 
     const char *glslVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
     writeln("Shader version: ", to!string(glslVersion));
-
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 0);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-    //SDL_WM_SetCaption(toStringz("D is the best"), null);
 
     loadEntityAssets();
 
@@ -191,7 +193,6 @@ z: %3.3s
     }
     console.draw();
 
-    SDL_RenderPresent(displayRenderer);
     SDL_GL_SwapWindow(displayWindow);
   }
 
