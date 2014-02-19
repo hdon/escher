@@ -1,3 +1,6 @@
+/* Copyright 2014 Donny Viszneki. All rights reserved.
+ * You are not authorized to distribute this source code.
+ */
 module rescache2;
 import std.stdio : writeln, writefln;
 import std.typecons : Tuple, tuple;

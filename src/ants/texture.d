@@ -1,3 +1,6 @@
+/* Copyright 2014 Donny Viszneki. All rights reserved.
+ * You are not authorized to distribute this source code.
+ */
 module ants.texture;
 
 import std.conv;

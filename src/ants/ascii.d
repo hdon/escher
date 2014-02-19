@@ -1,3 +1,6 @@
+/* Copyright 2014 Donny Viszneki. All rights reserved.
+ * You are not authorized to distribute this source code.
+ */
 module ants.ascii;
 
 // Pseudo-capitalized keyboard keys starting at ascii space (32)

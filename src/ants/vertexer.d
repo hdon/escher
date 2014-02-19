@@ -1,3 +1,6 @@
+/* Copyright 2014 Donny Viszneki. All rights reserved.
+ * You are not authorized to distribute this source code.
+ */
 module ants.vertexer;
 import ants.shader;
 import gl3n.linalg : Vector, Matrix;

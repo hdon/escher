@@ -1,3 +1,6 @@
+# Copyright 2014 Donny Viszneki. All rights reserved.
+# You are not authorized to distribute this source code.
+
 # Escher map export script. Copyright 2013 Don Viszneki <don@codebad.com> all rights reserved
 
 bl_info = {
