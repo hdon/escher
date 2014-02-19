@@ -179,6 +179,8 @@ class EntitySpikey : EntityEnemy
     }
     return &spawn;
   }
+
+  override float getHitSphereRadius() { return 9f; }
 }
 
 class EntityDragonfly : EntityEnemy
@@ -202,6 +204,8 @@ class EntityDragonfly : EntityEnemy
     }
     return &spawn;
   }
+
+  override float getHitSphereRadius() { return 9f; }
 }
 
 class EntityBendingBar : EntityEnemy

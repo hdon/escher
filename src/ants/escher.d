@@ -1945,14 +1945,21 @@ class Camera
     foreach (iEnt, ent; world.entities[spaceID])
     {
       //writeln("vec4(ent.pos.xyz, 1f) = ", vec4(ent.pos.xyz, 1.0));
-      auto p = xformVec(ent.pos, m);
-      //auto p = vec4(ent.pos.xyz, 1.0) * m;
-      //writeln("                  * m = ", vec4(ent.pos.xyz, 1.0) * m);
-      //auto c = clipClassifyVertex(p);
-      //writefln("ent:%d p: %s q: %s", iEnt, ent.pos, p);
+      auto p = vec4(ent.pos.xyz, 1.0) * m;
+      if (p.z < 0.1)
+      {
+        /* Entity is behind near viewing plane */
+        ent.color = vec4f(1,1,1,1);
+      }
+      else
+      {
+        auto w_1 = 1.0 / p.w;
+        p = p * w_1;
+        auto size = ent.getHitSphereRadius() * w_1;
 
-      ent.color = vec2(p.xy).magnitude_squared < 1.0 ?
-        vec4f(1,0,0,1) : vec4f(1,1,1,1);
+        ent.color = vec2(p.xy).magnitude_squared < sq(size) ?
+          vec4f(1,0,0,1) : vec4f(1,1,1,1);
+      }
     }
 
     return null;
