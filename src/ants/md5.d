@@ -663,9 +663,9 @@ class MD5Animation
   // render()
   static vec3[] vertPosBuf;
   static vec3[] vertNorBuf;
-  static vec3f[] vertColBuf;
-  void render(mat4 mvmat, mat4 pmat)
+  void render(mat4 mvmat, mat4 pmat, vec4f color=vec4f(1,1,1,1))
   {
+    vec3f color3 = vec3f(color.rgb);
     size_t frameNumber, frameNumber1;
     float tween;
 
@@ -677,7 +677,6 @@ class MD5Animation
       {
         vertPosBuf.length = mesh.verts.length;
         vertNorBuf.length = mesh.verts.length;
-        vertColBuf.length = mesh.verts.length;
       }
 
       /* Calculate mesh vertex positions from animation weight positions */
@@ -693,10 +692,6 @@ class MD5Animation
         }
         vertPosBuf[vi] = pos;
         vertNorBuf[vi] = vec3(0,0,0);
-        vertColBuf[vi] = vec3f(
-          vert.numWeights == 2 ? 1f : 0f,
-          vert.numWeights == 1 && mesh.weights[vert.weightIndex].jointIndex == 0 ? 1f : 0f,
-          vert.numWeights == 1 && mesh.weights[vert.weightIndex].jointIndex == 1 ? 1f : 0f);
       }
 
       /* Calculate and accumulate triangle normals */
@@ -730,7 +725,7 @@ class MD5Animation
             vertPosBuf[vi],
             mesh.verts[vi].uv, 
             vertNorBuf[vi].normalized,
-            vertColBuf[vi]);
+            color3);
         }
       }
 
