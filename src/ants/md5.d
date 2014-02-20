@@ -1065,7 +1065,7 @@ class MD5Animation
     {
       glEnable(GL_CULL_FACE);
       if (optRenderSoftware)
-        render(mvmat, pmat);
+        render(mvmat, pmat, color);
       else
         renderGPU(mvmat, pmat, color);
     }
