@@ -632,30 +632,26 @@ class MD5Animation
     }
   }
 
-  void renderSkeleton(mat4 mvmat, mat4 pmat, ulong t)
+  void renderSkeleton(mat4 mvmat, mat4 pmat)
   {
     size_t frameNumber, frameNumber1;
     float tween;
-    calculateFrame(t, frameNumber, frameNumber1, tween);
-
-    // bones in current frame
-    auto bones = frameBones[frameNumber*numJoints .. (frameNumber+1)*numJoints];
 
     // Draw joint positions
-    foreach (bone; bones)
+    foreach (bone; interpolatedSkeleton)
     {
       vertexer.add(bone.pos, vec2(0,0), vec3(1,0,0), vec3f(1,0,0));
     }
     vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_POINTS);
 
     // Draw bones
-    foreach(boneIndex, bone; bones)
+    foreach(boneIndex, bone; interpolatedSkeleton)
     {
       auto parentIndex = model.joints[boneIndex].parentIndex;
       if (parentIndex != -1)
       {
         vertexer.add(bone.pos, vec2(0,0), vec3(1,0,0), vec3f(0,1,0));
-        Ray parentBone = bones[parentIndex];
+        Ray parentBone = interpolatedSkeleton[parentIndex];
         vertexer.add(parentBone.pos, vec2(0,0), vec3(1,0,0), vec3f(0,1,0));
       }
     }
@@ -668,11 +664,10 @@ class MD5Animation
   static vec3[] vertPosBuf;
   static vec3[] vertNorBuf;
   static vec3f[] vertColBuf;
-  void render(mat4 mvmat, mat4 pmat, ulong t)
+  void render(mat4 mvmat, mat4 pmat)
   {
     size_t frameNumber, frameNumber1;
     float tween;
-    calculateFrame(t, frameNumber, frameNumber1, tween);
 
     //vec3[] vertsNormals;
 
@@ -693,7 +688,7 @@ class MD5Animation
         vec3 pos = vec3(0,0,0);
         foreach (weight; weights)
         {
-          auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
+          auto joint = interpolatedSkeleton[weight.jointIndex];
           pos += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
         }
         vertPosBuf[vi] = pos;
@@ -743,11 +738,10 @@ class MD5Animation
       vertexer.draw(shaderProgram1, mvmat, pmat, mesh.material, GL_TRIANGLES);
     }
   }
-  void renderWeights(mat4 mvmat, mat4 pmat, ulong t)
+  void renderWeights(mat4 mvmat, mat4 pmat)
   {
     size_t frameNumber, frameNumber1;
     float tween;
-    calculateFrame(t, frameNumber, frameNumber1, tween);
 
     foreach (mesh; model.meshes)
     {
@@ -759,7 +753,7 @@ class MD5Animation
         vec3 pos = vec3(0,0,0);
         foreach (weight; weights)
         {
-          auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
+          auto joint = interpolatedSkeleton[weight.jointIndex];
           auto weightPos = joint.orient * weight.pos + joint.pos;
           vertexer.add(weightPos, vec2(0,0), vec3(1,0,0), vec3f(1,1,1));
         }
@@ -1024,11 +1018,10 @@ class MD5Animation
     initGPUDone = true;
   }
 
-  void renderVerts(mat4 mvmat, mat4 pmat, ulong t)
+  void renderVerts(mat4 mvmat, mat4 pmat)
   {
     size_t frameNumber, frameNumber1;
     float tween;
-    calculateFrame(t, frameNumber, frameNumber1, tween);
 
     foreach (mesh; model.meshes)
     {
@@ -1043,7 +1036,7 @@ class MD5Animation
           Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
           foreach (weight; weights)
           {
-            auto joint = frameBones[frameNumber * numJoints + weight.jointIndex];
+            auto joint = interpolatedSkeleton[weight.jointIndex];
             outVerts[outVertI] += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
           }
         }
@@ -1075,7 +1068,7 @@ class MD5Animation
     {
       glEnable(GL_CULL_FACE);
       if (optRenderSoftware)
-        render(mvmat, pmat, t);
+        render(mvmat, pmat);
       else
         renderGPU(mvmat, pmat, color);
     }
@@ -1083,14 +1076,14 @@ class MD5Animation
     {
       glDisable(GL_DEPTH_TEST);
       glPointSize(5f);
-      renderWeights(mvmat, pmat, t);
+      renderWeights(mvmat, pmat);
       glPointSize(1f);
       glEnable(GL_DEPTH_TEST);
     }
     if (optRenderWireframe)
-      renderSkeleton(mvmat, pmat, t);
+      renderSkeleton(mvmat, pmat);
     if (optRenderVerts)
-      renderVerts(mvmat, pmat, t);
+      renderVerts(mvmat, pmat);
   }
 
   /* We can store an interpolated skeleton (a slice of frameBones) here, allowing us to
