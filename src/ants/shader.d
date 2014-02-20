@@ -2,7 +2,9 @@
  * You are not authorized to distribute this source code.
  */
 module ants.shader;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import ants.glutil;
+import glad.gl.all;
 import file = std.file;
 import std.exception : enforce;
 import std.stdio : writeln, writefln;
@@ -38,7 +40,7 @@ private string findBestShader(string shaderName)
 {
   if (glslVersion == 0)
   {
-    const(char)*a = glGetString(GL_SHADING_LANGUAGE_VERSION);
+    const(char)*a = cast(const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
     glslVersion = unstrVersion(to!string(a[0..4]));
     scan();
   }
@@ -63,27 +65,33 @@ GLuint loadShader(GLenum type, string filename)
   int souceLen;
 
   // Create GL shader object
-  shaderObject = glCreateShader(type);
+  glErrorCheck();
+  shaderObject = glCreateShaderObjectARB(type);
+  glErrorCheck();
   enforce(shaderObject != 0, "glCreateShader() failed");
 
   // Read shader source into memory
   auto exactName = findBestShader(filename);
+  glErrorCheck();
   version (debugShaders) writefln("[shader] loading \"%s\"", exactName);
   source = cast(char[])file.read(exactName);
 
   // Send shader source to the GL
   sourcePtr = source.ptr;
   souceLen = cast(int)source.length;
-  glShaderSource(shaderObject, 1, &sourcePtr, &souceLen);
+  glShaderSourceARB(shaderObject, 1, cast(const(byte *)*)&sourcePtr, &souceLen);
+  glErrorCheck();
 
   // Compile shaderObject
-  glCompileShader(shaderObject);
+  glCompileShaderARB(shaderObject);
+  glErrorCheck();
 
   // Check compile result
-  glGetShaderiv(shaderObject, GL_COMPILE_STATUS, &iresult);
+  glGetObjectParameterivARB(shaderObject, GL_OBJECT_COMPILE_STATUS_ARB, &iresult);
+  glErrorCheck();
   if (iresult == GL_FALSE)
   {
-    glGetShaderiv(shaderObject, GL_INFO_LOG_LENGTH, &iresult);
+    glGetObjectParameterivARB(shaderObject, GL_INFO_LOG_LENGTH, &iresult);
     if (iresult <= 1)
     {
       writefln("error: glCompileShader() failed with no error message");
@@ -91,7 +99,7 @@ GLuint loadShader(GLenum type, string filename)
     else
     {
       char[] log = new char[iresult];
-      glGetShaderInfoLog(shaderObject, iresult, null, log.ptr);
+      glGetInfoLogARB(shaderObject, iresult, cast(int *)null, cast(byte *)log.ptr);
       writeln("error: glCompileShader() failed:\n", log);
     }
     writeln("shader source:\n", source);
@@ -117,12 +125,12 @@ class Shader(GLenum type)
   ~this()
   {
     //writeln("glDeleteShader() ", shaderObject);
-    glDeleteShader(shaderObject);
+    glDeleteObjectARB(shaderObject);
   }
 }
 
-alias Shader!GL_VERTEX_SHADER VertexShader;
-alias Shader!GL_FRAGMENT_SHADER FragmentShader;
+alias Shader!GL_VERTEX_SHADER_ARB VertexShader;
+alias Shader!GL_FRAGMENT_SHADER_ARB FragmentShader;
 
 GLuint linkProgram(VertexShader vs, FragmentShader fs)
 {
@@ -130,19 +138,19 @@ GLuint linkProgram(VertexShader vs, FragmentShader fs)
   GLint iresult;
 
   // Create program object
-  programObject = glCreateProgram();
+  programObject = glCreateProgramObjectARB();
   enforce(programObject != 0, "error: glCreateProgram() failed");
 
   // Link
-  glAttachShader(programObject, vs.shaderObject);
-  glAttachShader(programObject, fs.shaderObject);
-  glLinkProgram(programObject);
+  glAttachObjectARB(programObject, vs.shaderObject);
+  glAttachObjectARB(programObject, fs.shaderObject);
+  glLinkProgramARB(programObject);
 
   // Handle link errors
-  glGetProgramiv(programObject, GL_LINK_STATUS, &iresult);
+  glGetObjectParameterivARB(programObject, GL_OBJECT_LINK_STATUS_ARB, &iresult);
   if (iresult == GL_FALSE)
   {
-    glGetProgramiv(programObject, GL_INFO_LOG_LENGTH, &iresult);
+    glGetObjectParameterivARB(programObject, GL_INFO_LOG_LENGTH, &iresult);
     if (iresult <= 1)
     {
       writefln("error: glCompileShader() failed with no error message");
@@ -150,7 +158,7 @@ GLuint linkProgram(VertexShader vs, FragmentShader fs)
     else
     {
       char[] log = new char[iresult];
-      glGetProgramInfoLog(programObject, iresult, null, log.ptr);
+      glGetInfoLogARB(programObject, iresult, cast(int *)null, cast(byte *)log.ptr);
       writeln("error: glCompileShader() failed:\n", log);
     }
     writefln("could not link vertex shader %s and fragment shader %s", vs, fs);
@@ -214,12 +222,3 @@ class ShaderProgram
   }
 }
 
-private void glErrorCheck()
-{
-  GLenum err = glGetError();
-  if (err)
-  {
-    writefln("error: opengl: %s", err);
-    assert(0);
-  }
-}

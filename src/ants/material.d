@@ -3,7 +3,9 @@
  */
 module ants.material;
 import ants.texture;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
+import ants.glutil;
 
 enum TextureApplication
 {

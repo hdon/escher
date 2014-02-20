@@ -8,7 +8,9 @@ import std.string : toStringz;
 import std.format : appender;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
+import ants.glutil;
 import std.stdio : writefln;
 
 alias loadTexture getTexture;
@@ -62,7 +64,7 @@ GLuint loadTexture(string filename) {
     glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &largest_supported_anisotropy);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, largest_supported_anisotropy);
 
-    glGenerateMipmap(GL_TEXTURE_2D);
+    glGenerateMipmapEXT(GL_TEXTURE_2D);
 
     return texture;
 }

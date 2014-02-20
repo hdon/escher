@@ -2,7 +2,9 @@
  * You are not authorized to distribute this source code.
  */
 module ants.vbo;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
+import ants.glutil;
 import ants.shader;
 import ants.vertexer : mat4d, mat4f;
 

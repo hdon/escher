@@ -8,7 +8,8 @@ import std.conv;
 import std.algorithm : map, appender;
 import std.exception : enforce;
 import std.path : dirName;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
 import gl3n.linalg : Matrix, Vector, Quaternion, cross;
 import gl3n.interpolate : lerp;
 import ants.vertexer;
@@ -16,6 +17,7 @@ import ants.material;
 import ants.shader;
 import ants.texture;
 import ants.gametime;
+import ants.glutil;
 import std.math : sqrt;
 import std.stdio : writeln, writefln;
 
@@ -1065,7 +1067,7 @@ class MD5Animation
       emptyMaterial = new Material();
       shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
       shaderProgram1 = new ShaderProgram("simpler.vs", "simpler.fs");
-      md5ShaderProgram = new ShaderProgram("md5-color--uv--uv-color.vs", "simpler.fs");
+      //md5ShaderProgram = new ShaderProgram("md5-color--uv--uv-color.vs", "simpler.fs");
       varyingColorShaderProgram = new ShaderProgram("simpler.vs", "simple-color.fs");
     }
 

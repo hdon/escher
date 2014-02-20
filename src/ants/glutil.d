@@ -2,7 +2,8 @@
  * You are not authorized to distribute this source code.
  */
 module ants.glutil;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
 import std.stdio : writefln;
 import std.string : format;
 

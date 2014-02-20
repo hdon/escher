@@ -5,7 +5,8 @@ module ants.escher;
 
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
 import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.conv;
 import gl3n.interpolate : lerp;
@@ -26,6 +27,7 @@ import ants.vbo;
 import ants.gametime;
 import std.datetime : StopWatch;
 import core.time : TickDuration;
+import ants.glutil;
 debug import std.stdio : write, writeln, writefln;
 
 /*version(customTransform) {pragma(msg, "rendering all polygons with CUSTOM transforms");}

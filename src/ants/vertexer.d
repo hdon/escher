@@ -4,7 +4,8 @@
 module ants.vertexer;
 import ants.shader;
 import gl3n.linalg : Vector, Matrix;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
 import ants.texture;
 import ants.material;
 

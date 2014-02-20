@@ -9,7 +9,8 @@ import ants.shader : ShaderProgram;
 import ants.gametime;
 import ants.glutil;
 import derelict.sdl2.sdl;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
 import gl3n.linalg : Vector, Matrix;
 
 import std.stdio : writefln;

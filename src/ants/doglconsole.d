@@ -3,11 +3,13 @@
  */
 module ants.doglconsole;
 import std.stdio : write;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
 import derelict.sdl2.sdl;
 import ants.texture;
 import ants.shader;
 import ants.ascii : holdShift, capsLocked;
+import ants.glutil;
 
 import gl3n.linalg : Vector;
 private alias Vector!(float, 2) vec2;

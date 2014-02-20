@@ -2,9 +2,11 @@
  * You are not authorized to distribute this source code.
  */
 module ants.hudtext;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
 import ants.texture;
 import ants.shader;
+import ants.glutil;
 
 import gl3n.linalg : Vector;
 private alias Vector!(float, 2) vec2;

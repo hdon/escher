@@ -3,6 +3,7 @@
  */
 module ants.display;
 
+import ants.glutil;
 import std.functional : toDelegate;
 import ants.md5 : MD5Model, MD5Animation;
 import ants.escher : World, Camera, playerEntity;
@@ -12,7 +13,9 @@ import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen, format;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
-import derelict.opengl3.gl3;
+//import derelict.opengl3.gl3;
+import glad.gl.all;
+import glad.gl.loader;
 import gl3n.linalg : Vector, Matrix, Quaternion, dot, cross;
 import std.math : PI;
 import std.exception : enforce;
@@ -76,9 +79,10 @@ class Display
 
     DerelictSDL2.load();
     DerelictSDL2Image.load();
-    DerelictGL3.load();
+    //DerelictGL3.load();
     assert(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) == 0);
 
+//	glErrorCheck();
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
@@ -88,29 +92,37 @@ class Display
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     //SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
+//	glErrorCheck();
     displayWindow = SDL_CreateWindow("Escher Game Engine".toStringz(),
       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_OPENGL);
     displayContext = SDL_GL_CreateContext(displayWindow);
+    gladLoadGL(x => SDL_GL_GetProcAddress(x));
+//	glErrorCheck();
     SDL_GL_SetSwapInterval(0); // disable vsync
     //SDL_GL_MakeCurrent(displayWindow, displayContext);
 
-    DerelictGL3.reload();
+    //DerelictGL3.reload();
 
     GLint res;
-    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_STENCIL, GL_FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE, &res);
-    writefln("stencil bits: %d", res);
+//    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_STENCIL, GL_FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE, &res);
+//    writefln("stencil bits: %d", res);
 
+	glErrorCheck();
     displayContext = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, displayContext);
 
-    const char *glVersion = glGetString(GL_VERSION);
+	glErrorCheck();
+    const char *glVersion = cast(const char *)glGetString(GL_VERSION);
     writeln("OpenGL version: ", to!string(glVersion));
 
-    const char *glslVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
+	glErrorCheck();
+    const char *glslVersion = cast(const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
     writeln("Shader version: ", to!string(glslVersion));
 
+	glErrorCheck();
     loadEntityAssets();
 
+	glErrorCheck();
     setupGL();
 
     console = new DoglConsole(width/16, height/16);
@@ -150,7 +162,7 @@ class Display
   static void cleanup()
   {
     SDL_Quit();
-    DerelictGL3.unload();
+    //DerelictGL3.unload();
     DerelictSDL2.unload();
   }
 
