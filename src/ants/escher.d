@@ -979,6 +979,8 @@ class World
   Material[] materials;
   Space[] spaces;
   Entity[][] entities;
+  int playerSpawnSpaceID;
+  Spawner playerSpawner;
 
   this(string filename)
   {
@@ -1205,7 +1207,11 @@ class World
             switch (words[11])
             {
               case "player":
-                space.spawns ~= EntityPlayer.spawner(spaceID, translation, 0);
+                playerSpawnSpaceID = spaceID;
+                // TODO incorporate orientation
+                // TODO incorporate scale
+                playerSpawner = EntityPlayer.spawner(spaceID, translation, 0);
+                space.spawns ~= playerSpawner;
                 break;
               case "spikey":
                 space.spawns ~= EntitySpikey.spawner(spaceID, translation, orientation, path);

@@ -84,7 +84,7 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           console.print(format("loading map file \"%s\"\n", words[1]));
           display.world = new World(words[1]);
           display.camera = new Camera(display.world, 0, vec3(0,0,0));
-          playerEntity = new EntityPlayer(0, vec3(0,0,0));
+          spawnPlayer();
           break;
 
         case "exec":
@@ -180,4 +180,22 @@ void doCommandFile(DoglConsole console, string filename, string commandText="", 
   }
 
   doCommands(console, splitLines(commandText), filename, firstLineNo);
+}
+
+void spawnPlayer()
+{
+  if (display.world.playerSpawner !is null)
+  {
+    playerEntity = cast(EntityPlayer)display.world.playerSpawner();
+    display.camera.spaceID = playerEntity.spaceID;
+    display.camera.pos = playerEntity.pos;
+    display.camera.camPitch = 0;
+    display.camera.camYaw = playerEntity.angle;
+  }
+  else
+  {
+    display.console.print("No player spawner! Spawning at hyperspace origin.\n");
+    display.camera = new Camera(display.world, 0, vec3(0,0,0));
+    playerEntity = new EntityPlayer(0, vec3(0,0,0));
+  }
 }
