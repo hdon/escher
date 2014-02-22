@@ -144,8 +144,8 @@ class Vertexer
     lightSourceUniformLocation_specular = shaderProgram.getUniformLocation("lightSource.specular");
 
     /* Send matrix uniform values */
-    glUniformMatrix4fv(modelViewMatrixUniformLocation, 1, GL_TRUE, mvMat.value_ptr);
-    glUniformMatrix4fv(projectionMatrixUniformLocation, 1, GL_TRUE, pMat.value_ptr);
+    glUniformMatrix4fvARB(modelViewMatrixUniformLocation, 1, GL_TRUE, mvMat.value_ptr);
+    glUniformMatrix4fvARB(projectionMatrixUniformLocation, 1, GL_TRUE, pMat.value_ptr);
     glUniformMatrix3fv(normalMatrixUniformLocation, 1, GL_TRUE, normalMat.value_ptr);
 
     /* Send light uniform values */
@@ -181,31 +181,31 @@ class Vertexer
 
     glBindBufferARB(GL_ARRAY_BUFFER, positionBufferObject);
     glBufferDataARB(GL_ARRAY_BUFFER, numVerts * vec3d.sizeof, positions.ptr, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(positionVertexAttribLocation);
-    glVertexAttribPointer(positionVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
+    glEnableVertexAttribArrayARB(positionVertexAttribLocation);
+    glVertexAttribPointerARB(positionVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
 
     if (colorVertexAttribLocation >= 0)
     {
       glBindBufferARB(GL_ARRAY_BUFFER, colorBufferObject);
       glBufferDataARB(GL_ARRAY_BUFFER, numVerts * vec3f.sizeof, colors.ptr, GL_STREAM_DRAW);
-      glEnableVertexAttribArray(colorVertexAttribLocation);
-      glVertexAttribPointer(colorVertexAttribLocation, 3, GL_FLOAT, 0, 0, null);
+      glEnableVertexAttribArrayARB(colorVertexAttribLocation);
+      glVertexAttribPointerARB(colorVertexAttribLocation, 3, GL_FLOAT, 0, 0, null);
     }
 
     if (uvVertexAttribLocation >= 0)
     {
       glBindBufferARB(GL_ARRAY_BUFFER, uvBufferObject);
       glBufferDataARB(GL_ARRAY_BUFFER, numVerts * vec2d.sizeof, UVs.ptr, GL_STREAM_DRAW);
-      glEnableVertexAttribArray(uvVertexAttribLocation);
-      glVertexAttribPointer(uvVertexAttribLocation, 2, GL_DOUBLE, 0, 0, null);
+      glEnableVertexAttribArrayARB(uvVertexAttribLocation);
+      glVertexAttribPointerARB(uvVertexAttribLocation, 2, GL_DOUBLE, 0, 0, null);
     }
 
     if (normalVertexAttribLocation >= 0)
     {
       glBindBufferARB(GL_ARRAY_BUFFER, normalBufferObject);
       glBufferDataARB(GL_ARRAY_BUFFER, numVerts * vec3d.sizeof, normals.ptr, GL_STREAM_DRAW);
-      glEnableVertexAttribArray(normalVertexAttribLocation);
-      glVertexAttribPointer(normalVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
+      glEnableVertexAttribArrayARB(normalVertexAttribLocation);
+      glVertexAttribPointerARB(normalVertexAttribLocation, 3, GL_DOUBLE, 0, 0, null);
     }
 
     int texCounter = 0;
@@ -214,13 +214,13 @@ class Vertexer
     {
       glActiveTexture(GL_TEXTURE0 + texCounter);
       glBindTexture(GL_TEXTURE_2D, colorMap);
-      glUniform1i(colorMapUniformLocation, texCounter++);
+      glUniform1iARB(colorMapUniformLocation, texCounter++);
     }
     if (normalMapUniformLocation >= 0)
     {
       glActiveTexture(GL_TEXTURE0 + texCounter);
       glBindTexture(GL_TEXTURE_2D, normalMap);
-      glUniform1i(normalMapUniformLocation, texCounter++);
+      glUniform1iARB(normalMapUniformLocation, texCounter++);
     }
 
     glDrawArrays(mode, 0, numVerts);

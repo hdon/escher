@@ -217,7 +217,7 @@ class ShaderProgram
 
   void use()
   {
-    glUseProgram(programObject);
+    glUseProgramObjectARB(programObject);
     glErrorCheck();
   }
 }

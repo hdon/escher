@@ -73,12 +73,12 @@ class VBO
 
     shaderProgram.use();
 
-    glUniformMatrix4fv(mvmatUniloc, 1, GL_TRUE, mvMat.value_ptr);
-    glUniformMatrix4fv(pmatUniloc, 1, GL_TRUE, pMat.value_ptr);
+    glUniformMatrix4fvARB(mvmatUniloc, 1, GL_TRUE, mvMat.value_ptr);
+    glUniformMatrix4fvARB(pmatUniloc, 1, GL_TRUE, pMat.value_ptr);
 
     glBindBufferARB(GL_ARRAY_BUFFER, posBuf);
-    glEnableVertexAttribArray(posAttloc);
-    glVertexAttribPointer(posAttloc, 3, GL_FLOAT, GL_FALSE, 0, cast(void*)0);
+    glEnableVertexAttribArrayARB(posAttloc);
+    glVertexAttribPointerARB(posAttloc, 3, GL_FLOAT, GL_FALSE, 0, cast(void*)0);
 
     glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, indBuf);
 

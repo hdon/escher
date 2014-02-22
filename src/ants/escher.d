@@ -1377,31 +1377,31 @@ class World
     /* XXX-doc Send some uniforms... */
     /* TODO stop-doubles */
     mat4f tempMatrix = transform;
-    glUniformMatrix4fv(shaderProgram.getUniformLocation("viewMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
+    glUniformMatrix4fvARB(shaderProgram.getUniformLocation("viewMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
     tempMatrix = mat4f(pmatWorld);
-    glUniformMatrix4fv(shaderProgram.getUniformLocation("projMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
+    glUniformMatrix4fvARB(shaderProgram.getUniformLocation("projMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
     glBindBufferARB(GL_ARRAY_BUFFER, space.vbo);
     glEnable(GL_CULL_FACE);
 
     auto attloc = shaderProgram.getAttribLocation("positionV");
     if (attloc >= 0)
     {
-      glEnableVertexAttribArray(attloc);
-      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)0);
+      glEnableVertexAttribArrayARB(attloc);
+      glVertexAttribPointerARB(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)0);
     }
 
     attloc = shaderProgram.getAttribLocation("normalV");
     if (attloc >= 0)
     {
-      glEnableVertexAttribArray(attloc);
-      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(3*4));
+      glEnableVertexAttribArrayARB(attloc);
+      glVertexAttribPointerARB(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(3*4));
     }
 
     attloc = shaderProgram.getAttribLocation("uvV");
     if (attloc >= 0)
     {
-      glEnableVertexAttribArray(attloc);
-      glVertexAttribPointer(attloc, 2, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(6*4));
+      glEnableVertexAttribArrayARB(attloc);
+      glVertexAttribPointerARB(attloc, 2, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(6*4));
     }
 
     auto colorMapUniloc = shaderProgram.getUniformLocation("colorMap");
@@ -1429,7 +1429,7 @@ class World
         }
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, colorMap);
-        glUniform1i(colorMapUniloc, 0);
+        glUniform1iARB(colorMapUniloc, 0);
       }
 
       //writeln("drawing ", drawCommand.numVerts, " verts @ ", drawCommand.iboOffset);
@@ -1439,7 +1439,7 @@ class World
 
     glBindBufferARB(GL_ARRAY_BUFFER, 0);
     glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glUseProgram(0);
+    glUseProgramObjectARB(0);
 
     /* Now we'll draw our entities.
      */

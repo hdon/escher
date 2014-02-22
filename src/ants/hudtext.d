@@ -169,18 +169,18 @@ class HUDText
 
     glBindBufferARB(GL_ARRAY_BUFFER, positionBufferObject);
     glBufferDataARB(GL_ARRAY_BUFFER, vertexPositions.length * vertexPositions[0].sizeof, vertexPositions.ptr, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(positionVertexAttribLocation);
-    glVertexAttribPointer(positionVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
+    glEnableVertexAttribArrayARB(positionVertexAttribLocation);
+    glVertexAttribPointerARB(positionVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
 
     glBindBufferARB(GL_ARRAY_BUFFER, uvBufferObject);
     glBufferDataARB(GL_ARRAY_BUFFER, vertexUVs.length * vertexUVs[0].sizeof, vertexUVs.ptr, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(uvVertexAttribLocation);
-    glVertexAttribPointer(uvVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
+    glEnableVertexAttribArrayARB(uvVertexAttribLocation);
+    glVertexAttribPointerARB(uvVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
 
     /* Bind texture */
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, font);
-    glUniform1i(fontTexUniformLocation, 0);
+    glUniform1iARB(fontTexUniformLocation, 0);
 
     /* Draw */
     glDisable(GL_DEPTH_TEST);

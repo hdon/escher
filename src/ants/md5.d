@@ -818,7 +818,7 @@ class MD5Animation
 
     /* Send our uniforms to the GL shader program */
     /* Send our bone matrices  */
-    glUniformMatrix4fv(boneMatricesUniloc, cast(GLint)numJoints, GL_TRUE, cast(float*)boneMatrices.ptr);
+    glUniformMatrix4fvARB(boneMatricesUniloc, cast(GLint)numJoints, GL_TRUE, cast(float*)boneMatrices.ptr);
     glErrorCheck("sent bone matrices");
 
     /* TODO stop using doubles EVERYWHERE wtf is wrong with you */
@@ -826,12 +826,12 @@ class MD5Animation
 
     /* Send model-view matrix TODO merge MVP! */
     tempMatrix = mat4f(mvmat);
-    glUniformMatrix4fv(mvmatUniloc, 1, GL_TRUE, tempMatrix.value_ptr);
+    glUniformMatrix4fvARB(mvmatUniloc, 1, GL_TRUE, tempMatrix.value_ptr);
     glErrorCheck("sent mvmat uniform");
 
     /* Send projection matrix */
     tempMatrix = mat4f(pmat);
-    glUniformMatrix4fv(pmatUniloc, 1, GL_TRUE, tempMatrix.value_ptr);
+    glUniformMatrix4fvARB(pmatUniloc, 1, GL_TRUE, tempMatrix.value_ptr);
     glErrorCheck("sent pmat uniform");
 
     /* Send draw command for each mesh! */
@@ -852,25 +852,25 @@ class MD5Animation
         weightPosAttloc,
         uvAttloc);
 
-      glEnableVertexAttribArray(uvAttloc);
-      glEnableVertexAttribArray(boneIndicesAttloc+0);
-      glEnableVertexAttribArray(weightBiasesAttloc);
-      glEnableVertexAttribArray(weightPosAttloc+0);
-      glEnableVertexAttribArray(weightPosAttloc+1);
-      glEnableVertexAttribArray(weightPosAttloc+2);
-      glEnableVertexAttribArray(weightPosAttloc+3);
+      glEnableVertexAttribArrayARB(uvAttloc);
+      glEnableVertexAttribArrayARB(boneIndicesAttloc+0);
+      glEnableVertexAttribArrayARB(weightBiasesAttloc);
+      glEnableVertexAttribArrayARB(weightPosAttloc+0);
+      glEnableVertexAttribArrayARB(weightPosAttloc+1);
+      glEnableVertexAttribArrayARB(weightPosAttloc+2);
+      glEnableVertexAttribArrayARB(weightPosAttloc+3);
 
       /* Specify our vertex attribute layout (actual data in VBO already) */
       foreach (i; 0..4)
-        glVertexAttribPointer(weightPosAttloc+i, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(4*4*i));
-      glVertexAttribPointer(weightBiasesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)64);
-      glVertexAttribPointer(boneIndicesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(80));
-      glVertexAttribPointer(uvAttloc, 2, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)96);
+        glVertexAttribPointerARB(weightPosAttloc+i, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(4*4*i));
+      glVertexAttribPointerARB(weightBiasesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)64);
+      glVertexAttribPointerARB(boneIndicesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(80));
+      glVertexAttribPointerARB(uvAttloc, 2, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)96);
 
       /* Set texture sampler for color map TODO use Material better! */
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, mesh.material.texes[0].texture);
-      glUniform1i(colorMapUniloc, 0);
+      glUniform1iARB(colorMapUniloc, 0);
       glErrorCheck("md5 9.1");
 
       glUniform4fv(colorUniloc, 1, color.value_ptr);

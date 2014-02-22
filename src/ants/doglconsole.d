@@ -235,18 +235,18 @@ class DoglConsole
     /* TODO send buffer data only when there's been a change! */
     glBufferDataARB(GL_ARRAY_BUFFER, verts.length * verts[0].sizeof, verts.ptr, GL_STREAM_DRAW);
 
-    glEnableVertexAttribArray(positionVAL);
-    glEnableVertexAttribArray(uvVAL);
-    glEnableVertexAttribArray(colorVAL);
+    glEnableVertexAttribArrayARB(positionVAL);
+    glEnableVertexAttribArrayARB(uvVAL);
+    glEnableVertexAttribArrayARB(colorVAL);
 
-    glVertexAttribPointer(positionVAL, 2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].pos.offsetof);
-    glVertexAttribPointer(uvVAL,       2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].uv.offsetof);
-    glVertexAttribPointer(colorVAL,    3, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].color.offsetof);
+    glVertexAttribPointerARB(positionVAL, 2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].pos.offsetof);
+    glVertexAttribPointerARB(uvVAL,       2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].uv.offsetof);
+    glVertexAttribPointerARB(colorVAL,    3, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].color.offsetof);
 
     /* Bind texture */
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, font);
-    glUniform1i(fontTexUniformLocation, 0);
+    glUniform1iARB(fontTexUniformLocation, 0);
 
     /* Draw */
     glDisable(GL_BLEND);
