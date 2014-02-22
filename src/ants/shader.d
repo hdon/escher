@@ -182,7 +182,7 @@ class ShaderProgram
     programObject = linkProgram(vs, fs);
 
     // XXX
-    glBindAttribLocation(programObject, 1, "ucolor");
+    //glBindAttribLocation(programObject, 1, "ucolor");
     glErrorCheck();
   }
   this(string vsFilename, string fsFilename)
