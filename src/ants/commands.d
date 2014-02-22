@@ -6,8 +6,9 @@ import std.string : splitLines, split, format;
 import std.conv : to;
 import std.algorithm : startsWith;
 import file = std.file;
+import std.stdio;
 import ants.main : display;
-import ants.escher : World, Camera, EntityPlayer, vec3, playerEntity;
+import ants.escher : World, Camera, EntityPlayer, vec3, vec3f, playerEntity;
 import ants.doglconsole : DoglConsole;
 import ants.md5 : MD5Animation;
 
@@ -29,7 +30,7 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
   foreach (lineNo, line; commandText)
   {
     version (debugCommands)
-    console.print(format("[commands] evaluating: %s\n", line));
+    console.printlnc(vec3f(.4, .8, .4), format("> %s", line));
 
     try
     {
@@ -84,7 +85,7 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           console.print(format("loading map file \"%s\"\n", words[1]));
           display.world = new World(words[1]);
           display.camera = new Camera(display.world, 0, vec3(0,0,0));
-          playerEntity = new EntityPlayer(0, vec3(0,0,0));
+          spawnPlayer();
           break;
 
         case "exec":
@@ -150,6 +151,31 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           console.print(format("mousef = %s\n", display.camera.mousef));
           break;
 
+        case "writepos":
+          assert(words.length == 2, "invalid number of arguments");
+          console.print(format("writing position to \"%s\"\n", words[1]));
+          File f;
+          f.open(words[1], "w");
+          f.writef("%d %f %f %f %f %f",
+            display.camera.spaceID,
+            display.camera.pos.x,
+            display.camera.pos.y,
+            display.camera.pos.z,
+            display.camera.camYaw,
+            display.camera.camPitch);
+          f.close();
+          break;
+
+        case "readpos":
+          assert(words.length == 2, "invalid number of arguments");
+          console.print(format("writing position to \"%s\"\n", words[1]));
+          auto s = split(to!string(cast(char[])file.read(words[1])));
+          display.camera.spaceID = to!int(s[0]);
+          display.camera.pos = vec3(to!double(s[1]), to!double(s[2]), to!double(s[3]));
+          display.camera.camYaw = to!double(s[4]);
+          display.camera.camPitch = to!double(s[5]);
+          break;
+
         default:
           console.print(format("unknown command: %s\n", words[0]));
       }
@@ -180,4 +206,22 @@ void doCommandFile(DoglConsole console, string filename, string commandText="", 
   }
 
   doCommands(console, splitLines(commandText), filename, firstLineNo);
+}
+
+void spawnPlayer()
+{
+  if (display.world.playerSpawner !is null)
+  {
+    playerEntity = cast(EntityPlayer)display.world.playerSpawner();
+    display.camera.spaceID = playerEntity.spaceID;
+    display.camera.pos = playerEntity.pos;
+    display.camera.camPitch = 0;
+    display.camera.camYaw = playerEntity.angle;
+  }
+  else
+  {
+    display.console.print("No player spawner! Spawning at hyperspace origin.\n");
+    display.camera = new Camera(display.world, 0, vec3(0,0,0));
+    playerEntity = new EntityPlayer(0, vec3(0,0,0));
+  }
 }
