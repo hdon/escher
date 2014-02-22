@@ -6,6 +6,7 @@ import std.string : splitLines, split, format;
 import std.conv : to;
 import std.algorithm : startsWith;
 import file = std.file;
+import std.stdio;
 import ants.main : display;
 import ants.escher : World, Camera, EntityPlayer, vec3, vec3f, playerEntity;
 import ants.doglconsole : DoglConsole;
@@ -148,6 +149,31 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           if (words.length == 2)
             display.camera.mousef = to!double(words[1]);
           console.print(format("mousef = %s\n", display.camera.mousef));
+          break;
+
+        case "writepos":
+          assert(words.length == 2, "invalid number of arguments");
+          console.print(format("writing position to \"%s\"\n", words[1]));
+          File f;
+          f.open(words[1], "w");
+          f.writef("%d %f %f %f %f %f",
+            display.camera.spaceID,
+            display.camera.pos.x,
+            display.camera.pos.y,
+            display.camera.pos.z,
+            display.camera.camYaw,
+            display.camera.camPitch);
+          f.close();
+          break;
+
+        case "readpos":
+          assert(words.length == 2, "invalid number of arguments");
+          console.print(format("writing position to \"%s\"\n", words[1]));
+          auto s = split(to!string(cast(char[])file.read(words[1])));
+          display.camera.spaceID = to!int(s[0]);
+          display.camera.pos = vec3(to!double(s[1]), to!double(s[2]), to!double(s[3]));
+          display.camera.camYaw = to!double(s[4]);
+          display.camera.camPitch = to!double(s[5]);
           break;
 
         default:
