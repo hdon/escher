@@ -11,6 +11,7 @@ import ants.ascii : holdShift, capsLocked;
 
 import gl3n.linalg : Vector;
 private alias Vector!(float, 2) vec2;
+private alias Vector!(float, 3) vec3;
 
 void glErrorCheck(string source)
 {
@@ -20,6 +21,12 @@ void glErrorCheck(string source)
     writefln("error @ %s: opengl: %s", source, err);
     assert(0);
   }
+}
+
+private struct Vert {
+  vec2 pos;
+  vec2 uv;
+  vec3 color;
 }
 
 class DoglConsole
@@ -32,8 +39,7 @@ class DoglConsole
   uint w, h, front, inbufCursor;
   char[] buf;
   char[] inbuf;
-  vec2[] vertexPositions;
-  vec2[] vertexUVs;
+  Vert[] verts;
 
   this(uint w, uint h)
   {
@@ -62,11 +68,9 @@ class DoglConsole
     inbuf.length = w;
     inbufCursor = 0;
 
-    vertexUVs.length = 0;
-    vertexUVs.length = w*h*6;
-
-    vertexPositions.length = 0;
-    vertexPositions.length = w*h*6;
+    // TODO optimize this out with explicit initialization or something
+    verts.length = 0;
+    verts.length = w*h*6;
 
     float rH = 1f/h;
     float rW = 1f/w;
@@ -83,13 +87,13 @@ class DoglConsole
         x1 = rW*(x+1);
         uint n = (y*w+x)*6;
 
-        vertexPositions[n+0] = vec2(x0, y0);
-        vertexPositions[n+1] = vec2(x1, y0);
-        vertexPositions[n+2] = vec2(x0, y1);
+        verts[n+0].pos = vec2(x0, y0);
+        verts[n+1].pos = vec2(x1, y0);
+        verts[n+2].pos = vec2(x0, y1);
 
-        vertexPositions[n+3] = vertexPositions[n+2];
-        vertexPositions[n+4] = vertexPositions[n+1];
-        vertexPositions[n+5] = vec2(x1, y1);
+        verts[n+3].pos = verts[n+2].pos;
+        verts[n+4].pos = verts[n+1].pos;
+        verts[n+5].pos = vec2(x1, y1);
       }
     }
   }
@@ -140,13 +144,13 @@ class DoglConsole
         float y1 = r * (cy+1);
 
         uint n = (y*w+x)*6;
-        vertexUVs[n+0] = vec2(x0, y0);
-        vertexUVs[n+1] = vec2(x1, y0);
-        vertexUVs[n+2] = vec2(x0, y1);
+        verts[n+0].uv = vec2(x0, y0);
+        verts[n+1].uv = vec2(x1, y0);
+        verts[n+2].uv = vec2(x0, y1);
 
-        vertexUVs[n+3] = vertexUVs[n+2];
-        vertexUVs[n+4] = vertexUVs[n+1];
-        vertexUVs[n+5] = vec2(x1, y1);
+        verts[n+3].uv = verts[n+2].uv;
+        verts[n+4].uv = verts[n+1].uv;
+        verts[n+5].uv = vec2(x1, y1);
       }
 
       ++Y;
@@ -155,10 +159,9 @@ class DoglConsole
     GLuint vertexArrayObject;
 
     GLuint positionBufferObject;
-    GLuint uvBufferObject;
 
-    GLint positionVertexAttribLocation;
-    GLint uvVertexAttribLocation;
+    GLint positionVertexAL;
+    GLint uvVertexAL;
 
     GLuint fontTexUniformLocation;
 
@@ -168,26 +171,25 @@ class DoglConsole
     fontTexUniformLocation = shaderProgram.getUniformLocation("font");
 
     /* Get vertex attribute locations */
-    positionVertexAttribLocation = shaderProgram.getAttribLocation("positionV");
-    uvVertexAttribLocation = shaderProgram.getAttribLocation("uvV");
+    positionVertexAL = shaderProgram.getAttribLocation("positionV");
+    uvVertexAL = shaderProgram.getAttribLocation("uvV");
 
     /* Generate arrays/buffers to send vertex data */
     glGenVertexArrays(1, &vertexArrayObject);
     glGenBuffers(1, &positionBufferObject);
-    glGenBuffers(1, &uvBufferObject);
 
     /* Send vertex data */
     glBindVertexArray(vertexArrayObject);
 
     glBindBuffer(GL_ARRAY_BUFFER, positionBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, vertexPositions.length * vertexPositions[0].sizeof, vertexPositions.ptr, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(positionVertexAttribLocation);
-    glVertexAttribPointer(positionVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
+    /* TODO send buffer data only when there's been a change! */
+    glBufferData(GL_ARRAY_BUFFER, verts.length * verts[0].sizeof, verts.ptr, GL_STREAM_DRAW);
 
-    glBindBuffer(GL_ARRAY_BUFFER, uvBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, vertexUVs.length * vertexUVs[0].sizeof, vertexUVs.ptr, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(uvVertexAttribLocation);
-    glVertexAttribPointer(uvVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
+    glEnableVertexAttribArray(positionVertexAL);
+    glEnableVertexAttribArray(uvVertexAL);
+
+    glVertexAttribPointer(positionVertexAL, 2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].pos.offsetof);
+    glVertexAttribPointer(uvVertexAL,       2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].uv.offsetof);
 
     /* Bind texture */
     glActiveTexture(GL_TEXTURE0);
@@ -204,7 +206,6 @@ class DoglConsole
     /* Release GL resources */
     glDeleteVertexArrays(1, &vertexArrayObject);
     glDeleteBuffers(1, &positionBufferObject);
-    glDeleteBuffers(1, &uvBufferObject);
   }
 
   /* Returns true if event requires further processing outside the scope of DoglConsole */
