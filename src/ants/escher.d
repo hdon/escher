@@ -633,10 +633,10 @@ class Space
         //writeln("    ", v);
 
       /* Create GL buffers */
-      glGenBuffers(2, &vbo); // includes ibo
+      glGenBuffersARB(2, &vbo); // includes ibo
       /* Send vertex data to vbo */
       glBindBufferARB(GL_ARRAY_BUFFER, vbo);
-      glBufferData(GL_ARRAY_BUFFER, numUniqueVerts * GPUVert.sizeof, gpuVerts.ptr, GL_STATIC_DRAW);
+      glBufferDataARB(GL_ARRAY_BUFFER, numUniqueVerts * GPUVert.sizeof, gpuVerts.ptr, GL_STATIC_DRAW);
       glBindBufferARB(GL_ARRAY_BUFFER, 0);
 
       /* Now we can handle draw commands */
@@ -680,7 +680,7 @@ class Space
 
       /* Now send our vertex indices to the GL */
       glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, ibo);
-      glBufferData(GL_ELEMENT_ARRAY_BUFFER, numVerts * uint.sizeof, gpuVertIndices.ptr, GL_STATIC_DRAW);
+      glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER, numVerts * uint.sizeof, gpuVertIndices.ptr, GL_STATIC_DRAW);
       glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, 0);
 
       glErrorCheck("gpuSetUp()");

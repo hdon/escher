@@ -916,9 +916,9 @@ class MD5Animation
     /* Index buffer objects for face indices */
     ibo.length = vbo.length;
     /* Create buffer objects for both vertex data and face data */
-    glGenBuffers(cast(GLint)vbo.length, vbo.ptr);
-    glGenBuffers(cast(GLint)ibo.length, ibo.ptr);
-    glErrorCheck("glGenBuffers()");
+    glGenBuffersARB(cast(GLint)vbo.length, vbo.ptr);
+    glGenBuffersARB(cast(GLint)ibo.length, ibo.ptr);
+    glErrorCheck("glGenBuffersARB()");
 
     GPUVert[] data;
     foreach (iMesh, mesh; model.meshes)
@@ -984,7 +984,7 @@ class MD5Animation
           mesh.tris.length, Tri.sizeof, Tri.sizeof * mesh.tris.length, maxVA, mesh.tris);
       }
 
-      glBufferData(GL_ARRAY_BUFFER, GPUVert.sizeof * data.length, data.ptr, GL_STATIC_DRAW);
+      glBufferDataARB(GL_ARRAY_BUFFER, GPUVert.sizeof * data.length, data.ptr, GL_STATIC_DRAW);
       /* Finish using this buffer object */
       glBindBufferARB(GL_ARRAY_BUFFER, 0);
 
@@ -992,7 +992,7 @@ class MD5Animation
       /* Create the buffer object in the GL */
       glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, ibo[iMesh]);
       /* Fill the buffer object with our data */
-      glBufferData(GL_ELEMENT_ARRAY_BUFFER, Tri.sizeof * mesh.tris.length, mesh.tris.ptr, GL_STATIC_DRAW);
+      glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER, Tri.sizeof * mesh.tris.length, mesh.tris.ptr, GL_STATIC_DRAW);
       /* Finish using this buffer object */
       glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, 0);
 

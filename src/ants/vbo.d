@@ -46,14 +46,14 @@ class VBO
     mvmatUniloc = shaderProgram.getUniformLocation("viewMatrix");
     pmatUniloc = shaderProgram.getUniformLocation("projMatrix");
 
-    glGenBuffers(2, &posBuf);
+    glGenBuffersARB(2, &posBuf);
     glBindBufferARB(GL_ARRAY_BUFFER, posBuf);
-    glBufferData(GL_ARRAY_BUFFER, vertData.length * float.sizeof, vertData.ptr, GL_STATIC_DRAW);
+    glBufferDataARB(GL_ARRAY_BUFFER, vertData.length * float.sizeof, vertData.ptr, GL_STATIC_DRAW);
 
     glBindBufferARB(GL_ARRAY_BUFFER, 0);
 
     glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, indBuf);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexData.length * uint.sizeof, indexData.ptr, GL_STATIC_DRAW);
+    glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER, indexData.length * uint.sizeof, indexData.ptr, GL_STATIC_DRAW);
 
     glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, 0);
 

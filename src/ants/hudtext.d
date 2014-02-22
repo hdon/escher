@@ -161,19 +161,19 @@ class HUDText
 
     /* Generate arrays/buffers to send vertex data */
     glGenVertexArrays(1, &vertexArrayObject);
-    glGenBuffers(1, &positionBufferObject);
-    glGenBuffers(1, &uvBufferObject);
+    glGenBuffersARB(1, &positionBufferObject);
+    glGenBuffersARB(1, &uvBufferObject);
 
     /* Send vertex data */
     glBindVertexArray(vertexArrayObject);
 
     glBindBufferARB(GL_ARRAY_BUFFER, positionBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, vertexPositions.length * vertexPositions[0].sizeof, vertexPositions.ptr, GL_STREAM_DRAW);
+    glBufferDataARB(GL_ARRAY_BUFFER, vertexPositions.length * vertexPositions[0].sizeof, vertexPositions.ptr, GL_STREAM_DRAW);
     glEnableVertexAttribArray(positionVertexAttribLocation);
     glVertexAttribPointer(positionVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
 
     glBindBufferARB(GL_ARRAY_BUFFER, uvBufferObject);
-    glBufferData(GL_ARRAY_BUFFER, vertexUVs.length * vertexUVs[0].sizeof, vertexUVs.ptr, GL_STREAM_DRAW);
+    glBufferDataARB(GL_ARRAY_BUFFER, vertexUVs.length * vertexUVs[0].sizeof, vertexUVs.ptr, GL_STREAM_DRAW);
     glEnableVertexAttribArray(uvVertexAttribLocation);
     glVertexAttribPointer(uvVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
 

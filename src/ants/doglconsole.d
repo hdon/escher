@@ -226,14 +226,14 @@ class DoglConsole
 
     /* Generate arrays/buffers to send vertex data */
     glGenVertexArrays(1, &vertexArrayObject);
-    glGenBuffers(1, &vbo);
+    glGenBuffersARB(1, &vbo);
 
     /* Send vertex data */
     glBindVertexArray(vertexArrayObject);
 
     glBindBufferARB(GL_ARRAY_BUFFER, vbo);
     /* TODO send buffer data only when there's been a change! */
-    glBufferData(GL_ARRAY_BUFFER, verts.length * verts[0].sizeof, verts.ptr, GL_STREAM_DRAW);
+    glBufferDataARB(GL_ARRAY_BUFFER, verts.length * verts[0].sizeof, verts.ptr, GL_STREAM_DRAW);
 
     glEnableVertexAttribArray(positionVAL);
     glEnableVertexAttribArray(uvVAL);
