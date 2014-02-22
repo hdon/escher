@@ -63,7 +63,7 @@ class VBO
 
   ~this()
   {
-    glDeleteBuffers(2, &posBuf);
+    glDeleteBuffersARB(2, &posBuf);
   }
 
   void draw(mat4d mvMatd, mat4d pMatd)

@@ -873,7 +873,7 @@ class MD5Animation
       glUniform1iARB(colorMapUniloc, 0);
       glErrorCheck("md5 9.1");
 
-      glUniform4fv(colorUniloc, 1, color.value_ptr);
+      glUniform4fvARB(colorUniloc, 1, color.value_ptr);
       glErrorCheck("md5 9.1.1");
 
       /* Draw! */

@@ -192,7 +192,7 @@ class HUDText
 
     /* Release GL resources */
     glDeleteVertexArrays(1, &vertexArrayObject);
-    glDeleteBuffers(1, &positionBufferObject);
-    glDeleteBuffers(1, &uvBufferObject);
+    glDeleteBuffersARB(1, &positionBufferObject);
+    glDeleteBuffersARB(1, &uvBufferObject);
   }
 }

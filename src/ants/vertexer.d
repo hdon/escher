@@ -146,22 +146,22 @@ class Vertexer
     /* Send matrix uniform values */
     glUniformMatrix4fvARB(modelViewMatrixUniformLocation, 1, GL_TRUE, mvMat.value_ptr);
     glUniformMatrix4fvARB(projectionMatrixUniformLocation, 1, GL_TRUE, pMat.value_ptr);
-    glUniformMatrix3fv(normalMatrixUniformLocation, 1, GL_TRUE, normalMat.value_ptr);
+    glUniformMatrix3fvARB(normalMatrixUniformLocation, 1, GL_TRUE, normalMat.value_ptr);
 
     /* Send light uniform values */
-    glUniform3f(lightSourceUniformLocation_pos, lightPos.x, lightPos.y, lightPos.z);
-    glUniform4f(lightSourceUniformLocation_diffuse, 1, 1, 1, 1);
-    glUniform4f(lightSourceUniformLocation_specular, 1, 1, 1, 1);
+    glUniform3fARB(lightSourceUniformLocation_pos, lightPos.x, lightPos.y, lightPos.z);
+    glUniform4fARB(lightSourceUniformLocation_diffuse, 1, 1, 1, 1);
+    glUniform4fARB(lightSourceUniformLocation_specular, 1, 1, 1, 1);
 
     /* Miscellanious uniform values */
     timeUniformLocation = shaderProgram.getUniformLocation("time");
     resolutionUniformLocation = shaderProgram.getUniformLocation("resolution");
 
     if (timeUniformLocation >= 0)
-      glUniform1f(timeUniformLocation, frameTime);
+      glUniform1fARB(timeUniformLocation, frameTime);
 
     if (resolutionUniformLocation >= 0)
-      glUniform2f(resolutionUniformLocation, resolution.x, resolution.y);
+      glUniform2fARB(resolutionUniformLocation, resolution.x, resolution.y);
 
     /* Get vertex attribute locations */
     positionVertexAttribLocation = shaderProgram.getAttribLocation("positionV");
@@ -226,10 +226,10 @@ class Vertexer
     glDrawArrays(mode, 0, numVerts);
 
     glDeleteVertexArrays(1, &vertexArrayObject);
-    glDeleteBuffers(1, &positionBufferObject);
-    glDeleteBuffers(1, &colorBufferObject);
-    glDeleteBuffers(1, &uvBufferObject);
-    glDeleteBuffers(1, &normalBufferObject);
+    glDeleteBuffersARB(1, &positionBufferObject);
+    glDeleteBuffersARB(1, &colorBufferObject);
+    glDeleteBuffersARB(1, &uvBufferObject);
+    glDeleteBuffersARB(1, &normalBufferObject);
 
     numVerts = 0;
   }

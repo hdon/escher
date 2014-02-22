@@ -257,7 +257,7 @@ class DoglConsole
 
     /* Release GL resources */
     glDeleteVertexArrays(1, &vertexArrayObject);
-    glDeleteBuffers(1, &vbo);
+    glDeleteBuffersARB(1, &vbo);
   }
 
   /* Returns true if event requires further processing outside the scope of DoglConsole */
