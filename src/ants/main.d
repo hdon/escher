@@ -71,7 +71,7 @@ int main(string[] args)
     }
     catch (file.FileException e)
     {
-      display.console.print(format("Error loading user config script \"%s\": %s", rcPath, e.msg));
+      display.console.print(format("Error loading user config script \"%s\": %s\n", rcPath, e.msg));
     }
 
     GC.collect();
