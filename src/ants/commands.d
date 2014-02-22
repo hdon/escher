@@ -7,7 +7,7 @@ import std.conv : to;
 import std.algorithm : startsWith;
 import file = std.file;
 import ants.main : display;
-import ants.escher : World, Camera, EntityPlayer, vec3, playerEntity;
+import ants.escher : World, Camera, EntityPlayer, vec3, vec3f, playerEntity;
 import ants.doglconsole : DoglConsole;
 import ants.md5 : MD5Animation;
 
@@ -29,7 +29,7 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
   foreach (lineNo, line; commandText)
   {
     version (debugCommands)
-    console.print(format("[commands] evaluating: %s\n", line));
+    console.printlnc(vec3f(.4, .8, .4), format("> %s", line));
 
     try
     {

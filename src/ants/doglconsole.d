@@ -38,11 +38,14 @@ class DoglConsole
 
   uint w, h, front, inbufCursor;
   char[] buf;
+  vec3[] cbuf;
   char[] inbuf;
   Vert[] verts;
+  vec3 color;
 
   this(uint w, uint h)
   {
+    color = vec3(.7f,.7f,.7f);
     shaderProgram = new ShaderProgram("doglconsole.vs", "doglconsole.fs");
     redimension(w, h);
 
@@ -63,6 +66,9 @@ class DoglConsole
 
     buf.length = 0;
     buf.length = w*(h-1);
+
+    cbuf.length = 0;
+    cbuf.length = w*(h-1);
 
     inbuf.length = 0;
     inbuf.length = w;
@@ -98,6 +104,29 @@ class DoglConsole
     }
   }
 
+  void printlnc(vec3 color, string text)
+  {
+    auto save = this.color;
+    this.color = color;
+    println(text);
+    this.color = save;
+  }
+
+  void println(string text)
+  {
+    print(text);
+    front = (front / w + 1) * w;
+    write('\n');
+  }
+
+  void printc(vec3 color, string text)
+  {
+    auto save = this.color;
+    this.color = color;
+    print(text);
+    this.color = save;
+  }
+
   void print(string text)
   {
     write("[console] ", text);
@@ -108,8 +137,11 @@ class DoglConsole
         {}
       if (c == '\n')
         cursor = (cursor / w + 1) * w;
-      else
-        buf[cursor++] = c;
+      else {
+        buf[cursor] = c;
+        cbuf[cursor] = color;
+        cursor++;
+      }
       if (cursor >= buf.length)
         cursor = 0;
     }
@@ -131,11 +163,18 @@ class DoglConsole
 
       for (uint x=0; x<w; x++)
       {
+        vec3 color;
         char c;
         if (y == h-1)
+        {
           c = inbuf[x];
+          color = vec3(.5f, 1f, .5f);
+        }
         else
+        {
           c = buf[Y*w+x];
+          color = cbuf[Y*w+x];
+        }
         char cx = c%16;
         char cy = c/16;
         float x0 = r *  cx;
@@ -151,17 +190,25 @@ class DoglConsole
         verts[n+3].uv = verts[n+2].uv;
         verts[n+4].uv = verts[n+1].uv;
         verts[n+5].uv = vec2(x1, y1);
+
+        verts[n+0].color = color;
+        verts[n+1].color = color;
+        verts[n+2].color = color;
+        verts[n+3].color = color;
+        verts[n+4].color = color;
+        verts[n+5].color = color;
       }
 
       ++Y;
     }
 
     GLuint vertexArrayObject;
+    GLuint vbo;
 
-    GLuint positionBufferObject;
-
-    GLint positionVertexAL;
-    GLint uvVertexAL;
+    /* Vertex Attribute Locations */
+    GLint positionVAL;
+    GLint uvVAL;
+    GLint colorVAL;
 
     GLuint fontTexUniformLocation;
 
@@ -171,25 +218,28 @@ class DoglConsole
     fontTexUniformLocation = shaderProgram.getUniformLocation("font");
 
     /* Get vertex attribute locations */
-    positionVertexAL = shaderProgram.getAttribLocation("positionV");
-    uvVertexAL = shaderProgram.getAttribLocation("uvV");
+    positionVAL = shaderProgram.getAttribLocation("positionV");
+    uvVAL = shaderProgram.getAttribLocation("uvV");
+    colorVAL = shaderProgram.getAttribLocation("colorV");
 
     /* Generate arrays/buffers to send vertex data */
     glGenVertexArrays(1, &vertexArrayObject);
-    glGenBuffers(1, &positionBufferObject);
+    glGenBuffers(1, &vbo);
 
     /* Send vertex data */
     glBindVertexArray(vertexArrayObject);
 
-    glBindBuffer(GL_ARRAY_BUFFER, positionBufferObject);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
     /* TODO send buffer data only when there's been a change! */
     glBufferData(GL_ARRAY_BUFFER, verts.length * verts[0].sizeof, verts.ptr, GL_STREAM_DRAW);
 
-    glEnableVertexAttribArray(positionVertexAL);
-    glEnableVertexAttribArray(uvVertexAL);
+    glEnableVertexAttribArray(positionVAL);
+    glEnableVertexAttribArray(uvVAL);
+    glEnableVertexAttribArray(colorVAL);
 
-    glVertexAttribPointer(positionVertexAL, 2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].pos.offsetof);
-    glVertexAttribPointer(uvVertexAL,       2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].uv.offsetof);
+    glVertexAttribPointer(positionVAL, 2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].pos.offsetof);
+    glVertexAttribPointer(uvVAL,       2, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].uv.offsetof);
+    glVertexAttribPointer(colorVAL,    3, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*) verts[0].color.offsetof);
 
     /* Bind texture */
     glActiveTexture(GL_TEXTURE0);
@@ -205,13 +255,19 @@ class DoglConsole
 
     /* Release GL resources */
     glDeleteVertexArrays(1, &vertexArrayObject);
-    glDeleteBuffers(1, &positionBufferObject);
+    glDeleteBuffers(1, &vbo);
   }
 
   /* Returns true if event requires further processing outside the scope of DoglConsole */
   bool handleSDLEvent(SDL_Event* event)
   {
+    if (event.type == SDL_KEYUP && visible)
+      return false;
+
     if (event.type != SDL_KEYDOWN)
+      return true;
+
+    if ((event.key.keysym.mod & (KMOD_CTRL | KMOD_ALT | KMOD_GUI)) != 0)
       return true;
 
     int key = event.key.keysym.sym;

@@ -113,7 +113,7 @@ class Display
 
     setupGL();
 
-    console = new DoglConsole(width/16, height/16);
+    console = new DoglConsole(width/8, height/8);
     console.handleCommand = toDelegate(&doCommand);
 
     profileHUD = new HUDText(45, 8, 0, 0, 45f*16f/width, 8f*16f/height);
