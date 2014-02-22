@@ -2426,17 +2426,17 @@ class Camera
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT);
 
     glDepthMask(GL_TRUE);
     glClearDepth(1);
-    glClear(GL_DEPTH_BUFFER_BIT);
 
     version (stencil) {
       glStencilMask(255);
       glClearStencil(portalDepth);
-      glClear(GL_STENCIL_BUFFER_BIT);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     }
+    else
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glDepthFunc(GL_LESS);
 
