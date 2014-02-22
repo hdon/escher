@@ -231,7 +231,7 @@ class DoglConsole
     /* Send vertex data */
     glBindVertexArray(vertexArrayObject);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBindBufferARB(GL_ARRAY_BUFFER, vbo);
     /* TODO send buffer data only when there's been a change! */
     glBufferData(GL_ARRAY_BUFFER, verts.length * verts[0].sizeof, verts.ptr, GL_STREAM_DRAW);
 

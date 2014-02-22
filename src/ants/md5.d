@@ -838,7 +838,7 @@ class MD5Animation
     foreach (iMesh, mesh; model.meshes)
     {
       /* Select our GL buffer object containing our vertex data */
-      glBindBuffer(GL_ARRAY_BUFFER, vbo[iMesh]);
+      glBindBufferARB(GL_ARRAY_BUFFER, vbo[iMesh]);
       glErrorCheck("md5 1");
 
       /* Enable our vertex attributes */
@@ -877,7 +877,7 @@ class MD5Animation
       glErrorCheck("md5 9.1.1");
 
       /* Draw! */
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[iMesh]);
+      glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, ibo[iMesh]);
       glErrorCheck("md5 9");
 
       glDrawElements(GL_TRIANGLES, cast(int)(mesh.numTris*3), GL_UNSIGNED_INT, cast(void*)0);
@@ -895,8 +895,8 @@ class MD5Animation
     glDisableVertexAttribArray(weightPosAttloc+3);
     
     /* Disable the buffer objects we've used */
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBufferARB(GL_ARRAY_BUFFER, 0);
 
     /* Unset texture samplers TODO use Material better! */
     glActiveTexture(GL_TEXTURE0);
@@ -956,7 +956,7 @@ class MD5Animation
 
       /* Send vertex attributes to its GL Buffer Object */
       /* Create the buffer object in the GL */
-      glBindBuffer(GL_ARRAY_BUFFER, vbo[iMesh]);
+      glBindBufferARB(GL_ARRAY_BUFFER, vbo[iMesh]);
       /* Fill the buffer object with our data */
       //writeln("vbo data: ");
       version (debugMD5)
@@ -986,15 +986,15 @@ class MD5Animation
 
       glBufferData(GL_ARRAY_BUFFER, GPUVert.sizeof * data.length, data.ptr, GL_STATIC_DRAW);
       /* Finish using this buffer object */
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindBufferARB(GL_ARRAY_BUFFER, 0);
 
       /* Send face index data to its GL Buffer Object */
       /* Create the buffer object in the GL */
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[iMesh]);
+      glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, ibo[iMesh]);
       /* Fill the buffer object with our data */
       glBufferData(GL_ELEMENT_ARRAY_BUFFER, Tri.sizeof * mesh.tris.length, mesh.tris.ptr, GL_STATIC_DRAW);
       /* Finish using this buffer object */
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+      glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, 0);
 
       glErrorCheck("md5 end of initGPU()");
     }

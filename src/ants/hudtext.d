@@ -167,12 +167,12 @@ class HUDText
     /* Send vertex data */
     glBindVertexArray(vertexArrayObject);
 
-    glBindBuffer(GL_ARRAY_BUFFER, positionBufferObject);
+    glBindBufferARB(GL_ARRAY_BUFFER, positionBufferObject);
     glBufferData(GL_ARRAY_BUFFER, vertexPositions.length * vertexPositions[0].sizeof, vertexPositions.ptr, GL_STREAM_DRAW);
     glEnableVertexAttribArray(positionVertexAttribLocation);
     glVertexAttribPointer(positionVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);
 
-    glBindBuffer(GL_ARRAY_BUFFER, uvBufferObject);
+    glBindBufferARB(GL_ARRAY_BUFFER, uvBufferObject);
     glBufferData(GL_ARRAY_BUFFER, vertexUVs.length * vertexUVs[0].sizeof, vertexUVs.ptr, GL_STREAM_DRAW);
     glEnableVertexAttribArray(uvVertexAttribLocation);
     glVertexAttribPointer(uvVertexAttribLocation, 2, GL_FLOAT, 0, 0, null);

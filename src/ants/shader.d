@@ -197,22 +197,22 @@ class ShaderProgram
 
   GLuint getUniformLocation(string name)
   {
-    return glGetUniformLocation(programObject, name.toStringz());
+    return glGetUniformLocationARB(programObject, cast(const(byte)*)name.toStringz());
   }
 
   GLint getAttribLocation(string name)
   {
-    return glGetAttribLocation(programObject, name.toStringz());
+    return glGetAttribLocationARB(programObject, cast(const(byte)*)name.toStringz());
   }
 
   GLuint getUniformLocationz(const char* name)
   {
-    return glGetUniformLocation(programObject, name);
+    return glGetUniformLocationARB(programObject, cast(const(byte)*)name);
   }
 
   GLint getAttribLocationz(const char* name)
   {
-    return glGetAttribLocation(programObject, name);
+    return glGetAttribLocationARB(programObject, cast(const(byte)*)name);
   }
 
   void use()

@@ -635,9 +635,9 @@ class Space
       /* Create GL buffers */
       glGenBuffers(2, &vbo); // includes ibo
       /* Send vertex data to vbo */
-      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+      glBindBufferARB(GL_ARRAY_BUFFER, vbo);
       glBufferData(GL_ARRAY_BUFFER, numUniqueVerts * GPUVert.sizeof, gpuVerts.ptr, GL_STATIC_DRAW);
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindBufferARB(GL_ARRAY_BUFFER, 0);
 
       /* Now we can handle draw commands */
       numVerts = 0;
@@ -679,9 +679,9 @@ class Space
       //}
 
       /* Now send our vertex indices to the GL */
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+      glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, ibo);
       glBufferData(GL_ELEMENT_ARRAY_BUFFER, numVerts * uint.sizeof, gpuVertIndices.ptr, GL_STATIC_DRAW);
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+      glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, 0);
 
       glErrorCheck("gpuSetUp()");
 
@@ -1380,7 +1380,7 @@ class World
     glUniformMatrix4fv(shaderProgram.getUniformLocation("viewMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
     tempMatrix = mat4f(pmatWorld);
     glUniformMatrix4fv(shaderProgram.getUniformLocation("projMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
-    glBindBuffer(GL_ARRAY_BUFFER, space.vbo);
+    glBindBufferARB(GL_ARRAY_BUFFER, space.vbo);
     glEnable(GL_CULL_FACE);
 
     auto attloc = shaderProgram.getAttribLocation("positionV");
@@ -1406,7 +1406,7 @@ class World
 
     auto colorMapUniloc = shaderProgram.getUniformLocation("colorMap");
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, space.ibo);
+    glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, space.ibo);
 
     foreach (drawCommand; space.drawCommands)
     {
@@ -1437,8 +1437,8 @@ class World
         cast(GLint)drawCommand.numVerts, GL_UNSIGNED_INT, cast(void*)drawCommand.iboOffset);
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBufferARB(GL_ARRAY_BUFFER, 0);
+    glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER, 0);
     glUseProgram(0);
 
     /* Now we'll draw our entities.
