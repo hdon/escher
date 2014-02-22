@@ -192,7 +192,7 @@ class ShaderProgram
 
   ~this()
   {
-    glDeleteProgram(programObject);
+    glDeleteObjectARB(programObject);
   }
 
   GLuint getUniformLocation(string name)
