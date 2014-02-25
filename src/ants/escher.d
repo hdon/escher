@@ -381,8 +381,9 @@ private struct Polygon4
 
   /* Calculate and return the signed area of this polygon.
    * Assumes a closed ("repaired") polygon.
+   * Argument: x and y scaling
    */
-  double signedArea()
+  double signedArea(double x, double y)
   {
     enforce(edges.length >= 3, "polygons with less than 3 sides is no polygons");
 
@@ -393,12 +394,13 @@ private struct Polygon4
       verts ~= vec2(p.x/p.w, p.y/p.w);
     }
 
+    double xy = x*y;
     double area = 0.0;
     foreach (edge; edges)
     {
       vec2 a = verts[edge.a];
       vec2 b = verts[edge.b];
-      area += a.x * b.y - a.y * b.x;
+      area += a.x * b.y * xy - a.y * b.x * xy;
     }
 
     return area;
@@ -920,7 +922,7 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
     verts[i] = v4;
   }
 
-  auto polygon = new Polygon4(verts[]);
+  auto polygon = new Polygon4(verts);
   //writeln("num verts: ", nverts);
   //writeln("polygon: ", polygon.points);
 
@@ -928,9 +930,10 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
     return false;
   //writefln("polygon passed clipping");
 
-  double signedArea = polygon.signedArea();
+  double signedArea = polygon.signedArea(800, 600);
   //writefln("signed area: %f", signedArea);
-  if (signedArea < 0.0)
+  //writeln("signedArea = ", signedArea);
+  if (signedArea < 1000.0)
     return false;
 
   ColorVec color;
@@ -1348,8 +1351,9 @@ class World
   // There is also an example on line 681 of how to load a matrix from gl3n into opengl.
   // I'm not sure I need to do that yet, but it might be nice for when I have models
   // and shit to draw, and not just a handful of polygons per space.
-  mat4 pmatPortal  = mat4.perspective(800, 600, 90, 0.00001, 100);
-  mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 10000);
+  mat4 pmatPortal = mat4.perspective(800, 600, 90, 0.0001, 10000);
+  mat4 pmatWorld  = mat4.perspective(800, 600, 90, 0.0001, 10000);
+  //mat4 pmatWorld = mat4.perspective(800, 600, 90, 0.1, 10000);
   //XXX ShaderProgram shaderProgram;
 
   bool drawMapVertices;
@@ -1852,6 +1856,7 @@ class Camera
   double camYaw;
   double camPitch;
   double mousef;
+  ubyte maxPortalDepth;
 
   float turnRate;
 
@@ -1873,6 +1878,7 @@ class Camera
     this.mousef = 0.002;
     this.vel = vec3(0,0,0);
     this.grounded = true; // TODO for debugging no falling until jump
+    this.maxPortalDepth = 99;
   }
 
   void key(int keysym, bool down)
@@ -2405,8 +2411,6 @@ class Camera
   VBO vbo;
   void draw()
   {
-    ubyte portalDepth = 2;
-
     /* Instantiate some global/static instances here */
     if (shaderProgram is null)
     {
@@ -2434,7 +2438,7 @@ class Camera
 
     version (stencil) {
       glStencilMask(255);
-      glClearStencil(portalDepth);
+      glClearStencil(maxPortalDepth);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     }
     else
@@ -2463,7 +2467,7 @@ class Camera
     stopWatch.start();
 
     glErrorCheck("before drawSpace()");
-    world.drawSpace(spaceID, mvmat, portalDepth, 0);
+    world.drawSpace(spaceID, mvmat, maxPortalDepth, 0);
     //vbo.draw(mvmat, world.pmatWorld);
     glErrorCheck("after drawSpace()");
 

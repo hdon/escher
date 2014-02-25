@@ -8,8 +8,6 @@ which I plan to do them.
 
 5) Fix the portal stencil code!!!
 
-6) Fix buggy line segment collision code
-
 8) Triangulate collision geometry upon loading!
 
 7) Rewrite collision code:
@@ -28,3 +26,7 @@ For each planar normal 'n':
       use ray casting (even/odd) rule to determine collision
 
 http://en.wikipedia.org/wiki/Point_in_polygon#Ray_casting_algorithm
+
+9) In Escher map loader, underdelivery of the final record type provided
+   of spaces (usually "face") goes unnoticed. The map loader should bail
+   if this happens.
