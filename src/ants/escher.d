@@ -1854,6 +1854,7 @@ class Camera
   double camYaw;
   double camPitch;
   double mousef;
+  ubyte maxPortalDepth;
 
   float turnRate;
 
@@ -1875,6 +1876,7 @@ class Camera
     this.mousef = 0.002;
     this.vel = vec3(0,0,0);
     this.grounded = true; // TODO for debugging no falling until jump
+    this.maxPortalDepth = 99;
   }
 
   void key(int keysym, bool down)
@@ -2407,8 +2409,6 @@ class Camera
   VBO vbo;
   void draw()
   {
-    ubyte portalDepth = 99;
-
     /* Instantiate some global/static instances here */
     if (shaderProgram is null)
     {
@@ -2436,7 +2436,7 @@ class Camera
 
     version (stencil) {
       glStencilMask(255);
-      glClearStencil(portalDepth);
+      glClearStencil(maxPortalDepth);
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     }
     else
@@ -2465,7 +2465,7 @@ class Camera
     stopWatch.start();
 
     glErrorCheck("before drawSpace()");
-    world.drawSpace(spaceID, mvmat, portalDepth, 0);
+    world.drawSpace(spaceID, mvmat, maxPortalDepth, 0);
     //vbo.draw(mvmat, world.pmatWorld);
     glErrorCheck("after drawSpace()");
 

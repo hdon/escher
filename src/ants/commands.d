@@ -151,6 +151,13 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           console.print(format("mousef = %s\n", display.camera.mousef));
           break;
 
+        case "portaldepth":
+          assert(words.length <= 2, "invalid number of arguments");
+          if (words.length == 2)
+            display.camera.maxPortalDepth = to!ubyte(words[1]);
+          console.print(format("portaldepth = %s\n", display.camera.maxPortalDepth));
+          break;
+
         case "writepos":
           assert(words.length == 2, "invalid number of arguments");
           console.print(format("writing position to \"%s\"\n", words[1]));
