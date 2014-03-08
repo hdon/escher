@@ -12,6 +12,7 @@ import derelict.sdl2.sdl;
 import derelict.opengl3.gl3;
 import gl3n.linalg : Vector, Matrix;
 import std.math : PI;
+import std.algorithm : min;
 
 import std.stdio : writeln;
 
@@ -187,13 +188,14 @@ class CodebadLeadScreen : Screen
 
   mixin SingletonPattern!CodebadLeadScreen;
 
-  size_t radialSegments = 4;
-  size_t strataSegments = 7;
+  size_t radialSegments = 90;
+  size_t strataSegments = 2;
   static Vert[] verts;
   static LineSegment[] lines;
   ShaderProgram shaderProgram;
   GLuint vbo;
   GLuint ibo;
+  ulong startTime;
 
   this()
   {
@@ -203,6 +205,10 @@ class CodebadLeadScreen : Screen
   override void show()
   {
     super.show();
+
+    radialSegments = 90;
+    strataSegments = 2;
+    startTime = GameTime.t;
 
     glGenBuffers(2, &vbo);
   }
@@ -233,6 +239,13 @@ class CodebadLeadScreen : Screen
 
   override void draw()
   {
+    /* Do some calculation regarding timing and the animation sequence */
+    auto now = GameTime.t - startTime;
+    auto radialsPerSecond = 15.0 / 10_000_000.0;
+    auto deltaSegments = min(87, cast(int)(now * radialsPerSecond));
+    radialSegments = 90 - deltaSegments;
+    strataSegments = 2  + deltaSegments/2;
+
     /* First create vertices */
     size_t nVerts = radialSegments * strataSegments;
     size_t iVert;
@@ -310,6 +323,8 @@ class CodebadLeadScreen : Screen
 
     glDisableVertexAttribArray(posAL);
     glDisableVertexAttribArray(colAL);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glUseProgram(0);
     glErrorCheck();
   }
