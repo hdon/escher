@@ -11,8 +11,9 @@ import ants.glutil;
 import derelict.sdl2.sdl;
 import derelict.opengl3.gl3;
 import gl3n.linalg : Vector, Matrix;
+import std.math : PI;
 
-import std.stdio : writefln;
+import std.stdio : writeln;
 
 private alias Vector!(double, 2) vec2d;
 private alias Vector!(double, 3) vec3d;
@@ -20,6 +21,9 @@ private alias Vector!(double, 3) vec3d;
 private alias Vector!(float,  3) vec3f;
 
 private alias Matrix!(double, 4, 4) mat4;
+
+private alias Matrix!(float,  3, 3) mat3f;
+private alias Matrix!(float,  4, 4) mat4f;
 
 private template SingletonPattern(T)
 {
@@ -92,6 +96,9 @@ class PauseScreen : Screen
         return false;
       case SDLK_s:
         StencilTestScreen.a.show();
+        return false;
+      case SDLK_c:
+        CodebadLeadScreen.a.show();
         return false;
       default:
         return true;
@@ -172,3 +179,139 @@ class StencilTestScreen : Screen
     return true;
   }
 }
+
+class CodebadLeadScreen : Screen
+{
+  alias LineSegment = uint[2];
+  struct Vert { vec3f pos, col; }
+
+  mixin SingletonPattern!CodebadLeadScreen;
+
+  size_t radialSegments = 4;
+  size_t strataSegments = 7;
+  static Vert[] verts;
+  static LineSegment[] lines;
+  ShaderProgram shaderProgram;
+  GLuint vbo;
+  GLuint ibo;
+
+  this()
+  {
+    shaderProgram = new ShaderProgram("vert-color3--color4.vs", "frag-color4.fs");
+  }
+
+  override void show()
+  {
+    super.show();
+
+    glGenBuffers(2, &vbo);
+  }
+
+  override void hide()
+  {
+    super.hide();
+
+    glDeleteBuffers(2, &vbo);
+  }
+
+  override bool handleEvent(SDL_Event* ev)
+  {
+    /* Ignore all events but keydown */
+    if (ev.type != SDL_KEYDOWN)
+      return true;
+
+    switch (ev.key.keysym.sym)
+    {
+      case SDLK_ESCAPE:
+        hide();
+        return false;
+      default:
+        return true;
+    }
+    return true;
+  }
+
+  override void draw()
+  {
+    /* First create vertices */
+    size_t nVerts = radialSegments * strataSegments;
+    size_t iVert;
+    size_t nIndices;
+
+    /* Generate vertices (nVerts == nLines) */
+    if (verts.length < nVerts)
+    {
+      verts.length = nVerts;
+      lines.length = nVerts;
+    }
+
+    foreach (radial; 0..radialSegments)
+    {
+      mat3f m = mat3f.rotation(PI * radial * 2f / radialSegments, 0, 0, 1);
+
+      vec3f radialDirection = m * vec3f(1, 0, 0);
+
+      float strataReciprocal = 1f / strataSegments;
+      foreach (strata; 0..strataSegments)
+        verts[iVert++] = Vert(
+          radialDirection * ((strata+1) * strataReciprocal),
+          vec3f(0, 1, 0));
+    }
+
+    /* Generate primitives (line segments) */
+    size_t iLine;
+    foreach (radial; 0..radialSegments)
+    {
+      uint a = cast(uint)((radial+1) * strataSegments);
+      uint b = cast(uint)(radial < radialSegments-1 ? a : 0);
+      foreach (strata; 0..strataSegments)
+        lines[iLine++] = [--a, b++];
+    }
+
+    //writefln("\ncodebad: radials=%d strata=%d", radialSegments, strataSegments);
+    //foreach (v; verts)
+      //writeln("codebad: vert: ", v);
+    //foreach (l; lines)
+      //writeln("codebad: line: ", l);
+
+    /* Send data to GPU (nVerts is also number of lines) */
+    glErrorCheck();
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, nVerts * verts[0].sizeof, verts.ptr, GL_STREAM_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, nVerts * lines[0].sizeof, lines.ptr, GL_STREAM_DRAW);
+    glErrorCheck();
+
+    /* Draw */
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glClearColor(0, .2, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glErrorCheck();
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glErrorCheck();
+
+    /* Activate shader program and parameterize our data */
+    glErrorCheck();
+    shaderProgram.use();
+
+    auto posAL= shaderProgram.getAttribLocation("positionV");
+    assert(posAL >= 0);
+    glEnableVertexAttribArray(posAL);
+    glVertexAttribPointer(posAL, 3, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*)verts[0].pos.offsetof);
+
+    auto colAL = shaderProgram.getAttribLocation("colorV");
+    assert(colAL >= 0);
+    glEnableVertexAttribArray(colAL);
+    glVertexAttribPointer(colAL, 3, GL_FLOAT, GL_FALSE, verts[0].sizeof, cast(void*)verts[0].col.offsetof);
+
+    glDrawElements(GL_LINES, cast(GLsizei)(nVerts*2), GL_UNSIGNED_INT, cast(void*)0);
+
+    glDisableVertexAttribArray(posAL);
+    glDisableVertexAttribArray(colAL);
+    glUseProgram(0);
+    glErrorCheck();
+  }
+}
+
