@@ -94,7 +94,7 @@ class Vertexer
     // XXX
     mat4f mvMat = mat4f(mvMatd);
     mat4f pMat = mat4f(pMatd);
-    mat3f normalMat = mat3f(mvMat.rotation);
+    mat3f normalMat = mat3f(mvMat.get_rotation);
     //mat3f normalMat = mat3f(mvMat[0][0], mvMat[1][0], mvMat[2][0],
                             //mvMat[0][1], mvMat[1][1], mvMat[2][1],
                             //mvMat[0][2], mvMat[1][2], mvMat[2][2]);
