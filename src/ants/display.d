@@ -10,6 +10,7 @@ import ants.entity : EntityPlayer, EntityBendingBar, loadEntityAssets;
 import ants.doglconsole;
 import std.stdio : writeln, writefln;
 import std.string : toStringz, strlen, format;
+import derelict.util.exception : DerelictShouldThrow = ShouldThrow;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import derelict.opengl3.gl3;
@@ -68,13 +69,20 @@ class Display
 
   }
 
+  static DerelictShouldThrow derelictMissingSymbolCallback(string sym)
+  {
+    return DerelictShouldThrow.No;
+  }
+
   void init()
   {
     GLenum err;
     GLint iresult;
     GLboolean bresult;
 
+    DerelictSDL2.missingSymbolCallback = &derelictMissingSymbolCallback;
     DerelictSDL2.load();
+    DerelictSDL2Image.missingSymbolCallback = &derelictMissingSymbolCallback;
     DerelictSDL2Image.load();
     DerelictGL3.load();
     assert(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) == 0);
@@ -151,6 +159,7 @@ class Display
   {
     SDL_Quit();
     DerelictGL3.unload();
+    DerelictSDL2Image.unload();
     DerelictSDL2.unload();
   }
 
