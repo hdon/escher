@@ -12,7 +12,7 @@ import derelict.sdl2.sdl;
 import derelict.opengl3.gl3;
 import gl3n.linalg : Vector, Matrix;
 import std.math : PI;
-import std.algorithm : min;
+import std.algorithm : min, max;
 
 import std.stdio : writeln;
 
@@ -188,7 +188,7 @@ class CodebadLeadScreen : Screen
 
   mixin SingletonPattern!CodebadLeadScreen;
 
-  size_t radialSegments = 90;
+  size_t radialSegments = 50;
   size_t strataSegments = 2;
   static Vert[] verts;
   static LineSegment[] lines;
@@ -206,7 +206,7 @@ class CodebadLeadScreen : Screen
   {
     super.show();
 
-    radialSegments = 90;
+    radialSegments = 50;
     strataSegments = 2;
     startTime = GameTime.t;
 
@@ -237,14 +237,21 @@ class CodebadLeadScreen : Screen
     return true;
   }
 
+  enum radialSegmentsMax = 50;
+  enum radialsPerSecond = 7.0 / 10_000_000.0;
+
   override void draw()
   {
     /* Do some calculation regarding timing and the animation sequence */
     auto now = GameTime.t - startTime;
-    auto radialsPerSecond = 15.0 / 10_000_000.0;
-    auto deltaSegments = min(87, cast(int)(now * radialsPerSecond));
-    radialSegments = 90 - deltaSegments;
-    strataSegments = 2  + deltaSegments/2;
+
+    auto radialTime = min(46.0, now * radialsPerSecond);
+    radialSegments = 50 - cast(int)radialTime;
+    radialSegments = 4;
+
+    auto strataPerSecond = 7.0 / 4.0 / 10_000_000.0;
+    auto strataTime = max(2.0, now * strataPerSecond);
+    strataSegments = 2 + cast(int)strataTime;
 
     /* First create vertices */
     size_t nVerts = radialSegments * strataSegments;
@@ -258,11 +265,14 @@ class CodebadLeadScreen : Screen
       lines.length = nVerts;
     }
 
+    auto angleAll = 0.142 * radialsPerSecond * now;
     foreach (radial; 0..radialSegments)
     {
-      mat3f m = mat3f.rotation(PI * radial * 2f / radialSegments, 0, 0, 1);
-
-      vec3f radialDirection = m * vec3f(1, 0, 0);
+      auto angle = PI * radial * 2.0 / (50.0 - radialTime);// + angleAll;
+      mat3f m = mat3f.identity;
+      m.rotatez(angle);
+      m.scale(.75, 1, 1);
+      vec3f radialDirection = m * vec3f(0, 1, 0);
 
       float strataReciprocal = 1f / strataSegments;
       foreach (strata; 0..strataSegments)
