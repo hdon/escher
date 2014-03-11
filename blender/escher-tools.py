@@ -200,6 +200,12 @@ def removeSsosFromRemoteEmpty(eo, cx):
     if isSsoName(o.name):
       cx.scene.unlink(o)
 
+def lockAllTransforms(ob):
+  for i in range(3):
+    ob.lock_location[i] = True
+    ob.lock_rotation[i] = True
+    ob.lock_scale[i] = True
+
 def makePSO(spaceName, me=None):
   if me is None:
     bm = bmesh.new()
@@ -220,6 +226,7 @@ def makePSO(spaceName, me=None):
     bm.to_mesh(me)
   pso = bpy.data.objects.new(spaceName2psoName(spaceName), me)
   pso.show_transparent = True
+  lockAllTransforms(pso)
   return pso
 
 def cloneGraph(o, sc):
