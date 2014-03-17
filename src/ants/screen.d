@@ -240,18 +240,21 @@ class CodebadLeadScreen : Screen
   enum radialSegmentsMax = 50;
   enum radialsPerSecond = 7.0 / 10_000_000.0;
 
+  ulong oldRadialSegments;
   override void draw()
   {
     /* Do some calculation regarding timing and the animation sequence */
     auto now = GameTime.t - startTime;
 
     auto radialTime = min(46.0, now * radialsPerSecond);
-    radialSegments = 50 - cast(int)radialTime;
-    radialSegments = 4;
+    radialTime = 47.0; // XXX debug
+    radialSegments = 50 - (~1 & cast(int)radialTime);
+    if (radialSegments != oldRadialSegments)
+      writeln("radial segments: %d", (oldRadialSegments=radialSegments));
 
     auto strataPerSecond = 7.0 / 4.0 / 10_000_000.0;
-    auto strataTime = max(2.0, now * strataPerSecond);
-    strataSegments = 2 + cast(int)strataTime;
+    auto strataTime = max(2.0, now * strataPerSecond) + 2.0;
+    strataSegments = cast(int)strataTime;
 
     /* First create vertices */
     size_t nVerts = radialSegments * strataSegments;
@@ -274,7 +277,7 @@ class CodebadLeadScreen : Screen
       m.scale(.75, 1, 1);
       vec3f radialDirection = m * vec3f(0, 1, 0);
 
-      float strataReciprocal = 1f / strataSegments;
+      float strataReciprocal = 1f / (strataSegments);
       foreach (strata; 0..strataSegments)
         verts[iVert++] = Vert(
           radialDirection * ((strata+1) * strataReciprocal),

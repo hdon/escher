@@ -149,10 +149,10 @@ def texSlot2texMapType(s):
     return 'NORMAL'
   return 'NONE'
 
-def escherExport(materials, objects, scene, filename):
+def escherExport(operator, materials, objects, scene, filename):
   mats = SuperMap()
   for mat in materials:
-    if not mat.name.startswith('EscherPortalMaterial'):
+    if not mat.name.startswith('EscherPortalMaterial') and not mat.ESCHERIGNORE:
       mats[mat.name] = mat
 
   PSOs = SuperMap()
@@ -169,12 +169,17 @@ def escherExport(materials, objects, scene, filename):
   out.write('nummaterials %d\n' % len(mats))
 
   for imat, mat in enumerate(mats):
-    texSlots = list(filter(lambda t:t is not None, mat.texture_slots))
-    out.write('material %d "%s" numtex %d\n' % (imat, mat.name, len(texSlots)))
-    for iTexSlot, texSlot in enumerate(texSlots):
-      texMapType = texSlot2texMapType(texSlot)
-      textureFilePath = mat.texture_slots[iTexSlot].texture.image.filepath
-      out.write('texture %s %s\n' % (texMapType, basename(textureFilePath)))
+    try:
+      texSlots = list(filter(lambda t:t is not None, mat.texture_slots))
+      out.write('material %d "%s" numtex %d\n' % (imat, mat.name, len(texSlots)))
+      for iTexSlot, texSlot in enumerate(texSlots):
+        texMapType = texSlot2texMapType(texSlot)
+        textureFilePath = mat.texture_slots[iTexSlot].texture.image.filepath
+        out.write('texture %s %s\n' % (texMapType, basename(textureFilePath)))
+    except:
+      print('escher export: Could not process material "%s"' % mat.name)
+      operator.report({'WARNING'}, 'Could not process material "%s"' % mat.name)
+      #raise
 
   out.write('numspaces %d\n' % len(PSOs))
   for iPSO, PSO in enumerate(PSOs):
@@ -261,7 +266,7 @@ class ExportEscher(bpy.types.Operator, ExportHelper):
 
   def execute(self, context):
     print('exporting esc6 to filename "%s"' % self.properties.filepath)
-    escherExport(bpy.data.materials, bpy.data.objects, bpy.context.scene, self.properties.filepath)
+    escherExport(self, bpy.data.materials, bpy.data.objects, bpy.context.scene, self.properties.filepath)
     return {'FINISHED'};
 
 def menu_func(self, context):
@@ -271,11 +276,13 @@ def register():
   bpy.utils.register_module(__name__)
   bpy.types.INFO_MT_file_export.append(menu_func)
   bpy.types.Object.escherSpawn = bpy.props.StringProperty()
+  bpy.types.Material.ESCHERIGNORE = bpy.props.BoolProperty()
 
 def unregister():
   bpy.utils.unregister_module(__name__)
   bpy.types.INFO_MT_file_export.remove(menu_func)
   del bpy.types.Object.escherSpawn
+  del bpy.types.Material.ESCHERIGNORE
 
 if __name__ == "__main__":
   register()
