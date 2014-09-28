@@ -1100,7 +1100,7 @@ class MD5Animation
       auto b0 = frameBones[f0 * numJoints + iBone];
       auto b1 = frameBones[f1 * numJoints + iBone];
       interpolatedSkeleton[iBone].pos = lerp(b0.pos, b1.pos, f01);
-      interpolatedSkeleton[iBone].orient = lerp(b0.orient, b1.orient, f01);
+      interpolatedSkeleton[iBone].orient = lerp(b0.orient, b1.orient, f01); // TODO use slerp!
     }
   }
 }

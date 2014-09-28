@@ -7,7 +7,7 @@ import std.conv : to;
 import std.algorithm : startsWith;
 import file = std.file;
 import std.stdio;
-import ants.main : display;
+import client = ants.client;
 import ants.escher : World, Camera, EntityPlayer, vec3, vec3f, playerEntity;
 import ants.doglconsole : DoglConsole;
 import ants.md5 : MD5Animation;
@@ -43,48 +43,48 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
         case "fly":
           assert(words.length <= 2, "invalid number of arguments");
           if (words.length == 1)
-            b = ! display.camera.fly;
+            b = ! client.camera.fly;
           else
             b = to!bool(words[1]);
-          display.camera.fly = b;
+          client.camera.fly = b;
           console.print(format("fly %sabled\n", b ? "en" : "dis"));
           break;
 
         case "noclip":
           if (words.length == 1)
-            b = ! display.camera.noclip;
+            b = ! client.camera.noclip;
           else
             b = to!bool(words[1]);
           assert(words.length <= 2, "invalid number of arguments");
-          display.camera.noclip = b;
+          client.camera.noclip = b;
           console.print(format("noclip %sabled\n", b ? "en" : "dis"));
           break;
 
         case "nobody":
           if (words.length == 1)
-            b = ! display.camera.noBody;
+            b = ! client.camera.noBody;
           else
             b = to!bool(words[1]);
           assert(words.length <= 2, "invalid number of arguments");
-          display.camera.noBody = b;
+          client.camera.noBody = b;
           console.print(format("nobody %sabled\n", b ? "en" : "dis"));
           break;
 
         case "noent":
           if (words.length == 1)
-            b = ! display.world.noDrawEntities;
+            b = ! client.world.noDrawEntities;
           else
             b = to!bool(words[1]);
           assert(words.length <= 2, "invalid number of arguments");
-          display.world.noDrawEntities = b;
+          client.world.noDrawEntities = b;
           console.print(format("noent %sabled\n", b ? "en" : "dis"));
           break;
 
         case "map":
           assert(words.length == 2, "invalid number of arguments");
           console.print(format("loading map file \"%s\"\n", words[1]));
-          display.world = new World(words[1]);
-          display.camera = new Camera(display.world, 0, vec3(0,0,0));
+          client.world = new World(words[1]);
+          client.camera = new Camera(client.world, 0, vec3(0,0,0));
           spawnPlayer();
           break;
 
@@ -147,15 +147,15 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
         case "mousef":
           assert(words.length <= 2, "invalid number of arguments");
           if (words.length == 2)
-            display.camera.mousef = to!double(words[1]);
-          console.print(format("mousef = %s\n", display.camera.mousef));
+            client.camera.mousef = to!double(words[1]);
+          console.print(format("mousef = %s\n", client.camera.mousef));
           break;
 
         case "portaldepth":
           assert(words.length <= 2, "invalid number of arguments");
           if (words.length == 2)
-            display.camera.maxPortalDepth = to!ubyte(words[1]);
-          console.print(format("portaldepth = %s\n", display.camera.maxPortalDepth));
+            client.camera.maxPortalDepth = to!ubyte(words[1]);
+          console.print(format("portaldepth = %s\n", client.camera.maxPortalDepth));
           break;
 
         case "writepos":
@@ -164,12 +164,12 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           File f;
           f.open(words[1], "w");
           f.writef("%d %f %f %f %f %f",
-            display.camera.spaceID,
-            display.camera.pos.x,
-            display.camera.pos.y,
-            display.camera.pos.z,
-            display.camera.camYaw,
-            display.camera.camPitch);
+            client.camera.spaceID,
+            client.camera.pos.x,
+            client.camera.pos.y,
+            client.camera.pos.z,
+            client.camera.camYaw,
+            client.camera.camPitch);
           f.close();
           break;
 
@@ -177,10 +177,10 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           assert(words.length == 2, "invalid number of arguments");
           console.print(format("writing position to \"%s\"\n", words[1]));
           auto s = split(to!string(cast(char[])file.read(words[1])));
-          display.camera.spaceID = to!int(s[0]);
-          display.camera.pos = vec3(to!double(s[1]), to!double(s[2]), to!double(s[3]));
-          display.camera.camYaw = to!double(s[4]);
-          display.camera.camPitch = to!double(s[5]);
+          client.camera.spaceID = to!int(s[0]);
+          client.camera.pos = vec3(to!double(s[1]), to!double(s[2]), to!double(s[3]));
+          client.camera.camYaw = to!double(s[4]);
+          client.camera.camPitch = to!double(s[5]);
           break;
 
         default:
@@ -217,18 +217,18 @@ void doCommandFile(DoglConsole console, string filename, string commandText="", 
 
 void spawnPlayer()
 {
-  if (display.world.playerSpawner !is null)
+  if (client.world.playerSpawner !is null)
   {
-    playerEntity = cast(EntityPlayer)display.world.playerSpawner();
-    display.camera.spaceID = playerEntity.spaceID;
-    display.camera.pos = playerEntity.pos;
-    display.camera.camPitch = 0;
-    display.camera.camYaw = playerEntity.angle;
+    playerEntity = cast(EntityPlayer)client.world.playerSpawner();
+    client.camera.spaceID = playerEntity.spaceID;
+    client.camera.pos = playerEntity.pos;
+    client.camera.camPitch = 0;
+    client.camera.camYaw = playerEntity.angle;
   }
   else
   {
-    display.console.print("No player spawner! Spawning at hyperspace origin.\n");
-    display.camera = new Camera(display.world, 0, vec3(0,0,0));
+    client.console.print("No player spawner! Spawning at hyperspace origin.\n");
+    client.camera = new Camera(client.world, 0, vec3(0,0,0));
     playerEntity = new EntityPlayer(0, vec3(0,0,0));
   }
 }

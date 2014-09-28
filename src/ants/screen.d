@@ -3,7 +3,7 @@
  */
 module ants.screen;
 import ants.hudtext : HUDText;
-import ants.main : display;
+import client = ants.client;
 import ants.vertexer : vertexer;
 import ants.shader : ShaderProgram;
 import ants.gametime;
@@ -64,10 +64,10 @@ class PauseScreen : Screen
   {
     float pw = 7f * 16f;
     float ph = 1f * 16f;
-    float sw = pw/display.width;
-    float sh = ph/display.height;
-    float x = ((display.width  - pw) /  2f) / display.width;
-    float y = ((display.height - ph) / -2f) / display.height;
+    float sw = pw/client.width;
+    float sh = ph/client.height;
+    float x = ((client.width  - pw) /  2f) / client.width;
+    float y = ((client.height - ph) / -2f) / client.height;
     texts[0] = new HUDText(7, 1, x, y, sw, sh);
     texts[0].print("Paused.");
   }

@@ -13,16 +13,6 @@ import gl3n.linalg : Vector;
 private alias Vector!(float, 2) vec2;
 private alias Vector!(float, 3) vec3;
 
-void glErrorCheck(string source)
-{
-  GLenum err = glGetError();
-  if (err)
-  {
-    writefln("error @ %s: opengl: %s", source, err);
-    assert(0);
-  }
-}
-
 private struct Vert {
   vec2 pos;
   vec2 uv;
@@ -32,6 +22,7 @@ private struct Vert {
 class DoglConsole
 {
   bool visible;
+  bool stdoutEcho;
   GLuint font;
   ShaderProgram shaderProgram;
   void delegate(DoglConsole console, string cmd) handleCommand;
@@ -116,7 +107,23 @@ class DoglConsole
   {
     print(text);
     front = (front / w + 1) * w;
-    write('\n');
+    if (front >= buf.length)
+      front = 0;
+    clearToEndOfLine();
+    if (stdoutEcho)
+      write('\n');
+  }
+
+  void printErrorMessage(string text)
+  {
+    printc(vec3(1, .5, .5), "ERROR\x13 ");
+    printlnc(vec3(.7, .45, .45), text);
+  }
+
+  void printWarningMessage(string text)
+  {
+    printc(vec3(.7, .7, .4), "WARNING\x13 ");
+    printlnc(vec3(.6, .6, .35), text);
   }
 
   void printc(vec3 color, string text)
@@ -127,17 +134,45 @@ class DoglConsole
     this.color = save;
   }
 
+  string cleanupText(string text)
+  {
+    char[] s = text.dup;
+    foreach (ref c; s)
+    {
+      switch (c)
+      {
+        default:
+          break;
+        case '\x13':
+          c = '!';
+          break;
+        case '\xaf':
+          c = '>';
+          break;
+      }
+    }
+    return to!string(s);
+  }
+
   void print(string text)
   {
-    write("[console] ", text);
+    if (stdoutEcho)
+    {
+      version (Windows)
+        write("[console] ", text);
+      else
+        write("[console] ", cleanupText(text));
+    }
+
     uint cursor = front;
     foreach (char c; text)
     {
       if (c == '\0')
         {}
-      if (c == '\n')
+      else if (c == '\n') {
         cursor = (cursor / w + 1) * w;
-      else {
+        clearToEndOfLine();
+      } else {
         buf[cursor] = c;
         cbuf[cursor] = color;
         cursor++;
@@ -146,6 +181,14 @@ class DoglConsole
         cursor = 0;
     }
     front = cursor;
+  }
+
+  void clearToEndOfLine()
+  {
+    foreach (i; front .. (front / w + 1) * w)
+    {
+      buf[i] = '\0';
+    }
   }
 
   void draw()
@@ -247,7 +290,8 @@ class DoglConsole
     glUniform1i(fontTexUniformLocation, 0);
 
     /* Draw */
-    glDisable(GL_BLEND);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_CULL_FACE);
