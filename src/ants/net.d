@@ -45,6 +45,13 @@ version (escherClient)
    * in-process threads, on-host processes, and foreign-host processes using the same
    * interface.
    * TODO: Fix proposal 3: replace enet with a different solution that allows this coupling.
+   *
+   * I did some more research into the source code for std.concurrency. Ultimately, we're
+   * going to be waiting in core.sync.condition.Condition.wait(Duration). The Condition is
+   * called std.concurrency.MessageBox.m_putMsg, and the MessageBox instance is the TLS
+   * variable std.concurrency.mbox, which IIRC is instantiated when thisTid() is called.
+   * So I should ask the #dlang freenode crowd about how to combine this with other types
+   * of i/o.
    */
   struct MessageSetNetTimeout
   {
