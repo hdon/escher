@@ -17,11 +17,6 @@ DerelictShouldThrow derelictMissingSymbolCallback(string sym)
 
 version (escherClient)
 {
-  __gshared Tid netTid;
-  struct MessageConnect
-  {
-    string remoteHostname;
-  }
   struct MessageConnectionStatusChange
   {
     bool connected;
@@ -55,18 +50,20 @@ version (escherClient)
    */
   struct MessageSetNetTimeout
   {
-    ulong timeout;
+    uint timeout;
   }
+  struct MessageError
+  {
+    string errorMessage;
+  }
+  struct MessageDisconnect { }
 
   private
   {
-    __gshared
-    {
-      ENetHost *host;
-      ENetAddress addr;
-      ENetPeer *peer;
-      ulong enetServiceTimeout;
-    }
+    ENetHost *host;
+    ENetAddress remoteAddr;
+    ENetPeer *peer;
+    uint enetServiceTimeout;
 
     shared static this()
     {
@@ -75,42 +72,60 @@ version (escherClient)
       assert(enet_initialize() == 0);
     }
 
-    void netThread()
+    void netThread(string remoteHostname)
     {
-      if (netTid != thisTid)
-      {
-        assert(netTid == Tid.init);
-        netTid = thisTid;
-      }
-
-      receive(
-        (MessageConnect msg)
-        {
-          connect(msg.remoteHostname);
-        },
-        (MessageSetNetTimeout msg)
-        {
-          enetServiceTimeout = msg.timeout;
-        }
-      );
-    }
-
-    void connect(string remoteHostname)
-    {
-      host = enet_host_create(null, 1, 2, 57600/8, 14400/8);
+      if (host is null)
+        host = enet_host_create(null, 1, 2, 57600/8, 14400/8);
       assert(host !is null);
 
-      enet_address_set_host(&addr, remoteHostname.toStringz);
-      addr.port = 13667;
+      enet_address_set_host(&remoteAddr, remoteHostname.toStringz);
+      remoteAddr.port = 13667;
 
-      peer = enet_host_connect(host, &addr, 2, 0);
+      peer = enet_host_connect(host, &remoteAddr, 2, 0);
       if (peer is null)
       {
-        writeln("error: enet_host_connect() failed\n");
+        writeln("[net] error: enet_host_connect() failed");
+        send(ownerTid, MessageError("error: enet_host_connect() failed"));
+        return;
       }
-      else
+
+      /* Network reactor */
+      writeln("[net] Starting reactor");
+      while (peer !is null)
       {
-        writeln("connected.");
+        /* Receive messages from main thread */
+        receiveTimeout(dur!"msecs"(0),
+          (MessageDisconnect msg)
+          {
+            enet_peer_disconnect(peer, 0xc0debad);
+            peer = null;
+          }
+        );
+
+        /* Transact network i/o */
+        ENetEvent event;
+        auto serviceStatus = enet_host_service(host, &event, enetServiceTimeout);
+        assert(serviceStatus >= 0);
+        if (serviceStatus > 0)
+        {
+          /* We got an event */
+          writeln("[net] enet_host_service() > 0 -- we got an event!");
+          switch (event.type)
+          {
+            case ENET_EVENT_TYPE_CONNECT:
+              writeln("[net] connected");
+              send(ownerTid, MessageConnectionStatusChange(true));
+              break;
+            case ENET_EVENT_TYPE_DISCONNECT:
+              writeln("[net] disconnect");
+              send(ownerTid, MessageConnectionStatusChange(false));
+              break;
+            case ENET_EVENT_TYPE_RECEIVE:
+              writeln("[net] received data");
+              enet_packet_destroy(event.packet);
+              break;
+          }
+        }
       }
     }
   }
@@ -118,9 +133,15 @@ version (escherClient)
   /* Another thread is responsible for receiving data from the net thread. This function is
    * responsible for doing that.
    */
-  void idk()
+  void pump()
   {
     receiveTimeout(dur!"msecs"(0),
+      (LinkTerminated msg)
+      {
+        writeln("\"LinkTerminated\"");
+        assert(msg.tid == netTid);
+        netTid = netTid.init;
+      },
       (MessageConnectionStatusChange msg)
       {
         writeln(msg.connected ? "connected!" : "disconnected!");
@@ -130,5 +151,33 @@ version (escherClient)
         writeln("chat: ", msg.chat);
       }
     );
+  }
+
+  Tid netTid;
+  void connect(string remoteHostname)
+  {
+    /* TODO check if we already have a net thread running! */
+    writeln("spawning net thread");
+    netTid = spawnLinked(&netThread, "127.0.0.1");
+  }
+
+  void disconnect()
+  {
+    /* TODO check if netTid is valid */
+    send(netTid, MessageDisconnect());
+  }
+
+  void shutdown()
+  {
+    writeln("asking net thread to disconnect...");
+    prioritySend(netTid, MessageDisconnect());
+    writeln("joining net thread...");
+    receive((LinkTerminated msg){
+      writeln("\"LinkTerminated\"");
+      assert(msg.tid == netTid);
+      netTid = netTid.init;
+    });
+    netTid = netTid.init;
+    writeln("joined!");
   }
 }

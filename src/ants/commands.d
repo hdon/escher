@@ -11,6 +11,7 @@ import client = ants.client;
 import ants.escher : World, Camera, EntityPlayer, vec3, vec3f, playerEntity;
 import ants.doglconsole : DoglConsole;
 import ants.md5 : MD5Animation;
+import net = ants.net;
 
 void doCommand(DoglConsole console, string cmd)
 {
@@ -40,6 +41,12 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
       bool b;
       switch (words[0])
       {
+        case "hi":
+          console.println("Why, hello there!");
+        case "connect":
+          net.connect("127.0.0.1");
+          break;
+
         case "fly":
           assert(words.length <= 2, "invalid number of arguments");
           if (words.length == 1)

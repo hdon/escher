@@ -188,6 +188,8 @@ int main(string[] args)
       console.print(format("Error loading user config script \"%s\": %s\n", rcPath, e.msg));
     }
 
+    net.connect("127.0.0.1");
+
     GC.collect();
     GC.disable();
     bool isRunning = true;
@@ -322,6 +324,7 @@ z: %3.3s
     return 1;
   }
 
+  net.shutdown();
   return 0;
 }
 
