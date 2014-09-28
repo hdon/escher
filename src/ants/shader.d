@@ -11,6 +11,7 @@ import std.traits : isPointer, PointerTarget;
 import std.conv : to;
 import std.path : baseName;
 import std.algorithm : sort;
+import ants.glutil;
 
 private int[][string] availableShaders;
 
@@ -211,15 +212,5 @@ class ShaderProgram
   {
     glUseProgram(programObject);
     glErrorCheck();
-  }
-}
-
-private void glErrorCheck()
-{
-  GLenum err = glGetError();
-  if (err)
-  {
-    writefln("error: opengl: %s", err);
-    assert(0);
   }
 }

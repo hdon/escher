@@ -143,8 +143,8 @@ int main(string[] args)
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
 
-    console = new DoglConsole(width/8, height/8);
-    console.handleCommand = toDelegate(&doCommand);
+    console = new DoglConsoleOpenGL(width/8, height/8, 0, 0, width, height, "font850.png");
+    console.setCommandHandler(toDelegate(&doCommand));
 
     profileHUD = new HUDText(45, 8, 0, 0, 45f*16f/width, 8f*16f/height);
     profileHUD.print("Hello!");
