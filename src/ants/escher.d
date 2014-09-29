@@ -1856,8 +1856,6 @@ class Camera
   double mousef;
   ubyte maxPortalDepth;
 
-  float turnRate;
-
   bool keyForward;
   bool keyBackward;
   bool keyLeft;
@@ -1870,7 +1868,6 @@ class Camera
     this.world = world;
     this.spaceID = spaceID;
     this.pos = pos;
-    this.turnRate = 0f;
     this.camYaw = 0.0;
     this.camPitch = 0.0;
     this.mousef = 0.002;
