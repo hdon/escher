@@ -103,6 +103,9 @@ def objectIsRemote(o):
 def objectIsSpawn(o):
   return o.type == 'EMPTY' and not o.name.startswith('EscherRemote') and o.escherSpawn
 
+def objectIsMesh(o):
+  return o.type == 'MESH'
+
 def vec3toStr(v):
   return '%s %s %s' % (repr(-v.x), repr(v.z), repr(v.y))
 
@@ -183,7 +186,26 @@ def escherExport(operator, materials, objects, scene, filename):
 
   out.write('numspaces %d\n' % len(PSOs))
   for iPSO, PSO in enumerate(PSOs):
-    me = PSO.data
+    # To include all child mesh objects, we're going to duplicate and then join
+    # these objects using built-in Blender operators.
+    submeshes = list(filter(objectIsMesh, PSO.children))
+    if len(submeshes) > 0:
+      # First we deselect all
+      bpy.ops.object.select_all(action='DESELECT')
+      # Then we select only our PSO and its PSO's submeshes
+      for sme in submeshes:
+        sme.select = True
+      PSO.select = True
+      operator.report({'INFO'}, 'foobar selection: "%s"' % str(bpy.context.selected_objects))
+      # Then we duplicate our submeshes
+      bpy.ops.object.duplicate(linked=True, mode='INIT')
+      # Then we join them
+      bpy.ops.object.join()
+      # Finally we grab the joined mesh object
+      jPSO = bpy.context.selected_objects[0]
+    else:
+      jPSO = PSO
+    me = jPSO.data
     remotes = list(filter(objectIsRemote, PSO.children))
     spawns = list(filter(objectIsSpawn, PSO.children))
     # Write "space" command
@@ -228,7 +250,7 @@ def escherExport(operator, materials, objects, scene, filename):
         (vi, -v.co.x, v.co.z, v.co.y))
     # Write "face" commands
     for ipg, pg, in enumerate(me.polygons):
-      matName = PSO.material_slots[pg.material_index].material.name
+      matName = jPSO.material_slots[pg.material_index].material.name
       if isPortalMaterialName(matName):
         faceClass = 'remote %d' % portalMaterialName2remoteIndex(matName)
       else:

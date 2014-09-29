@@ -11,7 +11,7 @@ import std.math : PI;
 import std.exception : enforce;
 import core.memory : GC;
 import ants.md5 : MD5Model, MD5Animation;
-import ants.escher : World, Camera, playerEntity;
+import ants.escher : World, Camera, playerEntity, world;
 import ants.entity : EntityPlayer, EntityBendingBar, loadEntityAssets;
 import ants.doglconsole;
 import ants.commands;
@@ -44,7 +44,6 @@ void message(string message)
   }
 }
 
-World world;
 Camera camera;
 DoglConsole console;
 PauseScreen pauseScreen;
@@ -210,10 +209,10 @@ int main(string[] args)
               if (event.type == SDL_KEYDOWN)
               {
                 int delta = event.key.keysym.sym == 'p' ? 1 : -1;
-                int oldSpaceID = camera.spaceID;
-                camera.spaceID = cast(int)((camera.spaceID + world.spaces.length + delta) % world.spaces.length);
-                camera.pos = vec3(0,0,0);
-                writefln("[warp] %d to %d", oldSpaceID, camera.spaceID);
+                int oldSpaceID = camera.playerEntity.spaceID;
+                camera.playerEntity.spaceID = cast(int)((camera.playerEntity.spaceID + world.spaces.length + delta) % world.spaces.length);
+                camera.playerEntity.pos = vec3(0,0,0);
+                writefln("[warp] %d to %d", oldSpaceID, camera.playerEntity.spaceID);
               }
               break;
             }
@@ -242,7 +241,7 @@ int main(string[] args)
           case SDL_KEYUP:
             if (event.key.keysym.sym == SDLK_p && event.type == SDL_KEYDOWN)
             {
-              writeln("position: ", camera.pos);
+              writeln("position: ", camera.playerEntity.pos);
               break;
             }
 
@@ -267,8 +266,8 @@ int main(string[] args)
         SDL_WarpMouseInWindow(displayWindow, cast(ushort)(width/2),cast(ushort)(height/2));
         SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
 
-        camera.camYaw += camera.mousef * -(mx-w/2);
-        camera.camPitch += camera.mousef * -(my-h/2);
+        camera.playerEntity.camYaw += camera.mousef * -(mx-w/2);
+        camera.playerEntity.camPitch += camera.mousef * -(my-h/2);
       }
 
       GameTime.update();
@@ -291,10 +290,10 @@ z: %3.3s
         GameTime.td / 10_000.0,
         camera.profileDrawWorld,
         camera.profileDrawArms,
-        camera.profileCollision,
-        camera.pos.x,
-        camera.pos.y,
-        camera.pos.z
+        1337, /* temporarily disabled camera.profileCollision, */
+        camera.playerEntity.pos.x,
+        camera.playerEntity.pos.y,
+        camera.playerEntity.pos.z
         ));
 
       if (Screen.current !is null)
@@ -303,7 +302,12 @@ z: %3.3s
       }
       else
       {
-        camera.update();
+        double deltaf = GameTime.gtd /10_000_000f;
+        foreach (spaceID, space; world.spaces)
+        {
+          foreach (entity; world.entities[spaceID])
+            entity.update(deltaf);
+        }
         camera.draw();
         profileHUD.draw();
         crosshairHUD.draw();

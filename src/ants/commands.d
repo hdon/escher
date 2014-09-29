@@ -50,20 +50,20 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
         case "fly":
           assert(words.length <= 2, "invalid number of arguments");
           if (words.length == 1)
-            b = ! client.camera.fly;
+            b = ! client.camera.playerEntity.fly;
           else
             b = to!bool(words[1]);
-          client.camera.fly = b;
+          client.camera.playerEntity.fly = b;
           console.print(format("fly %sabled\n", b ? "en" : "dis"));
           break;
 
         case "noclip":
           if (words.length == 1)
-            b = ! client.camera.noclip;
+            b = ! client.camera.playerEntity.noclip;
           else
             b = to!bool(words[1]);
           assert(words.length <= 2, "invalid number of arguments");
-          client.camera.noclip = b;
+          client.camera.playerEntity.noclip = b;
           console.print(format("noclip %sabled\n", b ? "en" : "dis"));
           break;
 
@@ -91,8 +91,8 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           assert(words.length == 2, "invalid number of arguments");
           console.print(format("loading map file \"%s\"\n", words[1]));
           client.world = new World(words[1]);
-          client.camera = new Camera(client.world, 0, vec3(0,0,0));
-          spawnPlayer();
+          writefln("LOADED A NEW MOTHER FUCKING WORLD ITS ADDRESS IS %x", &client.world);
+          spawnPlayer(); // also creates camera right now XXX
           break;
 
         case "exec":
@@ -171,12 +171,12 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           File f;
           f.open(words[1], "w");
           f.writef("%d %f %f %f %f %f",
-            client.camera.spaceID,
-            client.camera.pos.x,
-            client.camera.pos.y,
-            client.camera.pos.z,
-            client.camera.camYaw,
-            client.camera.camPitch);
+            client.camera.playerEntity.spaceID,
+            client.camera.playerEntity.pos.x,
+            client.camera.playerEntity.pos.y,
+            client.camera.playerEntity.pos.z,
+            client.camera.playerEntity.camYaw,
+            client.camera.playerEntity.camPitch);
           f.close();
           break;
 
@@ -184,10 +184,10 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           assert(words.length == 2, "invalid number of arguments");
           console.print(format("writing position to \"%s\"\n", words[1]));
           auto s = split(to!string(cast(char[])file.read(words[1])));
-          client.camera.spaceID = to!int(s[0]);
-          client.camera.pos = vec3(to!double(s[1]), to!double(s[2]), to!double(s[3]));
-          client.camera.camYaw = to!double(s[4]);
-          client.camera.camPitch = to!double(s[5]);
+          client.camera.playerEntity.spaceID = to!int(s[0]);
+          client.camera.playerEntity.pos = vec3(to!double(s[1]), to!double(s[2]), to!double(s[3]));
+          client.camera.playerEntity.camYaw = to!double(s[4]);
+          client.camera.playerEntity.camPitch = to!double(s[5]);
           break;
 
         default:
@@ -207,6 +207,7 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
  */
 void doCommandFile(DoglConsole console, string filename, string commandText="", size_t firstLineNo=1)
 {
+  writefln("[script] evaluating escher script \"%s\"", filename);
   if (commandText.length == 0)
   {
     commandText = to!string(cast(char[])file.read(filename));
@@ -226,16 +227,13 @@ void spawnPlayer()
 {
   if (client.world.playerSpawner !is null)
   {
-    playerEntity = cast(EntityPlayer)client.world.playerSpawner();
-    client.camera.spaceID = playerEntity.spaceID;
-    client.camera.pos = playerEntity.pos;
-    client.camera.camPitch = 0;
-    client.camera.camYaw = playerEntity.angle;
+    client.camera = new Camera(cast(EntityPlayer)client.world.playerSpawner());
+    client.world.entities[client.camera.playerEntity.spaceID] ~= client.camera.playerEntity;
   }
   else
   {
     client.console.print("No player spawner! Spawning at hyperspace origin.\n");
-    client.camera = new Camera(client.world, 0, vec3(0,0,0));
-    playerEntity = new EntityPlayer(0, vec3(0,0,0));
+    client.camera = new Camera(new EntityPlayer(0, vec3(0,0,0)));
+    client.world.entities[client.camera.playerEntity.spaceID] ~= client.camera.playerEntity;
   }
 }
