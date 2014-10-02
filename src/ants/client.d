@@ -6,6 +6,7 @@ import std.conv : to;
 import std.algorithm : startsWith;
 import std.process : getenv;
 import std.functional : toDelegate;
+import std.datetime : StopWatch;
 import file = std.file;
 import std.math : PI;
 import std.exception : enforce;
@@ -276,26 +277,6 @@ int main(string[] args)
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
 
-      profileHUD.print(format(
-`fps: %3.3s
-dt: %2.4s ms
-w: %2.4s ms
-a: %2.4s ms
-c: %2.4s ms
-x: %3.3s
-y: %3.3s
-z: %3.3s
-`,
-        10_000_000.0 / GameTime.td,
-        GameTime.td / 10_000.0,
-        camera.profileDrawWorld,
-        camera.profileDrawArms,
-        1337, /* temporarily disabled camera.profileCollision, */
-        camera.playerEntity.pos.x,
-        camera.playerEntity.pos.y,
-        camera.playerEntity.pos.z
-        ));
-
       if (Screen.current !is null)
       {
         Screen.current.draw();
@@ -303,11 +284,35 @@ z: %3.3s
       else
       {
         double deltaf = GameTime.gtd /10_000_000f;
+        StopWatch stopWatch;
+        stopWatch.start();
         foreach (spaceID, space; world.spaces)
         {
           foreach (entity; world.entities[spaceID])
             entity.update(deltaf);
         }
+        stopWatch.stop();
+
+        profileHUD.print(format(
+"fps: %3.3s
+dt: %2.4s ms
+w: %2.4s ms
+a: %2.4s ms
+c: %2.4s ms
+x: %3.3s
+y: %3.3s
+z: %3.3s
+",
+          10_000_000.0 / GameTime.td,
+          GameTime.td / 10_000.0,
+          camera.profileDrawWorld,
+          camera.profileDrawArms,
+          stopWatch.peek.to!("msecs", float)(),//camera.playerEntity.profileCollision,
+          camera.playerEntity.pos.x,
+          camera.playerEntity.pos.y,
+          camera.playerEntity.pos.z
+          ));
+
         camera.draw();
         profileHUD.draw();
         crosshairHUD.draw();

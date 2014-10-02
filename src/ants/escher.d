@@ -2080,6 +2080,6 @@ class Camera
     return mat4.identity
       * mat4.rotation(playerEntity.camPitch, vec3(1,0,0))
       * mat4.rotation(playerEntity.camYaw, vec3(0,1,0))
-      * mat4.translation(-playerEntity.pos.x, -playerEntity.pos.y, -playerEntity.pos.z);
+      * mat4.translation(-playerEntity.pos.x, -playerEntity.pos.y-2.3, -playerEntity.pos.z);
   }
 }

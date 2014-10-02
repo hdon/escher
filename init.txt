@@ -1,4 +1,4 @@
 escher script version 2
-map res/map/metroid0.esc6
+map /home/donny/ld28/race.esc6
 fly false
 noclip false
