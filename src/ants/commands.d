@@ -8,7 +8,8 @@ import std.algorithm : startsWith;
 import file = std.file;
 import std.stdio;
 import client = ants.client;
-import ants.escher : World, Camera, EntityPlayer, vec3, vec3f, playerEntity;
+import ants.escher : World, Camera, EntityPlayer, vec3, vec3f, world;
+import ants.mapcalc : calcHull;
 import ants.doglconsole : DoglConsole;
 import ants.md5 : MD5Animation;
 import net = ants.net;
@@ -188,6 +189,30 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           client.camera.playerEntity.pos = vec3(to!double(s[1]), to!double(s[2]), to!double(s[3]));
           client.camera.playerEntity.camYaw = to!double(s[4]);
           client.camera.playerEntity.camPitch = to!double(s[5]);
+          break;
+
+        case "drawworld":
+          world.drawWorld = ! world.drawWorld;
+          console.print(format("world draw %sabled", world.drawWorld ? "en" : "dis"));
+          break;
+
+        case "drawobb":
+          world.drawOBB = ! world.drawOBB;
+          console.print(format("OBB draw %sabled", world.drawOBB ? "en" : "dis"));
+          break;
+          
+        case "calchull":
+          assert(words.length == 1, "invalid number of arguments");
+          world.hullVertsSpaceID = client.camera.playerEntity.spaceID;
+          calcHull(world.spaces[world.hullVertsSpaceID].verts, 8);
+          //calcHull([vec3(1, 0, 0), vec3(1, 1, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(.75, .75, .1)]);
+        //calcHull([
+        //  vec3(  0,-10,  0)
+        //, vec3( 10,  0,  0)
+        //, vec3(  0, 10,  0)
+        //, vec3(  0,  0, 10)
+        //, vec3(.25,  0,.25)
+        //]);
           break;
 
         default:

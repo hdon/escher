@@ -24,6 +24,8 @@ import ants.material;
 import ants.entity;
 import ants.vbo;
 import ants.gametime;
+import client = ants.client; // XXX XXX XXX XXX REMOVE
+import mapcalc = ants.mapcalc;
 import std.datetime : StopWatch;
 import core.time : TickDuration;
 debug import std.stdio : write, writeln, writefln;
@@ -1332,6 +1334,52 @@ class World
       writeln("ESCHER WORLD LOADED");
       writeln(spaces);
     }
+
+    whatever();
+  }
+
+  void whatever()
+  {
+    enum N = 8;
+    foreach (iSpace, space; spaces)
+    {
+      /* First we want a reverse mapping of verts -> faces which include them */
+      int[][] vertsToFaces;
+      vertsToFaces.length = space.verts.length;
+      foreach (iFace, face; space.faces)
+      {
+        foreach (vi; face.indices)
+        {
+          vertsToFaces[vi] ~= cast(int)iFace;
+        }
+      }
+
+      /* Whatever, let's get histogram of face->vertex distribution */
+      int[int] histogram;
+      foreach (faces; vertsToFaces)
+      {
+        histogram[cast(int)faces.length]++;
+      }
+      /* Dump histogram */
+      foreach (i; 0..histogram.length)
+      {
+        writefln("in space %d there are %d faces sharing %d verts", iSpace, histogram.keys[i], histogram.values[i]);
+      }
+
+      static if (0)
+      for (i0=0; i0<N; i++)
+      {
+        auto t0 = i0 * (1.0/N) * PI;
+        for (i1=0; i1<N; i++)
+        {
+          auto t1 = i1 * (1.0/N) * PI;
+          for (i2=0; i2<N; i++)
+          {
+            auto t2 = i2 * (1.0/N) * PI;
+          }
+        }
+      }
+    }
   }
 
   ~this()
@@ -1356,6 +1404,10 @@ class World
 
   bool drawMapVertices;
   bool drawMapNormals;
+  bool drawHullVerts;
+  bool drawOBB;
+  bool drawWorld = true;
+  int hullVertsSpaceID = -1;
 
   bool noDrawEntities;
   void drawSpace(int spaceID, mat4 transform, ubyte portalDepth, int dmode)
@@ -1374,74 +1426,77 @@ class World
       glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     }
     
-    shaderProgram.use();
-
-    /* XXX-doc Send some uniforms... */
-    /* TODO stop-doubles */
-    mat4f tempMatrix = transform;
-    glUniformMatrix4fv(shaderProgram.getUniformLocation("viewMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
-    tempMatrix = mat4f(pmatWorld);
-    glUniformMatrix4fv(shaderProgram.getUniformLocation("projMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
-    glBindBuffer(GL_ARRAY_BUFFER, space.vbo);
-    glEnable(GL_CULL_FACE);
-
-    auto attloc = shaderProgram.getAttribLocation("positionV");
-    if (attloc >= 0)
+    if (drawWorld)
     {
-      glEnableVertexAttribArray(attloc);
-      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)0);
-    }
+      shaderProgram.use();
 
-    attloc = shaderProgram.getAttribLocation("normalV");
-    if (attloc >= 0)
-    {
-      glEnableVertexAttribArray(attloc);
-      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(3*4));
-    }
+      /* XXX-doc Send some uniforms... */
+      /* TODO stop-doubles */
+      mat4f tempMatrix = transform;
+      glUniformMatrix4fv(shaderProgram.getUniformLocation("viewMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
+      tempMatrix = mat4f(pmatWorld);
+      glUniformMatrix4fv(shaderProgram.getUniformLocation("projMatrix"), 1, GL_TRUE, tempMatrix.value_ptr);
+      glBindBuffer(GL_ARRAY_BUFFER, space.vbo);
+      glEnable(GL_CULL_FACE);
 
-    attloc = shaderProgram.getAttribLocation("uvV");
-    if (attloc >= 0)
-    {
-      glEnableVertexAttribArray(attloc);
-      glVertexAttribPointer(attloc, 2, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(6*4));
-    }
-
-    auto colorMapUniloc = shaderProgram.getUniformLocation("colorMap");
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, space.ibo);
-
-    foreach (drawCommand; space.drawCommands)
-    {
-      /* TODO optimize this check by sorting the draw commands or something */
-      if (drawCommand.faceData.type != FaceType.SolidColor)
-        continue;
-
-      if (colorMapUniloc >= 0)
+      auto attloc = shaderProgram.getAttribLocation("positionV");
+      if (attloc >= 0)
       {
-        auto materialID = drawCommand.faceData.solidColor.materialID;
-        auto mat = materials[materialID];
-        GLuint colorMap;
-        foreach (mt; mat.texes)
-        {
-          if (mt.application == TextureApplication.Color)
-          {
-            colorMap = mt.texture;
-            break;
-          }
-        }
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, colorMap);
-        glUniform1i(colorMapUniloc, 0);
+        glEnableVertexAttribArray(attloc);
+        glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)0);
       }
 
-      //writeln("drawing ", drawCommand.numVerts, " verts @ ", drawCommand.iboOffset);
-      glDrawElements(GL_TRIANGLES,
-        cast(GLint)drawCommand.numVerts, GL_UNSIGNED_INT, cast(void*)drawCommand.iboOffset);
-    }
+      attloc = shaderProgram.getAttribLocation("normalV");
+      if (attloc >= 0)
+      {
+        glEnableVertexAttribArray(attloc);
+        glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(3*4));
+      }
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glUseProgram(0);
+      attloc = shaderProgram.getAttribLocation("uvV");
+      if (attloc >= 0)
+      {
+        glEnableVertexAttribArray(attloc);
+        glVertexAttribPointer(attloc, 2, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(6*4));
+      }
+
+      auto colorMapUniloc = shaderProgram.getUniformLocation("colorMap");
+
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, space.ibo);
+
+      foreach (drawCommand; space.drawCommands)
+      {
+        /* TODO optimize this check by sorting the draw commands or something */
+        if (drawCommand.faceData.type != FaceType.SolidColor)
+          continue;
+
+        if (colorMapUniloc >= 0)
+        {
+          auto materialID = drawCommand.faceData.solidColor.materialID;
+          auto mat = materials[materialID];
+          GLuint colorMap;
+          foreach (mt; mat.texes)
+          {
+            if (mt.application == TextureApplication.Color)
+            {
+              colorMap = mt.texture;
+              break;
+            }
+          }
+          glActiveTexture(GL_TEXTURE0);
+          glBindTexture(GL_TEXTURE_2D, colorMap);
+          glUniform1i(colorMapUniloc, 0);
+        }
+
+        //writeln("drawing ", drawCommand.numVerts, " verts @ ", drawCommand.iboOffset);
+        glDrawElements(GL_TRIANGLES,
+          cast(GLint)drawCommand.numVerts, GL_UNSIGNED_INT, cast(void*)drawCommand.iboOffset);
+      }
+
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+      glUseProgram(0);
+    }
 
     /* Now we'll draw our entities.
      */
@@ -1533,6 +1588,27 @@ class World
     }
 
     /* Draw diagnosic shit */
+    if (drawHullVerts && spaceID == hullVertsSpaceID)
+    {
+      glDisable(GL_DEPTH_TEST);
+      glPointSize(5.0);
+      foreach (vi; mapcalc.vertsFoundInHull)
+      {
+        vertexer.add(space.verts[vi], vec2(0,0), vec3(0,0,0), vec3f(0,0,0));
+      }
+      vertexer.draw(portalDiagnosticProgram, transform, pmatPortal, materials[0], GL_POINTS);
+      glEnable(GL_DEPTH_TEST);
+    }
+    if (drawOBB && spaceID == hullVertsSpaceID)
+    {
+      for (int i=0; i<8; i++)
+      for (int j=0; j<8; j++)
+      {
+        vertexer.add(mapcalc.obbVerts[i], vec2(0,0), vec3(0,0,0), vec3f(0,0,0));
+        vertexer.add(mapcalc.obbVerts[j], vec2(0,0), vec3(0,0,0), vec3f(0,0,0));
+      }
+      vertexer.draw(portalDiagnosticProgram, transform, pmatPortal, materials[0], GL_LINES);
+    }
     if (drawMapVertices)
     {
       glDisable(GL_DEPTH_TEST);
@@ -1567,7 +1643,6 @@ class World
   }
 }
 
-EntityPlayer playerEntity;
 ShaderProgram shaderProgram;
 ShaderProgram portalDiagnosticProgram;
 
@@ -1901,6 +1976,16 @@ class Camera
       case 'n':
         if (down)
           world.drawMapNormals = ! world.drawMapNormals;
+        break;
+
+      case 'g':
+        if (down)
+          world.drawOBB = ! world.drawOBB;
+        break;
+
+      case 'h':
+        if (down)
+          world.drawHullVerts = ! world.drawHullVerts;
         break;
 
       case 'l':

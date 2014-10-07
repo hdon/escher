@@ -161,6 +161,9 @@ class EntityPlayer : Entity
           fv[2] = space.verts[face.indices[2]];
 
           /* Calculate normal of plane containing map face*/
+          // XXX
+          // TODO i believe normalizing the operands is USELESS
+          // XXX
           vec3 n = cross(
               (fv[2] - fv[0]).normalized,
               (fv[1] - fv[2]).normalized).normalized;

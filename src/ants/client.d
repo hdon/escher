@@ -12,7 +12,7 @@ import std.math : PI;
 import std.exception : enforce;
 import core.memory : GC;
 import ants.md5 : MD5Model, MD5Animation;
-import ants.escher : World, Camera, playerEntity, world;
+import ants.escher : World, Camera, world;
 import ants.entity : EntityPlayer, EntityBendingBar, loadEntityAssets;
 import ants.doglconsole;
 import ants.commands;

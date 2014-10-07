@@ -3,7 +3,7 @@ import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import std.stdio;
 import std.string;
-import gl3n.linalg : Vector;
+import gl3n.linalg : Vector, cross;
 
 alias vec3f = Vector!(float, 3);
 alias vec4f = Vector!(float, 4);
@@ -55,4 +55,28 @@ T clamp(T)(T l, T r, T v)
 T clamp(T)(T v) if (is(T == float))
 {
   return clamp(0f, 1f, v);
+}
+
+bool sameTriangle(T)(T a0, T b0, T c0, T a1, T b1, T c1)
+{
+  if (a0 == a1)
+    return b0 == b1 && c0 == c1;
+  if (a0 == b1)
+    return b0 == c1 && c0 == a1;
+  if (a0 == c1)
+    return b0 == a1 && c0 == b1;
+  return false;
+}
+
+T anyPerpendicularVec(T)(T v)
+{
+  auto w = v;
+  if (v.x != 0)
+    w.y += 1;
+  else if (v.y != 0)
+    w.z += 1;
+  else if (v.z != 0)
+    w.x += 1;
+  else return T();
+  return cross(w, v);
 }
