@@ -1601,12 +1601,15 @@ class World
     }
     if (drawOBB && spaceID == hullVertsSpaceID)
     {
-      for (int i=0; i<8; i++)
-      for (int j=0; j<8; j++)
+      foreach (vi; [
+        0, 1, 1, 3, 3, 2, 2, 0,
+        0, 4, 1, 5, 2, 6, 3, 7,
+        4, 5, 5, 7, 7, 6, 6, 4,
+        ])
       {
-        vertexer.add(mapcalc.obbVerts[i], vec2(0,0), vec3(0,0,0), vec3f(0,0,0));
-        vertexer.add(mapcalc.obbVerts[j], vec2(0,0), vec3(0,0,0), vec3f(0,0,0));
+        vertexer.add(mapcalc.obbVerts[vi], vec2(0,0), vec3(0,0,0), vec3f(0,0,0));
       }
+
       vertexer.draw(portalDiagnosticProgram, transform, pmatPortal, materials[0], GL_LINES);
     }
     if (drawMapVertices)
