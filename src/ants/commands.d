@@ -2,6 +2,7 @@
  * You are not authorized to distribute this source code.
  */
 module ants.commands;
+import core.memory : GC;
 import std.string : splitLines, split, format;
 import std.conv : to;
 import std.algorithm : startsWith;
@@ -10,6 +11,7 @@ import std.stdio;
 import client = ants.client;
 import ants.escher : World, Camera, EntityPlayer, vec3, vec3f, world;
 import ants.mapcalc : calcHull;
+import ants.calcbsp : calcBSP;
 import ants.doglconsole : DoglConsole;
 import ants.md5 : MD5Animation;
 import net = ants.net;
@@ -201,6 +203,14 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           console.print(format("OBB draw %sabled", world.drawOBB ? "en" : "dis"));
           break;
           
+        case "calcbsp":
+          GC.enable();
+          assert(words.length == 1, "invalid number of arguments");
+          calcBSP(world.spaces[client.camera.playerEntity.spaceID]);
+          GC.collect();
+          GC.disable();
+          break;
+
         case "calchull":
           assert(words.length == 1, "invalid number of arguments");
           world.hullVertsSpaceID = client.camera.playerEntity.spaceID;
