@@ -896,7 +896,7 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
   size_t nverts = face.indices.length;
   if (nverts != 3 && nverts != 4)
   {
-    writefln("skipping face because it has %d verts", nverts);
+    //writefln("skipping face because it has %d verts", nverts);
     return false;
   }
 
@@ -1503,6 +1503,7 @@ class World
     if (!noDrawEntities)
     foreach (entity; entities[spaceID])
     {
+      //writeln("drawing entities");
       entity.draw(transform, pmatWorld);
     }
 
@@ -1815,6 +1816,7 @@ bool linePlaneIntersect(vec3 lineStart, vec3 lineEnd, vec3 planeOrigin, vec3 axi
   // linePlaneIntersection lies inside the plane x and plane y
   return true;
 }
+// "Fast, Minimum Storage Ray / Triangle Intersection" Tomas Moller, Ben Trumbore
 bool rayTriangleIntersect(vec3 orig, vec3 dir, vec3 vert0, vec3 vert1, vec3 vert2, ref vec3 rval)
 {
   const double EPSILON = 0.000001;
@@ -2079,8 +2081,8 @@ class Camera
     /* Instantiate some global/static instances here */
     if (shaderProgram is null)
     {
-      portalDiagnosticProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
-      shaderProgram = new ShaderProgram("vert-pos-uv--uv.vs", "frag-uv-colorMap.fs");
+      portalDiagnosticProgram = new ShaderProgram("vert-simple-red.glsl", "frag-simple-red.glsl");
+      shaderProgram = new ShaderProgram("vert-pos-uv--uv.glsl", "frag-uv-colorMap.glsl");
       playerModel = new MD5Model("res/md5/arms-run.md5mesh");
       playerAnimation = new MD5Animation(playerModel, "res/md5/arms-run.md5anim");
       playerAnimator = new MD5Animator(playerAnimation);
@@ -2155,8 +2157,8 @@ class Camera
       .scale(1.0/24, 1.0/24, 1.0/24)
       ;
     glClear(GL_DEPTH_BUFFER_BIT);
-    mat4 pmatPlayer = mat4.perspective(800, 600, 90, 0.000001, 10);
-    playerAnimator.draw(playerMat, pmatPlayer);
+    //mat4 pmatPlayer = mat4.perspective(800, 600, 90, 0.000001, 10);
+    //playerAnimator.draw(mat4f(playerMat), mat4f(pmatPlayer));
     frame++;
 
     stopWatch.stop();

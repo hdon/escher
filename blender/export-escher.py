@@ -182,7 +182,7 @@ def escherExport(operator, materials, objects, scene, filename):
     except:
       print('escher export: Could not process material "%s"' % mat.name)
       operator.report({'WARNING'}, 'Could not process material "%s"' % mat.name)
-      #raise
+      raise
 
   out.write('numspaces %d\n' % len(PSOs))
   for iPSO, PSO in enumerate(PSOs):

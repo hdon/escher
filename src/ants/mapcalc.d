@@ -159,7 +159,7 @@ vec3[] calcHull(vec3[] V, int numAngles)
         //writefln("axis: mag=%s vec=%s", axis.magnitude, axis);
         /* Now evaluate this axis */
         double aMin = double.max;
-        double aMax = double.min;
+        double aMax = double.min_normal;
         foreach (vi; vertsFoundInHull)
         {
           auto va = dot(V[vi], axis);
@@ -193,9 +193,9 @@ vec3[] calcHull(vec3[] V, int numAngles)
     vec3 yAxis = someAxis * mat3.rotation(PI/(numAngles+1)*iAngle, bestXAxis);
     vec3 zAxis = cross(bestXAxis, yAxis).normalized;
     double yMin = double.max;
-    double yMax = double.min;
+    double yMax = double.min_normal;
     double zMin = double.max;
-    double zMax = double.min;
+    double zMax = double.min_normal;
     foreach (vi; vertsFoundInHull)
     {
       auto vya = dot(V[vi], yAxis);

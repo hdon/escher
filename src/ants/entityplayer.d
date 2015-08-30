@@ -32,7 +32,7 @@ class EntityPlayer : Entity
 
   static Spawner spawner(int spaceID, vec3 pos)
   {
-    Entity spawn() { return new EntityPlayer(spaceID, pos); };
+    Entity spawn() { return new EntityPlayer(spaceID, pos); }
     return &spawn;
   }
 
@@ -47,7 +47,7 @@ class EntityPlayer : Entity
   }
 
   float profileCollision;
-  void update(float deltaf)
+  override void update(float deltaf)
   {
     vec3 accel;
     const double EPSILON = 0.000001;

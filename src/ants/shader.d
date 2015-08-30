@@ -10,6 +10,7 @@ import std.string : format, toStringz;
 import std.traits : isPointer, PointerTarget;
 import std.conv : to;
 import std.path : baseName;
+import std.traits : isSigned;
 import std.algorithm : sort;
 import ants.glutil;
 
@@ -23,16 +24,23 @@ private int unstrVersion(string s)
 }
 private void scan()
 {
+  size_t numShaders;
   foreach (string d; file.dirEntries("glsl", file.SpanMode.shallow))
   {
     int v = unstrVersion(d[5..$]);
     if (v >= 0)
       foreach (string s; file.dirEntries(d, file.SpanMode.shallow))
-        if (s[$-3..$] == ".vs" || s[$-3..$] == ".fs")
+      {
+        if (s[$-5..$] == ".glsl")
+        {
+          numShaders++;
           availableShaders[s[d.length+1..$]] ~= v;
+        }
+      }
   }
   foreach (versions; availableShaders)
     sort!"b < a"(versions);
+  writefln("scanned %d *.glsl files", numShaders);
 }
 private int glslVersion;
 private string findBestShader(string shaderName)
@@ -69,7 +77,7 @@ GLuint loadShader(GLenum type, string filename)
 
   // Read shader source into memory
   auto exactName = findBestShader(filename);
-  version (debugShaders) writefln("[shader] loading \"%s\"", exactName);
+  writefln("[shader] loading \"%s\"", exactName);
   source = cast(char[])file.read(exactName);
 
   // Send shader source to the GL
@@ -174,12 +182,11 @@ class ShaderProgram
     this.fs = fs;
     programObject = linkProgram(vs, fs);
 
-    // XXX
-    glBindAttribLocation(programObject, 1, "ucolor");
     glErrorCheck();
   }
   this(string vsFilename, string fsFilename)
   {
+    glErrorCheck();
     this(new VertexShader(vsFilename), new FragmentShader(fsFilename));
   }
 
@@ -188,7 +195,7 @@ class ShaderProgram
     glDeleteProgram(programObject);
   }
 
-  GLuint getUniformLocation(string name)
+  GLint getUniformLocation(string name)
   {
     return glGetUniformLocation(programObject, name.toStringz());
   }

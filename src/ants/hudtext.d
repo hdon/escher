@@ -112,7 +112,7 @@ class HUDText
       return;
 
     if (shaderProgram is null)
-      shaderProgram = new ShaderProgram("doglconsole-white.vs", "doglconsole-white.fs");
+      shaderProgram = new ShaderProgram("vert-doglconsole-white.glsl", "frag-doglconsole-white.glsl");
 
     float r = 1f/16f;
     for (uint y=0; y<h; y++)

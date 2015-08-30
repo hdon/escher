@@ -9,31 +9,35 @@ import std.algorithm : map, appender;
 import std.exception : enforce;
 import std.path : dirName;
 import derelict.opengl3.gl3;
-import gl3n.linalg : Matrix, Vector, Quaternion, cross;
+import gl3n.linalg;
 import gl3n.interpolate : lerp;
-import ants.vertexer;
 import ants.material;
 import ants.shader;
 import ants.texture;
 import ants.gametime;
+import ants.glutil;
 import std.math : sqrt;
 import std.stdio : writeln, writefln;
 
-private alias Vector!(double, 3) vec3;
-private alias Vector!(double, 2) vec2;
-private alias Vector!(float, 2) vec2f;
-private alias Vector!(float, 3) vec3f;
-private alias Vector!(float, 4) vec4f;
-alias Matrix!(double, 3, 3) mat3;
-alias Matrix!(double, 4, 4) mat4;
-alias Quaternion!(double) quat;
+alias sum = reduce!"a + b";
 
-private Vertexer vertexer;
-private Material emptyMaterial;
-private ShaderProgram shaderProgram;
-private ShaderProgram shaderProgram1;
-private ShaderProgram md5ShaderProgram;
-private ShaderProgram varyingColorShaderProgram;
+private
+{
+  Material emptyMaterial;
+  ShaderProgram shaderProgram;
+  ShaderProgram shaderProgram1;
+  ShaderProgram md5ShaderProgram;
+
+  ShaderProgram shaderProgram2;
+  /* Attribute locations */
+  GLint sp2_Aposition;
+  GLint sp2_Anormal;
+  GLint sp2_Auv;
+  GLint sp2_UviewMatrix;
+  GLint sp2_UprojMatrix;
+  GLint sp2_UnormalMatrix;
+  GLint sp2_UcolorMap;
+}
 
 private struct Ray
 {
@@ -81,8 +85,15 @@ private struct Joint
 struct Vert
 {
   vec2 uv;
+  vec3 normal;
   uint weightIndex;
   uint numWeights;
+  this(vec2 uv, uint weightIndex, uint numWeights)
+  {
+    this.uv = uv;
+    this.weightIndex = weightIndex;
+    this.numWeights = numWeights;
+  }
 }
 
 /* This layout should eventually replace Vert I think. Right now I will just copy a mesh's Verts
@@ -90,17 +101,17 @@ struct Vert
  */
 struct GPUVert
 {
-  vec4f[4]  weightPos;
+  vec4[4]   weightPos;
   float[4]  weightBiases;
-  vec4f     weightIndices;
-  vec2f     uv;
-  vec2f     pad;
+  float[4]  boneIndices;
+  vec2      uv;
+  vec3      normal;
 }
 
 struct Tri
 {
   uint[3] vi; // verts
-  this(int a, int b, int c)
+  this(uint a, uint b, uint c)
   {
     this.vi[0] = a;
     this.vi[1] = b;
@@ -123,7 +134,7 @@ struct Weight
   }
 }
 
-struct Mesh
+class Mesh
 {
   size_t numVerts;
   Material material;
@@ -132,6 +143,13 @@ struct Mesh
   Tri[] tris;
   size_t numWeights;
   Weight[] weights;
+
+  this() {}
+  /* Renderers of mesh may consolidate all mesh data into a single vertex buffer.
+   * This may help with that.
+   */
+  size_t firstVertexIndex;
+  size_t firstElementIndex;
 }
 
 private enum ParserMode
@@ -162,8 +180,211 @@ class MD5Model
   Joint[] joints;
   size_t[string] namedJoints;
   Mesh[] meshes;
+  string filename;
 
-  float spin;
+  /* Generate bone-space weight normals */
+  static struct BindPoseVert
+  {
+    vec3 pos;
+    vec3 normal;
+    vec2 uv;
+  }
+
+  static BindPoseVert[] bindPoseVerts;
+
+  void generateBindPose(size_t iMesh, bool inBoneSpace=false)
+  {
+    auto mesh = meshes[iMesh];
+    if (bindPoseVerts.length < mesh.verts.length)
+      bindPoseVerts.length = mesh.verts.length;
+    
+    foreach (iVert, vert; mesh.verts)
+    {
+      Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
+      auto pos = vec3(0, 0, 0);
+      foreach (weight; weights)
+      {
+        auto joint = joints[weight.jointIndex].ray;
+        pos += weight.weightBias *
+      //(joint.orient * weight.pos + joint.pos) * weight.weightBias
+      //weight.pos * weight.weightBias
+      //(joint.pos + joint.orient * weight.pos)
+        (joint.orient * weight.pos + joint.pos)
+      //weight.pos
+        
+        ;
+      }
+      bindPoseVerts[iVert] = BindPoseVert(pos, vec3(0,0,0), vert.uv);
+      //writefln("mesh %d vert %d = %s", iMesh, iVert, pos);
+    }
+
+    foreach (iTri, tri; mesh.tris)
+    {
+      auto a = bindPoseVerts[tri.vi[0]].pos;
+      auto b = bindPoseVerts[tri.vi[1]].pos;
+      auto c = bindPoseVerts[tri.vi[2]].pos;
+      auto normal = cross((b-a).normalized, (b-c).normalized).normalized;
+      bindPoseVerts[tri.vi[0]].normal += normal;
+      bindPoseVerts[tri.vi[1]].normal += normal;
+      bindPoseVerts[tri.vi[2]].normal += normal;
+    }
+
+    foreach (iVert; 0..mesh.verts.length)
+    {
+      auto meshVert = mesh.verts[iVert];
+      auto n = bindPoseVerts[iVert].normal.normalized;
+      if (inBoneSpace)
+      {
+        auto n2 = vec3(0,0,0);
+        foreach (iWeight, weight; mesh.weights[meshVert.weightIndex .. meshVert.weightIndex + meshVert.numWeights])
+          n2 += joints[weight.jointIndex].ray.orient.inverse * n * weight.weightBias;
+        bindPoseVerts[iVert].normal = n2;
+      }
+      else
+        bindPoseVerts[iVert].normal = n;
+    }
+  }
+
+  /* Vertex Array Object, and Buffer Objects */
+  GLuint vao, vbo, ibo;
+  static Tri[] triBuf;
+  void render(mat4 viewMatrix, mat4 projMatrix)
+  {
+    if (shaderProgram2 is null)
+    {
+      shaderProgram2 = new ShaderProgram("vert-uv-norm--uv-norm.glsl", "frag-colorMap--uv-normal--uv-normal.glsl");
+      glGenBuffers(2, &vbo);
+      glGenVertexArrays(1, &vao);
+
+      shaderProgram2.use;
+      glBindVertexArray(vao);
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+      auto numTris = sum(map!"a.tris.length"(meshes));
+      writeln("numTris=", numTris);
+      glBufferData(GL_ELEMENT_ARRAY_BUFFER, numTris * Tri.sizeof, null, GL_STREAM_DRAW);
+
+      auto numVerts = sum(map!"a.verts.length"(meshes));
+      glBufferData(GL_ARRAY_BUFFER, numVerts * BindPoseVert.sizeof, null, GL_STREAM_DRAW);
+
+      size_t vboWriteCursor, iboWriteCursor;
+      int vertexCounter, triCounter;
+      auto maxTris = reduce!"a>b?a:b"(map!"a.tris.length"(meshes));
+      if (triBuf.length < maxTris)
+        triBuf.length = maxTris;
+
+      foreach (iMesh, mesh; meshes)
+      {
+        mesh.firstVertexIndex = vertexCounter;
+        mesh.firstElementIndex = triCounter * 3;
+        writefln("mesh[%d].firstElementIndex = %d", iMesh, mesh.firstElementIndex);
+
+        generateBindPose(iMesh);
+        auto vboWriteLen = mesh.verts.length * BindPoseVert.sizeof;
+        glBufferSubData(GL_ARRAY_BUFFER, vboWriteCursor, vboWriteLen, bindPoseVerts.ptr);
+        writefln("mesh %d writing %d vertices starting at index %d (%d bytes): %s",
+          iMesh, mesh.verts.length, vertexCounter, vboWriteCursor, bindPoseVerts[0..mesh.verts.length]);
+
+        foreach (iTri, tri; mesh.tris)
+        {
+          triBuf[iTri] = Tri(
+            vertexCounter + tri.vi[0]
+          , vertexCounter + tri.vi[1]
+          , vertexCounter + tri.vi[2]
+          );
+        }
+
+        auto iboWriteLen = mesh.tris.length * triBuf[0].sizeof;
+        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, iboWriteCursor, iboWriteLen, triBuf.ptr);
+        writefln("mesh %d writing %d triangles / %d elements / %d bytes starting at tri index %d / element index %d (%d bytes): %s",
+          iMesh, mesh.tris.length, mesh.tris.length * 3, iboWriteLen, triCounter, triCounter * 3, iboWriteCursor,
+          triBuf[0..mesh.tris.length]);
+
+        vboWriteCursor += vboWriteLen;
+        iboWriteCursor += iboWriteLen;
+        vertexCounter += mesh.verts.length;
+        triCounter += mesh.tris.length;
+
+        glFinish();
+      }
+
+      assert(triCounter == numTris);
+      assert(vertexCounter == numVerts);
+
+      sp2_UviewMatrix    = shaderProgram2.getUniformLocation("viewMatrix");
+      sp2_UprojMatrix    = shaderProgram2.getUniformLocation("projMatrix");
+      sp2_UnormalMatrix  = shaderProgram2.getUniformLocation("normalMatrix");
+      sp2_UcolorMap      = shaderProgram2.getUniformLocation("colorMap");
+      sp2_Aposition      = shaderProgram2.getAttribLocation ("positionV");
+      sp2_Anormal        = shaderProgram2.getAttribLocation ("normalV");
+      sp2_Auv            = shaderProgram2.getAttribLocation ("uvV");
+      assert(sp2_UviewMatrix >= 0);
+      assert(sp2_UprojMatrix >= 0);
+      assert(sp2_Aposition   >= 0);
+
+      BindPoseVert VT;
+      glEnableVertexAttribArray(sp2_Aposition);
+      glVertexAttribPointer(sp2_Aposition, 3, GL_FLOAT, GL_FALSE,
+        VT.sizeof, cast(void*) VT.pos.offsetof);
+      if (sp2_Anormal >= 0)
+      {
+        glEnableVertexAttribArray(sp2_Anormal);
+        glVertexAttribPointer(sp2_Anormal, 3, GL_FLOAT, GL_FALSE,
+          VT.sizeof, cast(void*) VT.normal.offsetof);
+      }
+      if (sp2_Auv >= 0)
+      {
+        glEnableVertexAttribArray(sp2_Auv);
+        glVertexAttribPointer(sp2_Auv, 3, GL_FLOAT, GL_FALSE,
+          VT.sizeof, cast(void*) VT.uv.offsetof);
+      }
+    }
+    else
+    {
+      shaderProgram2.use;
+      glBindVertexArray(vao);
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    }
+
+    glUniformMatrix4fv(sp2_UviewMatrix, 1, GL_TRUE, viewMatrix.value_ptr);
+    glUniformMatrix4fv(sp2_UprojMatrix, 1, GL_TRUE, projMatrix.value_ptr);
+    static if (0)
+    if (sp2_UnormalMatrix >= 0)
+    {
+      mat3 normalMatrix = viewMatrix.get_rotation;
+      glUniformMatrix3fv(sp2_UnormalMatrix, 1, GL_TRUE, normalMatrix.value_ptr);
+    }
+
+  //auto buf = new float[1536/float.sizeof];
+  //glGetBufferSubData(GL_ARRAY_BUFFER, 0, buf.length * buf[0].sizeof, buf.ptr);
+  //writeln("got: ", buf);
+
+    foreach (iMesh, mesh; meshes)
+    {
+      if (sp2_UcolorMap >= 0)
+      {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, mesh.material.texes[0].texture);
+        glUniform1i(sp2_UcolorMap, 0);
+      }
+
+      GLint start = cast(GLint) mesh.firstElementIndex;
+      GLint count = cast(GLint) mesh.tris.length * 3;
+      GLint end = start + count;
+    //writefln("mesh[%d].firstElementIndex == %d", iMesh, mesh.firstElementIndex);
+    //writefln("meshes[%d] glDrawRangeElements(GL_TRIANGLES, %s, %s, %s, GL_UNSIGNED_INT, null)", iMesh, start, end, count);
+      glDrawRangeElements(GL_TRIANGLES, start, end, count, GL_UNSIGNED_INT, cast(void*) (start * uint.sizeof));
+    }
+
+    if (sp2_UcolorMap >= 0)
+      glBindTexture(GL_TEXTURE_2D, 0);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+  }
 
   /* Generates a frequency distribution of vertex weight counts */
   uint[] getWeightingInfo()
@@ -182,38 +403,9 @@ class MD5Model
     return rval;
   }
 
-  void draw()
-  {
-    /* THIS DOESN'T EVEN MATTER */
-    assert(0, "NOT DONE");
-    foreach (mesh; meshes)
-    {
-      foreach (tri; mesh.tris)
-      {
-        foreach (vi; tri.vi)
-        {
-          Vert vert = mesh.verts[vi];
-          assert(vert.numWeights == 1, "only one weight per vertex is currently supported");
-          Weight weight = mesh.weights[vert.weightIndex];
-          assert(weight.weightBias == 1.0, "weight bias is wrong!");
-          Joint joint = joints[weight.jointIndex];
-
-          vec3 p = joint.ray.pos + weight.pos;
-
-          vertexer.add(p,
-            vec2(0, 0),     /* UVs */ 
-            vec3(1, 0, 0),  /* normal */
-            vec3f(.7, .7, .7) /* color */
-            );
-        }
-      }
-    }
-  }
-
   this(string filename)
   {
-    spin = 0.0f;
-
+    this.filename = filename;
     int mode = ParserMode.open;
     size_t nJoints;
     size_t nMeshes;
@@ -254,7 +446,7 @@ class MD5Model
           else if (words[0] == "mesh")
           {
             enforce(words[1] == "{");
-            meshes ~= Mesh();
+            meshes ~= new Mesh();
             mode = ParserMode.meshes;
           }
           break;
@@ -288,7 +480,19 @@ class MD5Model
 
             Joint joint = Joint(to!int(words[1]), pos, orient);
 
-            namedJoints[words[0]] = joints.length; // TODO strip quotes
+            if (joint.parentIndex >= 0)
+            {
+              Ray parentBone = joints[joint.parentIndex].ray;
+              // I used to do this, because you do it for md5anim, but looking at io_scene_md5.py
+              // MD5 exporter for blender, it looks like the joints{} block in the .md5mesh, providing
+              // the "bind pose," each bone is already expressed in object space, so there is no reason
+              // to compose it with the transform of its parent, down to the root bone.
+              // joint.ray.pos = parentBone.pos + (parentBone.orient * joint.ray.pos);
+              // joint.ray.orient = parentBone.orient * joint.ray.orient;
+              // joint.ray.orient.normalize();
+            }
+
+            namedJoints[words[0][1..$-1]] = joints.length;
             joints ~= joint;
           }
           break;
@@ -303,11 +507,10 @@ class MD5Model
           {
             //string textureFilename = dir ~ words[1][1..$-1];
             string textureFilename = words[1][1..$-1];
-            //writefln("[md5] shader \"%s\"", textureFilename);
             auto materialTexture = new MaterialTexture();
             materialTexture.application = TextureApplication.Color;
-            materialTexture.texture = getTexture(textureFilename);
             auto material = new Material();
+            materialTexture.texture = getTexture(textureFilename);
             material.texes ~= materialTexture;
             meshes[$-1].material = material;
           }
@@ -323,8 +526,8 @@ class MD5Model
             enforce(words[5] == ")", "vert syntax error 1");
 
             Vert vert = Vert(
-              vec2(to!double(words[3]),
-                   to!double(words[4])),  // uv
+              vec2(to!float(words[3]),
+                   to!float(words[4])),  // uv
               to!uint(words[6]),          // Vert.weightIndex
               to!uint(words[7]));         // Vert.numWeights
 
@@ -379,6 +582,20 @@ class MD5Model
     if (weightInfo.length > 4)
       writeln("[warning] some vertices have too many weights: ", filename, ": ", getWeightingInfo());
   }
+
+  static vec3[] vertPosBuf;
+  static const(const(vec4)[]) someColors = [
+    vec4(1,0,0,1)
+  , vec4(0,1,0,1)
+  , vec4(0,0,1,1)
+  , vec4(1,1,0,1)
+  , vec4(1,0,1,1)
+  , vec4(0,1,1,1)
+  ];
+  void render(mat4 mvmat, mat4 pmat, Ray[] skeleton, vec4 color=vec4(1,1,1,1))
+  {
+    throw new Error("unimplemented");
+  }
 }
 
 T sq(T)(T v)
@@ -400,8 +617,10 @@ class MD5Animation
   uint frameRate; // frames per second
   size_t frameStride; // number of joints in animation
   Joint[] animation;
-  float spin;
   size_t numJoints;
+  static ulong interpolatedSkeletonTime;
+  static MD5Model interpolatedSkeletonModel;
+  static Ray[] interpolatedSkeleton;
 
   static bool optRenderFull = true;
   static bool optRenderSoftware;
@@ -428,13 +647,14 @@ class MD5Animation
   // from frame{} blocks and even sometimes the baseframe{} block. See baseframeBones for more.
   Ray[] frameBones;
 
+  string filename;
   this(MD5Model model, string filename)
   {
+    this.filename = filename;
     LoadingBone[] loadingBones;
     float[] frameAnimatedComponents;
     size_t numAnimatedComponents;
     size_t loadingFrameNumber;
-    this.spin = 0.0f;
     this.model = model;
 
     int mode = 0;
@@ -634,140 +854,34 @@ class MD5Animation
 
   void renderSkeleton(mat4 mvmat, mat4 pmat)
   {
-    size_t frameNumber, frameNumber1;
-    float tween;
-
-    // Draw joint positions
-    foreach (bone; interpolatedSkeleton)
-    {
-      vertexer.add(bone.pos, vec2(0,0), vec3(1,0,0), vec3f(1,0,0));
-    }
-    vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_POINTS);
-
-    // Draw bones
-    foreach(boneIndex, bone; interpolatedSkeleton)
-    {
-      auto parentIndex = model.joints[boneIndex].parentIndex;
-      if (parentIndex != -1)
-      {
-        vertexer.add(bone.pos, vec2(0,0), vec3(1,0,0), vec3f(0,1,0));
-        Ray parentBone = interpolatedSkeleton[parentIndex];
-        vertexer.add(parentBone.pos, vec2(0,0), vec3(1,0,0), vec3f(0,1,0));
-      }
-    }
-    vertexer.draw(shaderProgram, mvmat, pmat, emptyMaterial, GL_LINES);
-    //writefln("frame # %d/%d", frameNumber, numFrames);
-    spin += 0.5;
+    //throw new Error("Unimplemented");
   }
 
-  // render()
+  /* Right now, render() just renders the outline of each triangle, and will draw
+   * them in up to six different colors, one for each mesh.
+   */
   static vec3[] vertPosBuf;
-  static vec3[] vertNorBuf;
-  void render(mat4 mvmat, mat4 pmat, vec4f color=vec4f(1,1,1,1))
+  static const(const(vec4)[]) someColors = [
+    vec4(1,0,0,1)
+  , vec4(0,1,0,1)
+  , vec4(0,0,1,1)
+  , vec4(1,1,0,1)
+  , vec4(1,0,1,1)
+  , vec4(0,1,1,1)
+  ];
+  void render(mat4 mvmat, mat4 pmat, Ray[] skeleton, vec4 color=vec4(1,1,1,1))
   {
-    vec3f color3 = vec3f(color.rgb);
-    size_t frameNumber, frameNumber1;
-    float tween;
-
-    //vec3[] vertsNormals;
-
-    foreach (mesh; model.meshes)
-    {
-      if (vertPosBuf.length < mesh.verts.length)
-      {
-        vertPosBuf.length = mesh.verts.length;
-        vertNorBuf.length = mesh.verts.length;
-      }
-
-      /* Calculate mesh vertex positions from animation weight positions */
-      foreach (vi; 0..mesh.verts.length)
-      {
-        Vert vert = mesh.verts[vi];
-        Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
-        vec3 pos = vec3(0,0,0);
-        foreach (weight; weights)
-        {
-          auto joint = interpolatedSkeleton[weight.jointIndex];
-          pos += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
-        }
-        vertPosBuf[vi] = pos;
-        vertNorBuf[vi] = vec3(0,0,0);
-      }
-
-      /* Calculate and accumulate triangle normals */
-      foreach (ti, tri; mesh.tris)
-      {
-        auto vi0 = tri.vi[0],
-             vi1 = tri.vi[1],
-             vi2 = tri.vi[2];
-
-        auto v0 = vertPosBuf[vi0],
-             v1 = vertPosBuf[vi1],
-             v2 = vertPosBuf[vi2];
-
-        /* Calculate triangle's normal */
-        auto normal = cross(v2-v0, v1-v0);
-
-        vertNorBuf[vi0] += normal;
-        vertNorBuf[vi1] += normal;
-        vertNorBuf[vi2] += normal;
-      }
-
-      /* Send all vertex data to vertexer */
-      /* TODO either integrate with vertexer more intimately, or send the vertex data to the
-       *      GL by hand here!
-       */
-      foreach (tri; mesh.tris)
-      {
-        foreach (vi; tri.vi)
-        {
-          vertexer.add(
-            vertPosBuf[vi],
-            mesh.verts[vi].uv, 
-            vertNorBuf[vi].normalized,
-            color3);
-        }
-      }
-
-      /* Draw vertexer contents */
-      vertexer.draw(shaderProgram1, mvmat, pmat, mesh.material, GL_TRIANGLES);
-    }
-  }
-  void renderWeights(mat4 mvmat, mat4 pmat)
-  {
-    size_t frameNumber, frameNumber1;
-    float tween;
-
-    foreach (mesh; model.meshes)
-    {
-      /* Calculate mesh vertex positions from animation weight positions */
-      foreach (vi; 0..mesh.verts.length)
-      {
-        Vert vert = mesh.verts[vi];
-        Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
-        vec3 pos = vec3(0,0,0);
-        foreach (weight; weights)
-        {
-          auto joint = interpolatedSkeleton[weight.jointIndex];
-          auto weightPos = joint.orient * weight.pos + joint.pos;
-          vertexer.add(weightPos, vec2(0,0), vec3(1,0,0), vec3f(1,1,1));
-        }
-      }
-
-      /* Draw vertexer contents */
-      vertexer.draw(varyingColorShaderProgram, mvmat, pmat, null, GL_POINTS);
-    }
+    //throw new Error("Unimplemented");
   }
 
-  // renderGPU()
-  mat4f[] boneMatrices;
+  mat4[] boneMatrices;
   bool gpuInitialized;
   GLint mvmatUniloc;
   GLint pmatUniloc;
   GLint boneMatricesUniloc;
   GLint colorMapUniloc;
-  GLint colorUniloc;
   GLint uvAttloc;
+  GLint normalAttloc;
   GLint boneIndicesAttloc;
   GLint weightBiasesAttloc;
   GLint weightPosAttloc;
@@ -775,7 +889,7 @@ class MD5Animation
   /* GL Buffer Objects to hold vertex attributes and face indices. One per mesh. */
   GLuint[] vbo;
   GLuint[] ibo;
-  void renderGPU(mat4 mvmat, mat4 pmat, vec4f color=vec4f(1,1,1,1))
+  void renderGPU(mat4 mvmat, mat4 pmat, vec4 color=vec4(1,1,1,1))
   {
     initGPU();
 
@@ -784,34 +898,15 @@ class MD5Animation
     if (boneMatrices.length < numJoints)
       boneMatrices.length = numJoints;
     /* Calculate the value of each bone matrix */
+    //writefln("renderGPU() looking for MD5Animation(\"%s\") == %d joints in interpolatedSkeleton.length = %d", filename, numJoints, interpolatedSkeleton.length);
     foreach (iBone, bone; interpolatedSkeleton[0..numJoints])
-    {
-      vec3f[3] v0 = [
-        vec3f(bone.orient * vec3(1,0,0)),
-        vec3f(bone.orient * vec3(0,1,0)),
-        vec3f(bone.orient * vec3(0,0,1)),
-      ];
-      /* Create a rotation matrix representing the orientation of this joint/bone */
-      mat4f m0 = mat4f( //bone.orient.to_matrix!(4,4);
-        v0[0].x, v0[0].y, v0[0].z, bone.pos.x,
-        v0[1].x, v0[1].y, v0[1].z, bone.pos.y,
-        v0[2].x, v0[2].y, v0[2].z, bone.pos.z,
-        0f, 0f, 0f, 1f);
-
-      mat4f m1 = bone.orient.to_matrix!(4,4);
-      //writeln("quat.to_matrix: ", m1);
-      //writeln("quat.meeeeeeee: ", m0);
-
-      /* Factor in translation of this joint/bone */
-      mat4f boneMatrix = m1.translate(bone.pos.x, bone.pos.y, bone.pos.z);
-      /* Assign the bone matrix to the array */
-      boneMatrices[iBone] = boneMatrix;
-      //writefln("bone %d matrix: %s", iBone, boneMatrix.as_pretty_string);
-    }
-    //writeln("BONE MATRICES ******** ", boneMatrices);
-    //writeln("mvmat         ******** ", mvmat);
+      boneMatrices[iBone] = bone.orient.to_matrix!(4,4).translate(bone.pos.x, bone.pos.y, bone.pos.z);
 
     /* Select our shader program */
+    if (md5ShaderProgram is null)
+    {
+      md5ShaderProgram = new ShaderProgram("vert-md5.glsl", "frag-md5.glsl");
+    }
     md5ShaderProgram.use();
 
     /* Send our uniforms to the GL shader program */
@@ -819,17 +914,11 @@ class MD5Animation
     glUniformMatrix4fv(boneMatricesUniloc, cast(GLint)numJoints, GL_TRUE, cast(float*)boneMatrices.ptr);
     glErrorCheck("sent bone matrices");
 
-    /* TODO stop using doubles EVERYWHERE wtf is wrong with you */
-    mat4f tempMatrix;
-
-    /* Send model-view matrix TODO merge MVP! */
-    tempMatrix = mat4f(mvmat);
-    glUniformMatrix4fv(mvmatUniloc, 1, GL_TRUE, tempMatrix.value_ptr);
+    /* Send model-view matrix */
+    glUniformMatrix4fv(mvmatUniloc, 1, GL_TRUE, mvmat.value_ptr);
     glErrorCheck("sent mvmat uniform");
-
     /* Send projection matrix */
-    tempMatrix = mat4f(pmat);
-    glUniformMatrix4fv(pmatUniloc, 1, GL_TRUE, tempMatrix.value_ptr);
+    glUniformMatrix4fv(pmatUniloc, 1, GL_TRUE, pmat.value_ptr);
     glErrorCheck("sent pmat uniform");
 
     /* Send draw command for each mesh! */
@@ -840,17 +929,11 @@ class MD5Animation
       glErrorCheck("md5 1");
 
       /* Enable our vertex attributes */
-      static if (0) writefln(`
-        attribute location: boneIndices:  %d
-        attribute location: weightBiases: %d
-        attribute location: weightPos:    %d
-        attribute location: uv:           %d`,
-        boneIndicesAttloc,
-        weightBiasesAttloc,
-        weightPosAttloc,
-        uvAttloc);
-
+      // TODO Use VAO
+      if (uvAttloc >= 0)
       glEnableVertexAttribArray(uvAttloc);
+      if (normalAttloc >= 0)
+      glEnableVertexAttribArray(normalAttloc);
       glEnableVertexAttribArray(boneIndicesAttloc+0);
       glEnableVertexAttribArray(weightBiasesAttloc);
       glEnableVertexAttribArray(weightPosAttloc+0);
@@ -858,21 +941,34 @@ class MD5Animation
       glEnableVertexAttribArray(weightPosAttloc+2);
       glEnableVertexAttribArray(weightPosAttloc+3);
 
+      GPUVert VT;
       /* Specify our vertex attribute layout (actual data in VBO already) */
       foreach (i; 0..4)
-        glVertexAttribPointer(weightPosAttloc+i, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(4*4*i));
-      glVertexAttribPointer(weightBiasesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)64);
-      glVertexAttribPointer(boneIndicesAttloc, 4, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)(80));
-      glVertexAttribPointer(uvAttloc, 2, GL_FLOAT, GL_FALSE, GPUVert.sizeof, cast(void*)96);
+        glVertexAttribPointer(weightPosAttloc+i, 4, GL_FLOAT, GL_FALSE, VT.sizeof,
+          cast(void*) (VT.weightPos.offsetof + (i * VT.weightPos[0].sizeof)));
+
+      glVertexAttribPointer(weightBiasesAttloc, 4, GL_FLOAT, GL_FALSE, VT.sizeof,
+        cast(void*) VT.weightBiases.offsetof);
+
+      glVertexAttribPointer(boneIndicesAttloc, 4, GL_FLOAT, GL_FALSE, VT.sizeof,
+        cast(void*) VT.boneIndices.offsetof);
+
+      if (uvAttloc >= 0)
+      glVertexAttribPointer(uvAttloc, 2, GL_FLOAT, GL_FALSE, VT.sizeof,
+        cast(void*) VT.uv.offsetof);
+
+      if (normalAttloc >= 0)
+      glVertexAttribPointer(normalAttloc, 3, GL_FLOAT, GL_FALSE, VT.sizeof,
+        cast(void*) VT.normal.offsetof);
 
       /* Set texture sampler for color map TODO use Material better! */
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, mesh.material.texes[0].texture);
-      glUniform1i(colorMapUniloc, 0);
+      if (colorMapUniloc >= 0)
+      {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, mesh.material.texes[0].texture);
+        glUniform1i(colorMapUniloc, 0);
+      }
       glErrorCheck("md5 9.1");
-
-      glUniform4fv(colorUniloc, 1, color.value_ptr);
-      glErrorCheck("md5 9.1.1");
 
       /* Draw! */
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[iMesh]);
@@ -884,14 +980,17 @@ class MD5Animation
 
     /* Release XXX */
     /* Release vert attributes */
+    if (uvAttloc >= 0)
     glDisableVertexAttribArray(uvAttloc);
+    if (normalAttloc >= 0)
+    glDisableVertexAttribArray(normalAttloc);
     glDisableVertexAttribArray(boneIndicesAttloc);
     glDisableVertexAttribArray(weightBiasesAttloc);
     glDisableVertexAttribArray(weightPosAttloc+0);
     glDisableVertexAttribArray(weightPosAttloc+1);
     glDisableVertexAttribArray(weightPosAttloc+2);
     glDisableVertexAttribArray(weightPosAttloc+3);
-    
+
     /* Disable the buffer objects we've used */
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -908,6 +1007,13 @@ class MD5Animation
     if (initGPUDone)
       return;
 
+    /* Calculate normals for each weight. A "weight" in MD5 parlance is a bone-space
+     * vertex. To calculate the position of a vertex in the mesh, we must calculate
+     * a bone space for each bone, transform each weight into this space, and then
+     * calculated a weighted average of each weight corresponding to a given vertex.
+     * I'm going to try to do the same now with vertex normals.
+     */
+    
     /* Generate needed buffers */
     /* Vertex buffer objects for each mesh */
     vbo.length = model.meshes.length;
@@ -924,31 +1030,31 @@ class MD5Animation
       if (data.length < mesh.verts.length)
         data.length = mesh.verts.length;
 
+      /* TODO Calculate weight normals */
+
+      model.generateBindPose(iMesh, true);
       foreach (iVert, vert; mesh.verts)
       {
         GPUVert v;
-        v.uv = vec2f(vert.uv.x, vert.uv.y);
+        v.uv = vec2(vert.uv.x, vert.uv.y);
+        v.normal = MD5Model.bindPoseVerts[iVert].normal;
         foreach (iWeight; 0..4)
         {
           if (iWeight < vert.numWeights)
           {
             auto weight = mesh.weights[vert.weightIndex + iWeight];
             //writefln("vert %d weight %d joint %d", iVert, iWeight, weight.jointIndex);
-            v.weightIndices.vector[iWeight] = cast(uint)weight.jointIndex;
-            v.weightBiases [iWeight] = cast(float)weight.weightBias;
-            v.weightPos    [iWeight] = vec4f(weight.pos.x, weight.pos.y, weight.pos.z, 1f);
+            v.boneIndices [iWeight] = cast(uint)weight.jointIndex;
+            v.weightBiases[iWeight] = cast(float)weight.weightBias;
+            v.weightPos   [iWeight] = vec4(weight.pos.x, weight.pos.y, weight.pos.z, 1f);
           }
           else
           {
-            v.weightIndices.vector[iWeight] = 0f;
-            v.weightBiases [iWeight] = 0f;
-            v.weightPos    [iWeight] = vec4f(0,0,0,0);
+            v.boneIndices [iWeight] = 0f;
+            v.weightBiases[iWeight] = 0f;
+            v.weightPos   [iWeight] = vec4(0,0,0,0);
           }
-          v.pad = vec2f(666f, 666f);
         }
-        if (vert.numWeights == 2 &&
-            mesh.weights[vert.weightIndex].jointIndex < mesh.weights[vert.weightIndex+1].jointIndex)
-          v.pad.x = 1f;
         data[iVert] = v;
       }
 
@@ -959,6 +1065,7 @@ class MD5Animation
       //writeln("vbo data: ");
       version (debugMD5)
       {
+        static if (0)
         foreach(v; data) if (v.pad.x == 1f) writefln(`
           weight 0 pos: %s
           weight 1 pos: %s
@@ -973,7 +1080,7 @@ class MD5Animation
           v.weightPos[2],
           v.weightPos[3],
           v.weightBiases,
-          v.weightIndices,
+          v.boneIndices,
           v.uv, v.pad);
 
         GLint maxVA;
@@ -982,31 +1089,38 @@ class MD5Animation
           mesh.tris.length, Tri.sizeof, Tri.sizeof * mesh.tris.length, maxVA, mesh.tris);
       }
 
-      glBufferData(GL_ARRAY_BUFFER, GPUVert.sizeof * data.length, data.ptr, GL_STATIC_DRAW);
-      /* Finish using this buffer object */
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      glBufferData(GL_ARRAY_BUFFER, mesh.verts.length * data[0].sizeof, data.ptr, GL_STATIC_DRAW);
 
       /* Send face index data to its GL Buffer Object */
       /* Create the buffer object in the GL */
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo[iMesh]);
       /* Fill the buffer object with our data */
       glBufferData(GL_ELEMENT_ARRAY_BUFFER, Tri.sizeof * mesh.tris.length, mesh.tris.ptr, GL_STATIC_DRAW);
-      /* Finish using this buffer object */
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
       glErrorCheck("md5 end of initGPU()");
     }
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     /* Grab shader variable locations */
     mvmatUniloc        = md5ShaderProgram.getUniformLocation("viewMatrix");
     pmatUniloc         = md5ShaderProgram.getUniformLocation("projMatrix");
     boneMatricesUniloc = md5ShaderProgram.getUniformLocation("boneMatrices");
     colorMapUniloc     = md5ShaderProgram.getUniformLocation("colorMap");
-    colorUniloc        = md5ShaderProgram.getUniformLocation("colorU");
     uvAttloc           = md5ShaderProgram.getAttribLocation ("uvV");
+    normalAttloc       = md5ShaderProgram.getAttribLocation ("normalV");
     boneIndicesAttloc  = md5ShaderProgram.getAttribLocation ("boneIndices");
     weightBiasesAttloc = md5ShaderProgram.getAttribLocation ("weightBiases");
     weightPosAttloc    = md5ShaderProgram.getAttribLocation ("weightPos[0]");
+    assert(mvmatUniloc        >= 0);
+    assert(pmatUniloc         >= 0);
+    assert(boneMatricesUniloc >= 0);
+  //assert(colorMapUniloc     >= 0);
+  //assert(uvAttloc           >= 0);
+    assert(boneIndicesAttloc  >= 0);
+    assert(weightBiasesAttloc >= 0);
+    assert(weightPosAttloc    >= 0);
 
     glErrorCheck("initGPU finished");
 
@@ -1015,58 +1129,28 @@ class MD5Animation
 
   void renderVerts(mat4 mvmat, mat4 pmat)
   {
-    size_t frameNumber, frameNumber1;
-    float tween;
-
-    foreach (mesh; model.meshes)
-    {
-      foreach (tri; mesh.tris)
-      {
-        vec3[3] outVerts;
-        foreach (outVertI, vi; tri.vi)
-        {
-          outVerts[outVertI] = vec3(0, 0, 0);
-
-          Vert vert = mesh.verts[vi];
-          Weight[] weights = mesh.weights[vert.weightIndex .. vert.weightIndex + vert.numWeights];
-          foreach (weight; weights)
-          {
-            auto joint = interpolatedSkeleton[weight.jointIndex];
-            outVerts[outVertI] += (joint.orient * weight.pos + joint.pos) * weight.weightBias;
-          }
-        }
-
-        vertexer.add(outVerts[0], vec2(0,0), vec3(0,0,0), vec3f(.2,.2,1));
-        vertexer.add(outVerts[1], vec2(1,1), vec3(1,1,1), vec3f(.2,.2,1));
-        vertexer.add(outVerts[2], vec2(2,2), vec3(2,2,2), vec3f(.2,.2,1));
-        vertexer.add(outVerts[0], vec2(0,0), vec3(0,0,0), vec3f(.2,.2,1));
-      }
-      vertexer.draw(shaderProgram, mvmat, pmat, mesh.material, GL_LINES);
-    }
+    //throw new Error("Unimplemented");
   }
 
-  void draw(mat4 mvmat, mat4 pmat, ulong t, vec4f color=vec4f(1,1,1,1))
+  void draw(mat4 mvmat, mat4 pmat, ulong t, vec4 color=vec4(1,1,1,1))
   {
-    if (vertexer is null)
+    if (shaderProgram is null)
     {
-      vertexer = new Vertexer();
       emptyMaterial = new Material();
-      shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
-      shaderProgram1 = new ShaderProgram("simpler.vs", "simpler.fs");
-      md5ShaderProgram = new ShaderProgram("md5-color--uv--uv-color.vs", "simpler.fs");
-      varyingColorShaderProgram = new ShaderProgram("simpler.vs", "simple-color.fs");
+      shaderProgram = new ShaderProgram("vert-simple.glsl", "frag-simple-red.glsl");
+      shaderProgram1 = new ShaderProgram("vert-color3-uv2--color3-uv2.glsl", "frag-color3-uv2.glsl");
     }
 
     calculateInterpolatedSkeleton(t);
 
     if (optRenderFull)
     {
-      glEnable(GL_CULL_FACE);
       if (optRenderSoftware)
-        render(mvmat, pmat, color);
+        render(mvmat, pmat, interpolatedSkeleton, color);
       else
         renderGPU(mvmat, pmat, color);
     }
+    static if (0)
     if (optRenderWeights)
     {
       glDisable(GL_DEPTH_TEST);
@@ -1085,15 +1169,18 @@ class MD5Animation
    * avoid recalculating a given skeleton, and also providing a place in memory to store
    * it, sans alloca.
    */
-  static Ray[] interpolatedSkeleton;
   void calculateInterpolatedSkeleton(ulong t)
   {
+    if (interpolatedSkeletonTime == t && interpolatedSkeletonModel is model)
+      return;
+
     size_t f0, f1;
     float f01;
     calculateFrame(t, f0, f1, f01);
 
     if (interpolatedSkeleton.length < numJoints)
       interpolatedSkeleton.length = numJoints;
+    //writefln("calculateInterpolatedSkeleton() sets interpolatedSkeleton.length = MD5Animation(\"%s\").numJoints == %d", filename, numJoints);
 
     foreach (iBone; 0..numJoints)
     {
@@ -1102,43 +1189,40 @@ class MD5Animation
       interpolatedSkeleton[iBone].pos = lerp(b0.pos, b1.pos, f01);
       interpolatedSkeleton[iBone].orient = lerp(b0.orient, b1.orient, f01); // TODO use slerp!
     }
+    
+    interpolatedSkeletonTime = t;
+    interpolatedSkeletonModel = model;
   }
 }
 
+/* TODO animation sequences instead of just looping the same animation */
 class MD5Animator
 {
   MD5Animation anim;
   ulong start; // hnsecs!
 
-  /* TODO allowing 'now' to have a default value is only useful in the world of everything
-   * just being a single stupid looping animation. i should refactor a bit and make this
-   * better.
-   */
   this(MD5Animation anim)
   {
     this.anim = anim;
     this.start = GameTime.gt;
   }
 
-  /* now = current time
-   */
-  void draw(mat4 mvmat, mat4 pmat, vec4f color=vec4f(1,1,1,1))
+  void draw(mat4 mvmat, mat4 pmat, vec4 color=vec4(1,1,1,1))
   {
-    /* TODO animation sequences instead of just looping the same animation */
     anim.draw(mvmat, pmat, GameTime.gt-start, color);
+  }
+
+  /* This is a little bypass that allows us to calculate an interpolated skeleton
+   * without skinning or rendering the model. This is convenient if we need to
+   * get something from the skeleton before rendering, for instance a camera bone
+   * position.
+   */
+  void calculateInterpolatedSkeleton()
+  {
+    anim.calculateInterpolatedSkeleton(GameTime.gt-start);
   }
 }
 
 void stop() {
   writeln("STOP");
-}
-
-void glErrorCheck(string source)
-{
-  GLenum err = glGetError();
-  if (err)
-  {
-    writefln("error @ %s: opengl: %s", source, err);
-    stop();
-  }
 }

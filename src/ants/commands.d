@@ -46,6 +46,8 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
       {
         case "hi":
           console.println("Why, hello there!");
+          break;
+
         case "connect":
           net.connect("127.0.0.1");
           break;

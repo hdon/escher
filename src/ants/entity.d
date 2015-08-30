@@ -15,6 +15,7 @@ import ants.escher : Space, World, world, passThruTest, FaceType, PHYSPUSH, Remo
 public import ants.entityplayer;
 
 alias vec4f = Vector!(float, 4);
+alias mat4f = Matrix!(float, 4, 4);
 
 class Entity
 {
@@ -53,7 +54,9 @@ class EntityMD5 : Entity
 
   override void draw(mat4 mvmat, mat4 pmat)
   {
-    animator.draw(mvmat * mat4.translation(pos.x, pos.y, pos.z), pmat, color);
+    auto mvmatf = Matrix!(float, 4, 4)(mvmat);
+    auto pmatf = Matrix!(float, 4, 4)(pmat);
+    animator.draw(mvmatf * mat4f.translation(pos.x, pos.y, pos.z), pmatf, color);
   }
 
   enum consmixme = q{

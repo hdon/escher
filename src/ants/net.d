@@ -124,6 +124,7 @@ version (escherClient)
               writeln("[net] received data");
               enet_packet_destroy(event.packet);
               break;
+            default: assert(0);
           }
         }
       }

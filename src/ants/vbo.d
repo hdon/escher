@@ -37,7 +37,7 @@ class VBO
 
   this()
   {
-    shaderProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
+    shaderProgram = new ShaderProgram("vert-simple-red.glsl", "frag-simple-red.glsl");
 
     posAttloc = shaderProgram.getAttribLocation("positionV");
 

@@ -115,7 +115,7 @@ class StencilTestScreen : Screen
   ShaderProgram shaderProgram;
   this()
   {
-    shaderProgram = new ShaderProgram("vert-color3--color4.vs", "frag-color4.fs");
+    shaderProgram = new ShaderProgram("vert-vert-color3--color4.glsl", "frag-frag-color4.glsl");
   }
 
   override
@@ -177,7 +177,6 @@ class StencilTestScreen : Screen
       default:
         return true;
     }
-    return true;
   }
 }
 
@@ -199,7 +198,7 @@ class CodebadLeadScreen : Screen
 
   this()
   {
-    shaderProgram = new ShaderProgram("vert-color3--color4.vs", "frag-color4.fs");
+    shaderProgram = new ShaderProgram("vert-vert-color3--color4.glsl", "frag-frag-color4.glsl");
   }
 
   override void show()
@@ -234,7 +233,6 @@ class CodebadLeadScreen : Screen
       default:
         return true;
     }
-    return true;
   }
 
   enum radialSegmentsMax = 50;

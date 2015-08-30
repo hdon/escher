@@ -111,7 +111,7 @@ class CDoglConsole(DoglConsoleBackend backend) : DoglConsole
 
       _color = vec3(.7f,.7f,.7f);
 
-      shaderProgram = new ShaderProgram("doglconsole.vs", "doglconsole.fs");
+      shaderProgram = new ShaderProgram("vert-doglconsole.glsl", "frag-doglconsole.glsl");
       font = getTexture(fontFilename);
       // TODO this is bullshit and should be done elsewhere but for now it's easy to do here
       glBindTexture(GL_TEXTURE_2D, font);
@@ -269,6 +269,7 @@ class CDoglConsole(DoglConsoleBackend backend) : DoglConsole
 
   void println(string text)
   {
+    _color = vec3(1,1,1);
     print(text);
     print("\n");
     if (stdoutEcho)

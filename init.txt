@@ -1,4 +1,7 @@
 escher script version 2
 map /home/donny/ld28/race.esc6
-fly false
-noclip false
+fly true
+noclip true
+calchull
+drawobb
+drawworld
