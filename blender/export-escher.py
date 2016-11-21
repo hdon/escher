@@ -1,15 +1,13 @@
-# Copyright 2014 Donny Viszneki. All rights reserved.
-# You are not authorized to distribute this source code.
-
-# Escher map export script. Copyright 2013 Don Viszneki <don@codebad.com> all rights reserved
+# Copyright 2014 Don Viszneki
+# Escher map export script.
 
 bl_info = {
     "name":         "Export Escher Map Format(.esc)",
-    "author":       "Don Viszneki (don@codebad.com)",
+    "author":       "Don Viszneki <don@codebad.com>",
     "version":      (1, 0),
-    "blender":      (2, 68, 0),
-    "location":     "File > Export > Escher (.esc)",
-    "description":  "Export Escher map (.esc)",
+    "blender":      (2, 78, 0),
+    "location":     "File > Export > Escher (.esc6)",
+    "description":  "Export Escher map (.esc6)",
     "warning":      "Still under development",
     "category":     "Import-Export"}
 
@@ -179,7 +177,7 @@ def escherExport(operator, materials, objects, scene, filename):
     except:
       print('escher export: Could not process material "%s"' % mat.name)
       operator.report({'WARNING'}, 'Could not process material "%s"' % mat.name)
-      #raise
+      raise
 
   out.write('numspaces %d\n' % len(PSOs))
   for iPSO, PSO in enumerate(PSOs):

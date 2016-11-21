@@ -2,6 +2,18 @@
 import bpy, bmesh
 from mathutils import Color
 
+bl_info = {
+	"name": "Escher Tools",
+	"description": "Tools for working with Escher maps.",
+	"author": "Don Viszneki <don@codebad.com>",
+	"version": (1, 0),
+	"blender": (2, 65, 0),
+	"location": "TODO document location",
+	"warning": "", # used for warning icon and text in addons panel
+	"support": "COMMUNITY",
+	"category": "User Interface"
+}
+
 def selectedFaces(bm):
   return filter(lambda fa: fa.select, bm.faces)
 
@@ -213,6 +225,7 @@ def makePSO(spaceName, me=None):
         for z in -1, 1:
           bm.verts.new().co = (x, y, z)
     bm.verts.index_update()
+    bm.verts.ensure_lookup_table()
     bm.faces.new((bm.verts[0], bm.verts[2], bm.verts[3], bm.verts[1]))
     bm.faces.new((bm.verts[4], bm.verts[5], bm.verts[7], bm.verts[6]))
     bm.faces.new((bm.verts[0], bm.verts[4], bm.verts[6], bm.verts[2]))
