@@ -106,8 +106,8 @@ version (never)
 {
   private struct Polygon4
   {
-    vec4 points[];
-    Segment edges[];
+    vec4[] points;
+    Segment[] edges;
 
     /* Constructor argument is an ordered list of points in the
      * polygon. Edges are inferred from this data.
@@ -224,8 +224,8 @@ private struct Segment
 
 private struct Polygon4
 {
-  vec4 points[];
-  Segment edges[];
+  vec4[] points;
+  Segment[] edges;
 
   /* Constructor argument is an ordered list of points in the
    * polygon. Edges are inferred from this data.
@@ -386,7 +386,7 @@ private struct Polygon4
     enforce(edges.length >= 3, "polygons with less than 3 sides is no polygons");
 
     /* Perform perspective divide, discard zw components */
-    vec2 verts[];
+    vec2[] verts;
     foreach (i, p; points)
     {
       verts ~= vec2(p.x/p.w, p.y/p.w);
@@ -1660,7 +1660,7 @@ bool clipLineSegment(ref vec3 a, ref vec3 b)
  */
 int planeClipsTriangle(ref vec3[3] t0, ref vec3[3] t1, int c, bool lt)
 {
-  bool clipped[3];
+  bool[3] clipped;
   int nclipped = 0;
   foreach (i, v; t0)
   {
@@ -2369,7 +2369,7 @@ class Camera
       }
 
       stopWatch.stop();
-      profileCollision = stopWatch.peek.to!("msecs", float)();
+      profileCollision = cast(float) stopWatch.peek.msecs;
     }
 
     // XXX shitty way to move entities into a new space so that they can be found by-space
@@ -2470,7 +2470,7 @@ class Camera
     glErrorCheck("after drawSpace()");
 
     stopWatch.stop();
-    profileDrawWorld = stopWatch.peek.to!("msecs", float);
+    profileDrawWorld = cast(float) stopWatch.peek.msecs;
 
     if (noBody)
     {
@@ -2493,7 +2493,7 @@ class Camera
     frame++;
 
     stopWatch.stop();
-    profileDrawArms = stopWatch.peek.to!("msecs", float)();
+    profileDrawArms = cast(float) stopWatch.peek.msecs;
   }
 
   mat4 mkmvmat()

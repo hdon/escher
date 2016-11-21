@@ -177,7 +177,6 @@ class StencilTestScreen : Screen
       default:
         return true;
     }
-    return true;
   }
 }
 
@@ -234,7 +233,6 @@ class CodebadLeadScreen : Screen
       default:
         return true;
     }
-    return true;
   }
 
   enum radialSegmentsMax = 50;

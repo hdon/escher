@@ -9,7 +9,7 @@ import ants.escher : World, Camera, playerEntity;
 import ants.entity : EntityPlayer, EntityBendingBar, loadEntityAssets;
 import ants.doglconsole;
 import std.stdio : writeln, writefln;
-import std.string : toStringz, strlen, format;
+import std.string : toStringz, format;
 import derelict.util.exception : DerelictShouldThrow = ShouldThrow;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
@@ -25,6 +25,7 @@ import ants.screen;
 import ants.gametime;
 import ants.glutil;
 
+alias strlen = core.stdc.string;
 alias Vector!(double, 2) vec2;
 alias Vector!(double, 3) vec3;
 alias Vector!(double, 4) vec4;

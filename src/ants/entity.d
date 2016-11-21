@@ -75,7 +75,7 @@ class EntityPlayer : Entity
 
   static Spawner spawner(int spaceID, vec3 pos, float angle=0f)
   {
-    Entity spawn() { return new EntityPlayer(spaceID, pos, angle); };
+    Entity spawn() { return new EntityPlayer(spaceID, pos, angle); }
     return &spawn;
   }
 }

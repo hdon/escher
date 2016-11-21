@@ -86,7 +86,6 @@ class Vertexer
             break;
           default:
             assert(0, "invalid texture application");
-            break;
         }
       }
     }

@@ -5,7 +5,8 @@ module ants.md5;
 import file = std.file;
 import std.string;
 import std.conv;
-import std.algorithm : map, appender;
+import std.algorithm : map;
+import std.array : appender;
 import std.exception : enforce;
 import std.path : dirName;
 import derelict.opengl3.gl3;
@@ -186,25 +187,28 @@ class MD5Model
   {
     /* THIS DOESN'T EVEN MATTER */
     assert(0, "NOT DONE");
-    foreach (mesh; meshes)
+    static if (0)
     {
-      foreach (tri; mesh.tris)
+      foreach (mesh; meshes)
       {
-        foreach (vi; tri.vi)
+        foreach (tri; mesh.tris)
         {
-          Vert vert = mesh.verts[vi];
-          assert(vert.numWeights == 1, "only one weight per vertex is currently supported");
-          Weight weight = mesh.weights[vert.weightIndex];
-          assert(weight.weightBias == 1.0, "weight bias is wrong!");
-          Joint joint = joints[weight.jointIndex];
+          foreach (vi; tri.vi)
+          {
+            Vert vert = mesh.verts[vi];
+            assert(vert.numWeights == 1, "only one weight per vertex is currently supported");
+            Weight weight = mesh.weights[vert.weightIndex];
+            assert(weight.weightBias == 1.0, "weight bias is wrong!");
+            Joint joint = joints[weight.jointIndex];
 
-          vec3 p = joint.ray.pos + weight.pos;
+            vec3 p = joint.ray.pos + weight.pos;
 
-          vertexer.add(p,
-            vec2(0, 0),     /* UVs */ 
-            vec3(1, 0, 0),  /* normal */
-            vec3f(.7, .7, .7) /* color */
-            );
+            vertexer.add(p,
+              vec2(0, 0),     /* UVs */ 
+              vec3(1, 0, 0),  /* normal */
+              vec3f(.7, .7, .7) /* color */
+              );
+          }
         }
       }
     }

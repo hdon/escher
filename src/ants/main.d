@@ -3,10 +3,10 @@
  */
 module ants.main;
 import std.stdio;
-import std.string : splitLines, split, toStringz, format;
+import std.string : splitLines, split, toStringz, fromStringz, format;
 import std.conv : to;
 import std.algorithm : startsWith;
-import std.process : getenv;
+import std.process : environment;
 import file = std.file;
 import core.memory : GC;
 import ants.display : Display;
@@ -64,7 +64,7 @@ int main(string[] args)
     }
 
     /* Load user's settings */
-    auto rcPath = getenv("HOME") ~ "/.escherrc";
+    auto rcPath = environment["HOME"] ~ "/.escherrc";
     try
     {
       doCommandFile(display.console, rcPath, "");

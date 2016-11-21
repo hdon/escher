@@ -5,7 +5,7 @@ module ants.texture;
 
 import std.conv;
 import std.string : toStringz;
-import std.format : appender;
+import std.array : appender;
 import derelict.sdl2.sdl;
 import derelict.sdl2.image;
 import derelict.opengl3.gl3;
