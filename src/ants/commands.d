@@ -11,6 +11,7 @@ import ants.main : display;
 import ants.escher : World, Camera, EntityPlayer, vec3, vec3f, playerEntity;
 import ants.doglconsole : DoglConsole;
 import ants.md5 : MD5Animation;
+import gl3n.linalg : Vector; // XXX
 
 void doCommand(DoglConsole console, string cmd)
 {
@@ -144,6 +145,36 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           console.print(format("md5software %sabled\n", b ? "en" : "dis"));
           break;
           
+        case "drawworld":
+          if (words.length == 1)
+            b = ! display.world.drawWorld;
+          else
+            b = to!bool(words[1]);
+          assert(words.length <= 2, "invalid number of arguments");
+          display.world.drawWorld = b;
+          console.print(format("drawworld %sabled\n", b ? "en" : "dis"));
+          break;
+          
+        case "drawmapvertices":
+          if (words.length == 1)
+            b = ! display.world.drawMapVertices;
+          else
+            b = to!bool(words[1]);
+          assert(words.length <= 2, "invalid number of arguments");
+          display.world.drawMapVertices = b;
+          console.print(format("drawmapvertices %sabled\n", b ? "en" : "dis"));
+          break;
+          
+        case "drawmapnormals":
+          if (words.length == 1)
+            b = ! display.world.drawMapNormals;
+          else
+            b = to!bool(words[1]);
+          assert(words.length <= 2, "invalid number of arguments");
+          display.world.drawMapNormals = b;
+          console.print(format("drawmapnormals %sabled\n", b ? "en" : "dis"));
+          break;
+          
         case "mousef":
           assert(words.length <= 2, "invalid number of arguments");
           if (words.length == 2)
@@ -181,6 +212,34 @@ void doCommands(DoglConsole console, string[] commandText, string filename, size
           display.camera.pos = vec3(to!double(s[1]), to!double(s[2]), to!double(s[3]));
           display.camera.camYaw = to!double(s[4]);
           display.camera.camPitch = to!double(s[5]);
+          break;
+
+        case "drawaxes":
+          if (words.length == 1)
+            b = ! display.world.drawAxes;
+          else
+            b = to!bool(words[1]);
+          assert(words.length <= 2, "invalid number of arguments");
+          display.world.drawAxes = b;
+          console.print(format("drawaxes %sabled\n", b ? "en" : "dis"));
+          break;
+
+        case "forcedrawremotes":
+          if (words.length == 1)
+            b = ! display.world.forceDrawRemotes;
+          else
+            b = to!bool(words[1]);
+          assert(words.length <= 2, "invalid number of arguments");
+          display.world.forceDrawRemotes = b;
+          console.print(format("forcedrawremotes %sabled\n", b ? "en" : "dis"));
+          break;
+
+        case "killall":
+          break;
+        
+        case "spawnlinear":
+          auto linear = new ants.entity.EntityLinear(0, Vector!(double,3)(0,0,0), Vector!(double,3)(1,0,0));
+          ants.main.display.world.entities[0] ~= linear;
           break;
 
         default:

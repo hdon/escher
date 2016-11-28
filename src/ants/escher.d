@@ -984,6 +984,9 @@ class World
   Entity[][] entities;
   int playerSpawnSpaceID;
   Spawner playerSpawner;
+  bool drawWorld;
+  bool drawAxes;
+  bool forceDrawRemotes;
 
   this(string filename)
   {
@@ -1332,6 +1335,8 @@ class World
       writeln("ESCHER WORLD LOADED");
       writeln(spaces);
     }
+
+    drawWorld = true;
   }
 
   ~this()
@@ -1360,18 +1365,25 @@ class World
   bool noDrawEntities;
   void drawSpace(int spaceID, mat4 transform, ubyte portalDepth, int dmode)
   {
+    if (portalDepth == 0)
+      return;
+
     Space space = spaces[spaceID];
     space.gpuSetUp();
 
     /* First we'll draw solid faces. This requires a stencil test, but does not
      * draw to the stencil.
      */
-    version (stencil) {
-      glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-      glDepthMask(GL_TRUE);
-      glStencilMask(0);
-      glStencilFunc(GL_EQUAL, portalDepth, 0xFF);
-      glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    version (stencil)
+    {
+      if (!forceDrawRemotes)
+      {
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDepthMask(GL_TRUE);
+        glStencilMask(0);
+        glStencilFunc(GL_EQUAL, portalDepth, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+      }
     }
     
     shaderProgram.use();
@@ -1385,63 +1397,8 @@ class World
     glBindBuffer(GL_ARRAY_BUFFER, space.vbo);
     glEnable(GL_CULL_FACE);
 
-    auto attloc = shaderProgram.getAttribLocation("positionV");
-    if (attloc >= 0)
-    {
-      glEnableVertexAttribArray(attloc);
-      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)0);
-    }
-
-    attloc = shaderProgram.getAttribLocation("normalV");
-    if (attloc >= 0)
-    {
-      glEnableVertexAttribArray(attloc);
-      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(3*4));
-    }
-
-    attloc = shaderProgram.getAttribLocation("uvV");
-    if (attloc >= 0)
-    {
-      glEnableVertexAttribArray(attloc);
-      glVertexAttribPointer(attloc, 2, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(6*4));
-    }
-
-    auto colorMapUniloc = shaderProgram.getUniformLocation("colorMap");
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, space.ibo);
-
-    foreach (drawCommand; space.drawCommands)
-    {
-      /* TODO optimize this check by sorting the draw commands or something */
-      if (drawCommand.faceData.type != FaceType.SolidColor)
-        continue;
-
-      if (colorMapUniloc >= 0)
-      {
-        auto materialID = drawCommand.faceData.solidColor.materialID;
-        auto mat = materials[materialID];
-        GLuint colorMap;
-        foreach (mt; mat.texes)
-        {
-          if (mt.application == TextureApplication.Color)
-          {
-            colorMap = mt.texture;
-            break;
-          }
-        }
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, colorMap);
-        glUniform1i(colorMapUniloc, 0);
-      }
-
-      //writeln("drawing ", drawCommand.numVerts, " verts @ ", drawCommand.iboOffset);
-      glDrawElements(GL_TRIANGLES,
-        cast(GLint)drawCommand.numVerts, GL_UNSIGNED_INT, cast(void*)drawCommand.iboOffset);
-    }
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    glUseProgram(0);
+    if (drawWorld)
+      drawRegularSpaceFaces(space);
 
     /* Now we'll draw our entities.
      */
@@ -1451,7 +1408,6 @@ class World
       entity.draw(transform, pmatWorld);
     }
 
-
     if (portalDiagnosticMode)
     {
       foreach (faceID, face; space.faces)
@@ -1460,6 +1416,17 @@ class World
           drawFace(space, face, transform, pmatPortal);
       }
       vertexer.draw(portalDiagnosticProgram, transform, pmatPortal, null);
+    }
+    else if (forceDrawRemotes)
+    {
+      foreach (remoteID, remote; space.remotes)
+      {
+        drawSpace(
+            remote.spaceID,
+            transform * spaces[spaceID].remotes[remoteID].transform,
+            cast(ubyte)(portalDepth-1),
+            dmode);
+      }
     }
     else
     {
@@ -1564,12 +1531,90 @@ class World
       }
       glEnable(GL_DEPTH_TEST);
     }
+    if (drawAxes)
+    {
+      glDisable(GL_DEPTH_TEST);
+
+      vertexer.add(vec3( 0, 0, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+      vertexer.add(vec3(10, 0, 0), vec2(0,0), vec3(0,0,0), vec3f(1,0,0));
+
+      vertexer.add(vec3( 0, 0, 0), vec2(0,0), vec3(0,0,0), vec3f(0,1,0));
+      vertexer.add(vec3( 0,10, 0), vec2(0,0), vec3(0,0,0), vec3f(0,1,0));
+
+      vertexer.add(vec3( 0, 0, 0), vec2(0,0), vec3(0,0,0), vec3f(0,0,1));
+      vertexer.add(vec3( 0, 0,10), vec2(0,0), vec3(0,0,0), vec3f(0,0,1));
+
+      vertexer.draw(vertexColorProgram, transform, pmatPortal, materials[0], GL_LINES);
+      glEnable(GL_DEPTH_TEST);
+    }
+  }
+
+  void drawRegularSpaceFaces(Space space)
+  {
+    auto attloc = shaderProgram.getAttribLocation("positionV");
+    if (attloc >= 0)
+    {
+      glEnableVertexAttribArray(attloc);
+      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)0);
+    }
+
+    attloc = shaderProgram.getAttribLocation("normalV");
+    if (attloc >= 0)
+    {
+      glEnableVertexAttribArray(attloc);
+      glVertexAttribPointer(attloc, 3, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(3*4));
+    }
+
+    attloc = shaderProgram.getAttribLocation("uvV");
+    if (attloc >= 0)
+    {
+      glEnableVertexAttribArray(attloc);
+      glVertexAttribPointer(attloc, 2, GL_FLOAT, GL_FALSE, 8*4, cast(void*)(6*4));
+    }
+
+    auto colorMapUniloc = shaderProgram.getUniformLocation("colorMap");
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, space.ibo);
+
+    foreach (drawCommand; space.drawCommands)
+    {
+      /* TODO optimize this check by sorting the draw commands or something */
+      if (drawCommand.faceData.type != FaceType.SolidColor)
+        continue;
+
+      if (colorMapUniloc >= 0)
+      {
+        auto materialID = drawCommand.faceData.solidColor.materialID;
+        auto mat = materials[materialID];
+        GLuint colorMap;
+        foreach (mt; mat.texes)
+        {
+          if (mt.application == TextureApplication.Color)
+          {
+            colorMap = mt.texture;
+            break;
+          }
+        }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorMap);
+        glUniform1i(colorMapUniloc, 0);
+      }
+
+      //writeln("drawing ", drawCommand.numVerts, " verts @ ", drawCommand.iboOffset);
+      glDrawElements(GL_TRIANGLES,
+        cast(GLint)drawCommand.numVerts, GL_UNSIGNED_INT, cast(void*)drawCommand.iboOffset);
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glUseProgram(0);
   }
 }
 
 EntityPlayer playerEntity;
 ShaderProgram shaderProgram;
 ShaderProgram portalDiagnosticProgram;
+ShaderProgram vertexColorProgram;
 
 vec3 getTriangleNormal(vec3 a, vec3 b, vec3 c)
 {
@@ -1876,13 +1921,23 @@ class Camera
     this.mousef = 0.002;
     this.vel = vec3(0,0,0);
     this.grounded = true; // TODO for debugging no falling until jump
-    this.maxPortalDepth = 99;
+    this.maxPortalDepth = 7;
   }
 
   void key(int keysym, bool down)
   {
     switch (keysym)
     {
+      case 'x':
+        auto a = vec4(0,0,0,1);
+        auto m = mat4
+          .identity
+          .translate(0, 0, 20)
+          ;
+        auto b = m * a;
+        writefln("%s * %s = %s", a, m, b);
+        break;
+
       case 's':
         keyForward = down;
         break;
@@ -2320,43 +2375,45 @@ class Camera
               spaceID, face.data.remote.remoteID, space.remotes.length);
 
             Remote remote = world.spaces[spaceID].remotes[face.data.remote.remoteID];
-            if (FaceType.Remote && remote.spaceID >= 0)
-            {
-              // Move to the space we're entering
-              spaceID = remote.spaceID;
 
-              /* Scene coordinates are now relative to the space we've entered.
-               * We must adjust our own coordinates so that we enter the space
-               * at the correct position. We also need to adjust our orientation.
-               */
-              vec4 preTransformPos4 = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
-              vec4 pos = preTransformPos4 * remote.untransform;
-              pos.x = pos.x / pos.w;
-              pos.y = pos.y / pos.w;
-              pos.z = pos.z / pos.w;
-              this.pos.x = pos.x;
-              this.pos.y = pos.y;
-              this.pos.z = pos.z;
+            // Move to the space we're entering
+            spaceID = remote.spaceID;
 
-              vec4 lookPos = vec4(orient.x, orient.y, orient.z, 0f) + preTransformPos4;
-              //writeln("old  vec: ", oldpos);
-              //writeln("look vec: ", lookPos);
-              lookPos = lookPos * remote.untransform;
-              //writeln("new  vec: ", lookPos);
-              lookPos.x = lookPos.x / lookPos.w;
-              lookPos.y = lookPos.y / lookPos.w;
-              lookPos.z = lookPos.z / lookPos.w;
-              //writeln("/w   vec: ", lookPos);
-              lookPos = lookPos - pos;
-              //writeln("-op  vec: ", lookPos);
-              //writeln("transform: ", remote.transform);
-              //writefln("camYaw: %f", camYaw);
-              camYaw = atan2(lookPos.x, lookPos.z);
-              //writefln("camYaw: %f new", camYaw);
+            /* Scene coordinates are now relative to the space we've entered.
+             * We must adjust our own coordinates so that we enter the space
+             * at the correct position. We also need to adjust our orientation.
+             */
+            vec4 preTransformPos4 = vec4(this.pos.x, this.pos.y, this.pos.z, 1f);
+            vec4 pos = remote.untransform * preTransformPos4;
+            debug writefln("remote untransform: %s", remote.untransform);
+            debug writefln("pos  pre-transform: %s", this.pos);
+            debug writefln("pos  mid-transform: %s", pos);
+            pos.x = pos.x / pos.w;
+            pos.y = pos.y / pos.w;
+            pos.z = pos.z / pos.w;
+            debug writefln("pos post-transform: %s", pos);
+            this.pos.x = pos.x;
+            this.pos.y = pos.y;
+            this.pos.z = pos.z;
 
-              //writefln("entered space %d", spaceID);
-              break;
-            }
+            vec4 lookPos = vec4(orient.x, orient.y, orient.z, 0f) + preTransformPos4;
+            //writeln("old  vec: ", oldpos);
+            //writeln("look vec: ", lookPos);
+            lookPos = lookPos * remote.untransform;
+            //writeln("new  vec: ", lookPos);
+            lookPos.x = lookPos.x / lookPos.w;
+            lookPos.y = lookPos.y / lookPos.w;
+            lookPos.z = lookPos.z / lookPos.w;
+            //writeln("/w   vec: ", lookPos);
+            lookPos = lookPos - pos;
+            //writeln("-op  vec: ", lookPos);
+            //writeln("transform: ", remote.transform);
+            //writefln("camYaw: %f", camYaw);
+            //camYaw = atan2(lookPos.x, lookPos.z);
+            //writefln("camYaw: %f new", camYaw);
+
+            //writefln("entered space %d", spaceID);
+            break;
           }
         }
       }
@@ -2413,6 +2470,7 @@ class Camera
     if (shaderProgram is null)
     {
       portalDiagnosticProgram = new ShaderProgram("simple-red.vs", "simple-red.fs");
+      vertexColorProgram = new ShaderProgram("vert-color3--color4.vs", "frag-color4.fs");
       shaderProgram = new ShaderProgram("vert-pos-uv--uv.vs", "frag-uv-colorMap.fs");
       playerModel = new MD5Model("res/md5/arms-run.md5mesh");
       playerAnimation = new MD5Animation(playerModel, "res/md5/arms-run.md5anim");

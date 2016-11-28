@@ -7,6 +7,8 @@ import gl3n.interpolate : lerp;
 import gl3n.linalg : Vector;
 import ants.escher : vec3, mat4;
 import ants.md5 : MD5Model, MD5Animation, MD5Animator;
+import ants.vertexer; // XXX
+import derelict.opengl3.gl3; // XXX
 
 alias vec4f = Vector!(float, 4);
 
@@ -247,4 +249,63 @@ void loadEntityAssets()
   EntityBendingBar.anim = new MD5Animation(EntityBendingBar.model, "res/md5/bending-bar.md5anim");
 }
 
+class EntityLinear : Entity
+{
+  this (int spaceID, vec3 pos, vec3 orient)
+  {
+    super(spaceID, pos);
+  }
 
+  override void update(float deltaf)
+  {
+    pos += vec3(1 * deltaf, 0, 0);
+    ants.main.display.console.print(std.string.format("linear: %s\n", pos.x));
+  }
+
+  immutable box = [
+    Vector!(double,3)(0,0,0)
+  , Vector!(double,3)(1,0,0)
+  , Vector!(double,3)(0,0,0)
+  , Vector!(double,3)(0,1,0)
+  , Vector!(double,3)(0,0,0)
+  , Vector!(double,3)(0,0,1)
+
+  , Vector!(double,3)(1,0,0)
+  , Vector!(double,3)(1,1,0)
+  , Vector!(double,3)(0,0,1)
+  , Vector!(double,3)(0,1,1)
+
+  , Vector!(double,3)(0,1,0)
+  , Vector!(double,3)(1,1,0)
+  , Vector!(double,3)(0,1,0)
+  , Vector!(double,3)(0,1,1)
+
+  , Vector!(double,3)(1,1,0)
+  , Vector!(double,3)(1,1,1)
+  , Vector!(double,3)(0,1,1)
+  , Vector!(double,3)(1,1,1)
+
+  , Vector!(double,3)(1,0,0)
+  , Vector!(double,3)(1,0,1)
+  , Vector!(double,3)(0,0,1)
+  , Vector!(double,3)(1,0,1)
+
+  , Vector!(double,3)(1,0,1)
+  , Vector!(double,3)(1,1,1)
+  ];
+  override void draw(mat4 mvmat, mat4 pmat)
+  {
+    foreach (p; box)
+      vertexer.add(p, Vector!(double,2)(0,0), Vector!(double,3)(0,0,0), Vector!(float,3)(.5,.5,.5));
+    vertexer.add(Vector!(double,3)( 0, 0, 0), Vector!(double,2)(0,0), Vector!(double,3)(0,0,0), Vector!(float,3)(1,0,0));
+    vertexer.add(Vector!(double,3)( 5, 0, 0), Vector!(double,2)(0,0), Vector!(double,3)(0,0,0), Vector!(float,3)(1,0,0));
+
+    vertexer.add(Vector!(double,3)( 0, 0, 0), Vector!(double,2)(0,0), Vector!(double,3)(0,0,0), Vector!(float,3)(0,1,0));
+    vertexer.add(Vector!(double,3)( 0, 5, 0), Vector!(double,2)(0,0), Vector!(double,3)(0,0,0), Vector!(float,3)(0,1,0));
+
+    vertexer.add(Vector!(double,3)( 0, 0, 0), Vector!(double,2)(0,0), Vector!(double,3)(0,0,0), Vector!(float,3)(0,0,1));
+    vertexer.add(Vector!(double,3)( 0, 0, 5), Vector!(double,2)(0,0), Vector!(double,3)(0,0,0), Vector!(float,3)(0,0,1));
+
+    vertexer.draw(ants.escher.vertexColorProgram, mvmat * mat4.translation(pos), pmat, null, GL_LINES);
+  }
+}
