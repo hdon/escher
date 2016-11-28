@@ -915,8 +915,8 @@ bool drawFace(Space space, Face face, mat4 mvmat, mat4 pmat)
     normals[i] = face.normals[i];
     vec3 v3 = space.verts[vi];
     vec4 v4 = vec4(v3.x, v3.y, v3.z, 1);
-    v4 = v4 * mvmat;
-    v4 = v4 * pmat;
+    v4 = mvmat * v4;
+    v4 = pmat  * v4;
     verts[i] = v4;
   }
 
